@@ -1,4 +1,6 @@
 use super::_common;
+use regex::Regex;
+use serde_json::{json, Value};
 
 pub fn run(host: &str, port: &str, long: bool) {
     let message = if long {
@@ -8,9 +10,9 @@ pub fn run(host: &str, port: &str, long: bool) {
     };
     match _common::send_and_receive(&host, &port, message) {
         Ok(responses) => {
-            let formatted_output = format(&responses);
+            let json = format(&responses);
 
-            display(formatted_output)
+            display(json);
         }
         Err(e) => {
             eprintln!("Error: {}", e)
@@ -18,10 +20,30 @@ pub fn run(host: &str, port: &str, long: bool) {
     }
 }
 
-fn format(responses: &[String]) -> Vec<&str> {
-    responses.iter().map(|r| r.trim()).collect::<Vec<&str>>()
+fn format(responses: &[String]) -> Value {
+    extract_device_info(responses.join("\n"))
 }
 
-fn display(string: Vec<&str>) {
-    println!("{}", string.join("\n"))
+fn display(json: Value) {
+    println!("{}", serde_json::to_string_pretty(&json).unwrap())
+}
+
+fn extract_device_info(input: String) -> Value {
+    let re = Regex::new(r"^(\S+)\s+(\S+)").unwrap();
+    let mut devices: Vec<Value> = Vec::new();
+
+    for line in input.lines() {
+        if let Some(captures) = re.captures(line) {
+            let serial = captures.get(1).map(|m| m.as_str()).unwrap_or_default();
+            let type_str = captures.get(2).map(|m| m.as_str()).unwrap_or_default();
+
+            let device_json = json!({
+                "serial": serial,
+                "type": type_str,
+            });
+            devices.push(device_json);
+        }
+    }
+
+    json!(devices)
 }
