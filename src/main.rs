@@ -9,7 +9,7 @@ struct Cli {
     #[command(subcommand)]
     command: Option<Commands>,
 
-    /// Hostname 
+    /// Hostname
     #[arg(long, default_value = "127.0.0.1")]
     host: String,
 
@@ -25,7 +25,11 @@ struct Cli {
 #[derive(Subcommand, Clone)]
 enum Commands {
     /// Lists devices
-    Ls,
+    Ls {
+        #[clap(long, short = 'l')]
+        long: bool,
+    },
+
     /// Gets the server version
     Version,
 
@@ -35,16 +39,15 @@ enum Commands {
 
 impl Cli {
     pub fn command(&self) -> Commands {
-        self.command.clone().unwrap_or(Commands::Ls)
+        self.command.clone().unwrap_or(Commands::Ls {long: false})
     }
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
 
-
     match cli.command() {
-        Commands::Ls => commands::ls::run(&cli.host, &cli.port),
+        Commands::Ls { long } => commands::ls::run(&cli.host, &cli.port, long),
         Commands::Version => commands::version::run(&cli.host, &cli.port),
         Commands::Foo => commands::foo::run(&cli.host, &cli.port),
     };

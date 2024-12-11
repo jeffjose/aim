@@ -1,7 +1,12 @@
 use super::_common;
 
-pub fn run(host: &str, port: &str) {
-    let message = "000chost:devices";
+pub fn run(host: &str, port: &str, long: bool) {
+
+    let message = if long {
+        "000ehost:devices-l"
+    } else {
+        "000chost:devices"
+    };
     match _common::send_and_receive(&host, &port, message) {
         Ok(responses) => {
             let formatted_output = format(&responses);
