@@ -1,7 +1,6 @@
 use super::_common;
 
 pub fn run(host: &str, port: &str, long: bool) {
-
     let message = if long {
         "000ehost:devices-l"
     } else {
@@ -10,7 +9,8 @@ pub fn run(host: &str, port: &str, long: bool) {
     match _common::send_and_receive(&host, &port, message) {
         Ok(responses) => {
             let formatted_output = format(&responses);
-            println!("{}", formatted_output)
+
+            display(formatted_output)
         }
         Err(e) => {
             eprintln!("Error: {}", e)
@@ -18,10 +18,10 @@ pub fn run(host: &str, port: &str, long: bool) {
     }
 }
 
-fn format(responses: &[String]) -> String {
-    responses
-        .iter()
-        .map(|r| r.trim())
-        .collect::<Vec<&str>>()
-        .join("\n")
+fn format(responses: &[String]) -> Vec<&str> {
+    responses.iter().map(|r| r.trim()).collect::<Vec<&str>>()
+}
+
+fn display(string: Vec<&str>) {
+    println!("{}", string.join("\n"))
 }

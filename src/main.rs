@@ -30,6 +30,8 @@ enum Commands {
         long: bool,
     },
 
+    Ll,
+
     /// Gets the server version
     Version,
 
@@ -48,6 +50,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     match cli.command() {
         Commands::Ls { long } => commands::ls::run(&cli.host, &cli.port, long),
+        Commands::Ll => commands::ls::run(&cli.host, &cli.port, true),
         Commands::Version => commands::version::run(&cli.host, &cli.port),
         Commands::Foo => commands::foo::run(&cli.host, &cli.port),
     };
