@@ -13,21 +13,26 @@ struct Cli {
     server: String,
 }
 
-#[derive(Subcommand)]
+#[derive(Subcommand, Clone)]
 enum Commands {
     /// Lists devices
-    Ls { name: Option<String> },
+    Ls,
     /// Gets the server version
     Version,
+}
+
+impl Cli {
+    pub fn command(&self) -> Commands {
+        self.command.clone().unwrap_or(Commands::Ls)
+    }
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
 
-    let message_to_send = match cli.command {
-        Some(Commands::Ls { name }) => "000chost:devices",
-        Some(Commands::Version) => "000chost:version",
-        None => "000chost:devices",
+    let message_to_send = match cli.command() {
+        Commands::Ls => "000chost:devices",
+        Commands::Version => "000chost:version",
     };
 
     match send_and_receive(&cli.server, message_to_send) {
