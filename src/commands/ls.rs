@@ -1,4 +1,5 @@
 use super::_common;
+use json_to_table::json_to_table;
 use regex::Regex;
 use serde_json::{json, Value};
 
@@ -12,7 +13,8 @@ pub fn run(host: &str, port: &str, long: bool) {
         Ok(responses) => {
             let json = format(&responses);
 
-            display(json);
+            display(&json);
+            println!("{}", json_to_table(&json).to_string())
         }
         Err(e) => {
             eprintln!("Error: {}", e)
@@ -24,8 +26,8 @@ fn format(responses: &[String]) -> Value {
     extract_device_info(responses.join("\n"))
 }
 
-fn display(json: Value) {
-    println!("{}", serde_json::to_string_pretty(&json).unwrap())
+fn display(json: &Value) {
+    println!("{}", serde_json::to_string_pretty(json).unwrap())
 }
 
 fn extract_device_info(input: String) -> Value {

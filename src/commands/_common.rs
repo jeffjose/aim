@@ -1,3 +1,5 @@
+use comfy_table::{Attribute, Cell, Color, Row, Table};
+use serde_json::{Result, Value};
 use std::io::{Read, Write};
 use std::net::{TcpStream, ToSocketAddrs};
 use std::str;
@@ -6,7 +8,7 @@ pub fn send_and_receive(
     host: &str,
     port: &str,
     message: &str,
-) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+) -> std::result::Result<Vec<String>, Box<dyn std::error::Error>> {
     let server_address = format!(
         "{}:{}",
         if host == "localhost" {
