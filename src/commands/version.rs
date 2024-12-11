@@ -1,8 +1,8 @@
 use super::_common;
 
-pub fn run(server_address: &str) {
+pub fn run(host: &str, port: &str) {
     let message = "000chost:version";
-    match _common::send_and_receive(server_address, message) {
+    match _common::send_and_receive(&host, &port, message) {
         Ok(responses) => {
             let formatted_output = format(&responses);
             println!("{}", formatted_output)

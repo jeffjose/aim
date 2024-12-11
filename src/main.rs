@@ -9,9 +9,17 @@ struct Cli {
     #[command(subcommand)]
     command: Option<Commands>,
 
-    /// Server address (e.g., 127.0.0.1:8080)
-    #[arg(short, long, default_value = "127.0.0.1:5037")]
-    server: String,
+    /// Hostname 
+    #[arg(long, default_value = "127.0.0.1")]
+    host: String,
+
+    /// Port
+    #[arg(long, default_value = "5037")]
+    port: String,
+
+    /// Timeout in seconds
+    #[arg(long, default_value_t = 5)]
+    timeout: u8,
 }
 
 #[derive(Subcommand, Clone)]
@@ -20,6 +28,8 @@ enum Commands {
     Ls,
     /// Gets the server version
     Version,
+
+    /// Send bogus command to adb-server
     Foo,
 }
 
@@ -32,10 +42,11 @@ impl Cli {
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
 
+
     match cli.command() {
-        Commands::Ls => commands::ls::run(&cli.server),
-        Commands::Version => commands::version::run(&cli.server),
-        Commands::Foo => commands::foo::run(&cli.server),
+        Commands::Ls => commands::ls::run(&cli.host, &cli.port),
+        Commands::Version => commands::version::run(&cli.host, &cli.port),
+        Commands::Foo => commands::foo::run(&cli.host, &cli.port),
     };
 
     Ok(())
