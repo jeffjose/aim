@@ -20,6 +20,7 @@ enum Commands {
     Ls,
     /// Gets the server version
     Version,
+    Foo,
 }
 
 impl Cli {
@@ -31,11 +32,11 @@ impl Cli {
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
 
-    let message_to_send = match cli.command() {
+    match cli.command() {
         Commands::Ls => commands::ls::run(&cli.server),
         Commands::Version => commands::version::run(&cli.server),
+        Commands::Foo => commands::foo::run(&cli.server),
     };
-
 
     Ok(())
 }

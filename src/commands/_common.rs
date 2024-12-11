@@ -20,13 +20,13 @@ pub fn send_and_receive(
         let mut buffer = [0; 1024];
         match stream.read(&mut buffer) {
             Ok(0) => {
-                println!("Server closed the connection.");
+                //println!("Server closed the connection.");
                 break;
             }
             Ok(bytes_read) => {
                 let response = str::from_utf8(&buffer[..bytes_read])?;
                 responses.push(response.to_string()); // Store response
-                println!("Received: {}", response);
+                //println!("Received: {}", response);
             }
             Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {
                 continue;
