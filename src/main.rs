@@ -1,6 +1,5 @@
-mod formatters;
+mod commands;
 
-use aim::send_and_receive;
 use clap::{Parser, Subcommand}; // Import from the 'aim' module
 
 #[derive(Parser)]
@@ -33,23 +32,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
 
     let message_to_send = match cli.command() {
-        Commands::Ls => "000chost:devices",
-        Commands::Version => "000chost:version",
+        Commands::Ls => commands::ls::run(&cli.server),
+        Commands::Version => commands::version::run(&cli.server),
     };
 
-    match send_and_receive(&cli.server, message_to_send) {
-        Ok(responses) => {
-            let formatted_output = match cli.command() {
-                Commands::Ls => formatters::ls::format(&responses),
-                Commands::Version => formatters::version::format(&responses),
-            };
-            println!("{}", formatted_output);
-        }
-        Err(e) => {
-            eprintln!("Error: {}", e);
-            std::process::exit(1);
-        }
-    }
 
     Ok(())
 }
