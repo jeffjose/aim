@@ -1,3 +1,5 @@
+mod formatters;
+
 use aim::send_and_receive;
 use clap::{Parser, Subcommand}; // Import from the 'aim' module
 
@@ -36,12 +38,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     match send_and_receive(&cli.server, message_to_send) {
-        //call the function
         Ok(responses) => {
-            println!("All responses received:");
-            for response in responses {
-                println!("{}", response);
-            }
+            let formatted_output = match cli.command() {
+                Commands::Ls => formatters::ls::format(&responses),
+                Commands::Version => formatters::version::format(&responses),
+            };
+            println!("{}", formatted_output);
         }
         Err(e) => {
             eprintln!("Error: {}", e);
