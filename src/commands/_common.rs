@@ -21,8 +21,6 @@ pub fn send_and_receive(
 
     let address = addresses.next().ok_or("Could not resolve address")?;
 
-    println!("{:?}", addresses);
-
     let mut stream = TcpStream::connect(address)?;
     stream.set_read_timeout(Some(std::time::Duration::from_secs(2)))?;
     stream.set_write_timeout(Some(std::time::Duration::from_secs(2)))?;
@@ -40,8 +38,10 @@ pub fn send_and_receive(
             }
             Ok(bytes_read) => {
                 let response = str::from_utf8(&buffer[..bytes_read])?;
-                responses.push(response.to_string()); // Store response
-                                                      //println!("Received: {}", response);
+                if response != "OKAY" {
+                    responses.push(remove_literal_002b(response));
+                }
+                //println!("Received: {}", response);
             }
             Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {
                 continue;
@@ -54,4 +54,14 @@ pub fn send_and_receive(
     }
 
     Ok(responses)
+}
+
+#[allow(dead_code)]
+fn remove_002b(input: &str) -> String {
+    input.replace("\u{002B}", "") // Use Unicode escape for "+"
+}
+
+// Or, if you specifically want to remove the literal "002b"
+fn remove_literal_002b(input: &str) -> String {
+    input.replace("002b", "")
 }
