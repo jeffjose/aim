@@ -36,8 +36,9 @@ fn display_json(json: &Value) {
 
 fn display_table(json: &Value) {
     let mut table = Table::new();
-    table.set_header(vec!["serial", "type"]);
+    table.set_header(vec!["SERIAL", "TYPE"]);
 
+    table.load_preset(comfy_table::presets::NOTHING);
     if let Value::Array(arr) = json {
         for item in arr {
             if let Value::Object(obj) = item {

@@ -1,3 +1,4 @@
+use log::*;
 use std::io::{Read, Write};
 use std::net::{TcpStream, ToSocketAddrs};
 use std::str;
@@ -25,7 +26,7 @@ pub fn send_and_receive(
     stream.set_read_timeout(Some(std::time::Duration::from_secs(2)))?;
     stream.set_write_timeout(Some(std::time::Duration::from_secs(2)))?;
 
-    println!("Sending: {}", message);
+    info!("Sending: {}", message);
     stream.write_all(message.as_bytes())?;
 
     let mut responses = Vec::new();

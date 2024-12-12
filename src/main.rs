@@ -1,6 +1,6 @@
 mod commands;
 
-use clap::{Parser, Subcommand}; // Import from the 'aim' module
+use clap::{Parser, Subcommand};
 
 #[derive(clap::ValueEnum, Clone, Debug)]
 pub enum OutputType {
@@ -8,10 +8,13 @@ pub enum OutputType {
     Json,
 }
 
-#[derive(Parser)]
+#[derive(Debug, Parser)]
 #[command(author, version, about, long_about = None)]
 #[command(propagate_version = true)]
 struct Cli {
+    #[command(flatten)]
+    verbose: clap_verbosity_flag::Verbosity,
+
     #[command(subcommand)]
     command: Option<Commands>,
 
@@ -32,7 +35,7 @@ struct Cli {
     output: OutputType,
 }
 
-#[derive(Subcommand, Clone)]
+#[derive(Subcommand, Clone, Debug)]
 enum Commands {
     /// Lists devices
     Ls {
@@ -57,6 +60,10 @@ impl Cli {
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
+
+    env_logger::Builder::new()
+    .filter_level(cli.verbose.log_level_filter())
+    .init();
 
     match cli.command() {
         Commands::Ls { long } => commands::ls::run(&cli.host, &cli.port, long, cli.output),
