@@ -28,22 +28,24 @@ pub fn send_and_receive(
 
     let mut responses = Vec::new();
 
-    for message in messages {
-        info!("   [SEND]: {}", message);
+    for (i, message) in messages.iter().enumerate() {
+        info!("   [SEND-{}] {}", i, message);
+
+        let m = &message[4..];
+        info!("Length: {}={:04x} {}", m.len(), m.len(), m);
+
         stream.write_all(message.as_bytes())?;
 
         loop {
             let mut buffer = [0; 1024];
-            info!("1");
             match stream.read(&mut buffer) {
                 Ok(0) => {
                     //println!("Server closed the connection.");
                     break;
                 }
                 Ok(bytes_read) => {
-                    info!("2: {}", bytes_read);
                     let response = str::from_utf8(&buffer[..bytes_read])?;
-                    info!("[RECEIVE]: {:?}", response);
+                    info!("[RECEIVE-{}] {:?}", i, response);
                     if response != "OKAY" {
                         responses.push(clean_str(response));
                         break;
@@ -75,9 +77,18 @@ fn remove_literal_002b(input: &str) -> String {
 }
 
 fn clean_str(s: &str) -> String {
-    if s.len() < 4 {
-        String::new()
+    remove_unnecessary_unicode(s)
+}
+
+fn remove_unnecessary_unicode(input: &str) -> String {
+    let input = if input.len() >= 4 {
+        &input[4..] // Slice from the 4th byte to the end
     } else {
-        s[4..].to_string()
-    }
+        "" // Handle cases where the string is shorter than 4 bytes
+    };
+
+    input
+        .chars()
+        .filter(|&c| c != '\u{0}' && (c.is_ascii_graphic() || c == '\n' || c == ' '))
+        .collect()
 }

@@ -11,7 +11,7 @@ pub fn run(host: &str, port: &str, long: bool, output_type: OutputType) {
     let messages: Vec<&str>;
 
     if long {
-        messages = vec!["000chost:devices-l"];
+        messages = vec!["000ehost:devices-l"];
         headers_to_display = vec![
             "device_id".to_string(),
             "type".to_string(),
