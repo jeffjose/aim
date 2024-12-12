@@ -8,10 +8,10 @@ use serde_json::{json, Value};
 
 pub fn run(host: &str, port: &str, long: bool, output_type: OutputType) {
     let headers_to_display;
-    let message: &str;
+    let messages: Vec<&str>;
 
     if long {
-        message = "000ehost:devices-l";
+        messages = vec!["000ehost:devices-l"];
         headers_to_display = vec![
             "device_id".to_string(),
             "type".to_string(),
@@ -20,10 +20,10 @@ pub fn run(host: &str, port: &str, long: bool, output_type: OutputType) {
             "transport_id".to_string(),
         ];
     } else {
-        message = "000chost:devices";
+        messages = vec!["000ehost:devices"];
         headers_to_display = vec!["device_id".to_string(), "type".to_string()];
     }
-    match _common::send_and_receive(&host, &port, message) {
+    match _common::send_and_receive(&host, &port, messages) {
         Ok(responses) => {
             let json = format(&responses);
 

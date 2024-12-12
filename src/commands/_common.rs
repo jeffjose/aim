@@ -6,7 +6,7 @@ use std::str;
 pub fn send_and_receive(
     host: &str,
     port: &str,
-    message: &str,
+    messages: Vec<&str>,
 ) -> std::result::Result<Vec<String>, Box<dyn std::error::Error>> {
     let server_address = format!(
         "{}:{}",
@@ -26,35 +26,39 @@ pub fn send_and_receive(
     stream.set_read_timeout(Some(std::time::Duration::from_secs(2)))?;
     stream.set_write_timeout(Some(std::time::Duration::from_secs(2)))?;
 
-    info!("   [SEND]: {}", message);
-    stream.write_all(message.as_bytes())?;
-
     let mut responses = Vec::new();
-    loop {
-        let mut buffer = [0; 1024];
-        match stream.read(&mut buffer) {
-            Ok(0) => {
-                //println!("Server closed the connection.");
-                break;
-            }
-            Ok(bytes_read) => {
-                let response = str::from_utf8(&buffer[..bytes_read])?;
-                if response != "OKAY" {
-                    responses.push(clean_str(response));
+
+    for message in messages {
+        info!("   [SEND]: {}", message);
+        stream.write_all(message.as_bytes())?;
+
+        loop {
+            let mut buffer = [0; 1024];
+            match stream.read(&mut buffer) {
+                Ok(0) => {
+                    //println!("Server closed the connection.");
+                    break;
                 }
-                //println!("Received: {}", response);
-            }
-            Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {
-                continue;
-            }
-            Err(e) => {
-                eprintln!("Error reading from socket: {}", e);
-                return Err(e.into()); // Return the error
+                Ok(bytes_read) => {
+                    let response = str::from_utf8(&buffer[..bytes_read])?;
+        info!("[RECEIVE]: {:?}", response);
+                    if response != "OKAY" {
+                        responses.push(clean_str(response));
+                    }
+                    //println!("Received: {}", response);
+                }
+                Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                    continue;
+                }
+                Err(e) => {
+                    eprintln!("Error reading from socket: {}", e);
+                    return Err(e.into()); // Return the error
+                }
             }
         }
-    }
 
-    info!("[RECEIVE]: {:?}", responses);
+        info!("[RECEIVE]: {:?}", responses);
+    }
     Ok(responses)
 }
 

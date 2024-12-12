@@ -1,8 +1,12 @@
 use super::_common;
 
 pub fn run(host: &str, port: &str) {
-    let message = "0041shell,v2,TERM=xterm-256color,raw:getprop ro.product.product.model";
-    match _common::send_and_receive(&host, &port, message) {
+    "0041shell,v2,TERM=xterm-256color,raw:getprop ro.product.product.model";
+    let messages = vec![
+        "000ehost:tport:any",
+        "0041shell,v2,TERM=xterm-256color,raw:getprop ro.product.product.model",
+    ];
+    match _common::send_and_receive(&host, &port, messages) {
         Ok(responses) => {
             let formatted_output = format(&responses);
             println!("{}", formatted_output)
