@@ -34,22 +34,23 @@ pub fn send_and_receive(
 
         loop {
             let mut buffer = [0; 1024];
+            info!("1");
             match stream.read(&mut buffer) {
                 Ok(0) => {
                     //println!("Server closed the connection.");
                     break;
                 }
                 Ok(bytes_read) => {
+                    info!("2: {}", bytes_read);
                     let response = str::from_utf8(&buffer[..bytes_read])?;
-        info!("[RECEIVE]: {:?}", response);
+                    info!("[RECEIVE]: {:?}", response);
                     if response != "OKAY" {
                         responses.push(clean_str(response));
+                        break;
                     }
                     //println!("Received: {}", response);
                 }
-                Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {
-                    continue;
-                }
+                Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => continue,
                 Err(e) => {
                     eprintln!("Error reading from socket: {}", e);
                     return Err(e.into()); // Return the error
