@@ -53,6 +53,9 @@ enum Commands {
 
     /// Get model name
     Model,
+
+    /// Get hostname name
+    Hostname,
 }
 
 impl Cli {
@@ -74,6 +77,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         Commands::Version => commands::version::run(&cli.host, &cli.port),
         Commands::Foo => commands::foo::run(&cli.host, &cli.port),
         Commands::Model => commands::model::run(&cli.host, &cli.port),
+        Commands::Hostname => commands::hostname::run(&cli.host, &cli.port),
     };
 
     Ok(())
