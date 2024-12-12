@@ -1,5 +1,5 @@
 use super::_common;
-use json_to_table::json_to_table;
+use comfy_table::Table;
 use regex::Regex;
 use serde_json::{json, Value};
 
@@ -14,7 +14,7 @@ pub fn run(host: &str, port: &str, long: bool) {
             let json = format(&responses);
 
             display(&json);
-            println!("{}", json_to_table(&json).to_string())
+            display_table(&json);
         }
         Err(e) => {
             eprintln!("Error: {}", e)
@@ -28,6 +28,24 @@ fn format(responses: &[String]) -> Value {
 
 fn display(json: &Value) {
     println!("{}", serde_json::to_string_pretty(json).unwrap())
+}
+
+fn display_table(json: &Value) {
+    let mut table = Table::new();
+    table.set_header(vec!["serial", "type"]);
+
+    if let Value::Array(arr) = json {
+        for item in arr {
+            if let Value::Object(obj) = item {
+                let serial = obj.get("serial").and_then(Value::as_str).unwrap();
+                let r#type = obj.get("type").and_then(Value::as_str).unwrap();
+
+                table.add_row(vec![serial, r#type]);
+            }
+        }
+    }
+
+    println!("{table}");
 }
 
 fn extract_device_info(input: String) -> Value {

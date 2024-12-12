@@ -1,5 +1,3 @@
-use comfy_table::{Attribute, Cell, Color, Row, Table};
-use serde_json::{Result, Value};
 use std::io::{Read, Write};
 use std::net::{TcpStream, ToSocketAddrs};
 use std::str;
