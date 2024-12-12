@@ -1,9 +1,11 @@
+use crate::OutputType;
+
 use super::_common;
 use comfy_table::Table;
 use regex::Regex;
 use serde_json::{json, Value};
 
-pub fn run(host: &str, port: &str, long: bool) {
+pub fn run(host: &str, port: &str, long: bool, output_type: OutputType) {
     let message = if long {
         "000ehost:devices-l"
     } else {
@@ -13,8 +15,10 @@ pub fn run(host: &str, port: &str, long: bool) {
         Ok(responses) => {
             let json = format(&responses);
 
-            display(&json);
-            display_table(&json);
+            match output_type {
+                OutputType::Json => display_json(&json),
+                OutputType::Table => display_table(&json),
+            }
         }
         Err(e) => {
             eprintln!("Error: {}", e)
@@ -26,7 +30,7 @@ fn format(responses: &[String]) -> Value {
     extract_device_info(responses.join("\n"))
 }
 
-fn display(json: &Value) {
+fn display_json(json: &Value) {
     println!("{}", serde_json::to_string_pretty(json).unwrap())
 }
 
