@@ -40,7 +40,7 @@ pub fn send_and_receive(
             Ok(bytes_read) => {
                 let response = str::from_utf8(&buffer[..bytes_read])?;
                 if response != "OKAY" {
-                    responses.push(remove_literal_002b(response));
+                    responses.push(clean_str(response));
                 }
                 //println!("Received: {}", response);
             }
@@ -64,6 +64,15 @@ fn remove_002b(input: &str) -> String {
 }
 
 // Or, if you specifically want to remove the literal "002b"
+#[allow(dead_code)]
 fn remove_literal_002b(input: &str) -> String {
     input.replace("002b", "")
+}
+
+fn clean_str(s: &str) -> String {
+    if s.len() < 4 {
+        String::new()
+    } else {
+        s[4..].to_string()
+    }
 }
