@@ -1,17 +1,12 @@
----
-
-Aim - Adb IMproved
+# Aim - Adb IMproved
 
 The key features are:
 
 - **Foo** - Foo
 - **Bar** - Bar
 
+## TODO
 
----
-
-### TODO
-
-[] Config file
-[] Aliases
-[] Aimfile
+- [ ] Config file
+- [ ] Aliases
+- [ ] Aimfile
