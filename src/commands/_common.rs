@@ -59,7 +59,7 @@ pub fn send_and_receive(
             }
         }
 
-        info!("[RECEIVE]: {:?}", responses);
+        info!("[RECEIVE]: {:?}", responses.retain(|s| !s.is_empty()));
     }
     Ok(responses)
 }
