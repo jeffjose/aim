@@ -1,7 +1,7 @@
 use super::_common;
 
 pub fn run(host: &str, port: &str) {
-    let messages = vec!["000chost:foobar"];
+    let messages = vec!["host:foobar"];
     match _common::send_and_receive(&host, &port, messages) {
         Ok(responses) => {
             let formatted_output = format(&responses);

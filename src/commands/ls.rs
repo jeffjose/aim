@@ -11,7 +11,7 @@ pub fn run(host: &str, port: &str, long: bool, output_type: OutputType) {
     let messages: Vec<&str>;
 
     if long {
-        messages = vec!["000ehost:devices-l"];
+        messages = vec!["host:devices-l"];
         headers_to_display = vec![
             "device_id".to_string(),
             "type".to_string(),
@@ -20,7 +20,7 @@ pub fn run(host: &str, port: &str, long: bool, output_type: OutputType) {
             "transport_id".to_string(),
         ];
     } else {
-        messages = vec!["000chost:devices"];
+        messages = vec!["host:devices"];
         headers_to_display = vec!["device_id".to_string(), "type".to_string()];
     }
     match _common::send_and_receive(&host, &port, messages) {

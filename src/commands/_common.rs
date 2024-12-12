@@ -31,10 +31,9 @@ pub fn send_and_receive(
     for (i, message) in messages.iter().enumerate() {
         info!("   [SEND-{}] {}", i, message);
 
-        let m = &message[4..];
-        info!("Length: {}={:04x} {}", m.len(), m.len(), m);
+        let request = format!("{:04x}{}", &message.len(), &message);
 
-        stream.write_all(message.as_bytes())?;
+        stream.write_all(request.as_bytes())?;
 
         loop {
             let mut buffer = [0; 1024];
@@ -89,6 +88,6 @@ fn remove_unnecessary_unicode(input: &str) -> String {
 
     input
         .chars()
-        .filter(|&c| c != '\u{0}' && (c.is_ascii_graphic() || c == '\n' || c == ' '))
+        .filter(|&c| c != '\u{0}' && (c.is_ascii_graphic() || c == '\n' || c == ' ' || c == '\t'))
         .collect()
 }
