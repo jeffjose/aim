@@ -26,7 +26,7 @@ pub fn send_and_receive(
     stream.set_read_timeout(Some(std::time::Duration::from_secs(2)))?;
     stream.set_write_timeout(Some(std::time::Duration::from_secs(2)))?;
 
-    info!("Sending: {}", message);
+    info!("   [SEND]: {}", message);
     stream.write_all(message.as_bytes())?;
 
     let mut responses = Vec::new();
@@ -54,6 +54,7 @@ pub fn send_and_receive(
         }
     }
 
+    info!("[RECEIVE]: {:?}", responses);
     Ok(responses)
 }
 
