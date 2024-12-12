@@ -50,6 +50,9 @@ enum Commands {
 
     /// Send bogus command to adb-server
     Foo,
+
+    /// Get model name
+    Model,
 }
 
 impl Cli {
@@ -62,14 +65,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
 
     env_logger::Builder::new()
-    .filter_level(cli.verbose.log_level_filter())
-    .init();
+        .filter_level(cli.verbose.log_level_filter())
+        .init();
 
     match cli.command() {
         Commands::Ls { long } => commands::ls::run(&cli.host, &cli.port, long, cli.output),
         Commands::Ll => commands::ls::run(&cli.host, &cli.port, true, cli.output),
         Commands::Version => commands::version::run(&cli.host, &cli.port),
         Commands::Foo => commands::foo::run(&cli.host, &cli.port),
+        Commands::Model => commands::model::run(&cli.host, &cli.port),
     };
 
     Ok(())
