@@ -4,8 +4,56 @@ use super::lib;
 use comfy_table::Table;
 use log::debug;
 use regex::Regex;
-use serde_json::{json, Result, Value};
-use std::collections::HashMap;
+use serde_json::{json, Map, Result, Value};
+use std::{collections::HashMap, sync::LazyLock};
+
+#[derive(Debug)]
+struct TableDetails {
+    display_name: String,
+}
+
+static HEADERS: LazyLock<HashMap<String, TableDetails>> = LazyLock::new(|| {
+    println!("initializing");
+    let mut m = HashMap::new();
+    m.insert(
+        "device_id".to_string(),
+        TableDetails {
+            display_name: "DEVICE ID".to_string(),
+        },
+    );
+    m.insert(
+        "type".to_string(),
+        TableDetails {
+            display_name: "TYPE".to_string(),
+        },
+    );
+    m.insert(
+        "device".to_string(),
+        TableDetails {
+            display_name: "DEVICE".to_string(),
+        },
+    );
+    m.insert(
+        "product".to_string(),
+        TableDetails {
+            display_name: "PRODUCT".to_string(),
+        },
+    );
+    m.insert(
+        "transport_id".to_string(),
+        TableDetails {
+            display_name: "TRANSPORT ID".to_string(),
+        },
+    );
+    m.insert(
+        "model".to_string(),
+        TableDetails {
+            display_name: "MODEL".to_string(),
+        },
+    );
+
+    m
+});
 
 pub async fn run(host: &str, port: &str, long: bool, output_type: OutputType) {
     let headers_to_display;
@@ -19,12 +67,13 @@ pub async fn run(host: &str, port: &str, long: bool, output_type: OutputType) {
             "device".to_string(),
             "product".to_string(),
             "transport_id".to_string(),
+            "model".to_string(),
         ];
     } else {
         messages = vec!["host:devices"];
         headers_to_display = vec!["device_id".to_string(), "type".to_string()];
     }
-    let json = match lib::send_and_receive(&host, &port, messages) {
+    let device_info = match lib::send_and_receive(&host, &port, messages) {
         Ok(responses) => {
             format(&responses)
 
@@ -33,11 +82,11 @@ pub async fn run(host: &str, port: &str, long: bool, output_type: OutputType) {
             //    OutputType::Table => display_table(&json, &headers_to_display),
             //}
         }
-        Err(e) => format(&Vec::new()),
+        Err(_e) => format(&Vec::new()),
     };
     let mut device_ids: Vec<String> = Vec::new();
 
-    if let Value::Array(arr) = &json {
+    if let Value::Array(arr) = &device_info {
         for item in arr {
             if let Value::Object(obj) = item {
                 if let Some(device_id_value) = obj.get("device_id") {
@@ -73,24 +122,36 @@ pub async fn run(host: &str, port: &str, long: bool, output_type: OutputType) {
 
     debug!("all_props = {:?}", all_props);
 
-    let all_props_json = json!(all_props);
+    let merged = merge_json_with_hashmap(&device_info, &all_props);
 
-    display_json(&json, &all_props_json)
+    match merged {
+        Ok(merged) => match output_type {
+            OutputType::Json => display_json(&merged),
+            OutputType::Table => display_table(&merged, &headers_to_display),
+        },
+        Err(_e) => eprintln!("error"),
+    }
 }
 
 fn format(responses: &[String]) -> Value {
     extract_device_info(responses.join("\n"))
 }
 
-fn display_json(json: &Value, all_props_json: &Value) {
+fn display_json(json: &Value) {
     println!("{}", serde_json::to_string_pretty(json).unwrap());
-    println!("{}", serde_json::to_string_pretty(all_props_json).unwrap());
 }
 
 #[allow(dead_code)]
 fn display_table(json: &Value, headers_to_display: &Vec<String>) {
     let mut table = Table::new();
-    table.set_header(headers_to_display.iter().map(|s| s.to_uppercase()));
+
+
+    let headers: Vec<String> = headers_to_display
+        .iter()
+        .filter_map(|key| HEADERS.get(key).map(|details| details.display_name.clone()))
+        .collect();
+
+    table.set_header(headers);
 
     table.load_preset(comfy_table::presets::NOTHING);
 
@@ -174,4 +235,44 @@ fn extract_device_info(input: String) -> Value {
 
     debug!("{:?}", devices);
     json!(devices)
+}
+
+fn merge_json_with_hashmap(
+    list: &Value,
+    map: &HashMap<String, HashMap<String, String>>,
+) -> Result<Value> {
+    let mut merged_list = Vec::new();
+
+    if let Value::Array(list_arr) = list {
+        for list_item in list_arr {
+            if let Value::Object(list_obj) = list_item {
+                if let Some(device_id_value) = list_obj.get("device_id") {
+                    if let Value::String(device_id) = device_id_value {
+                        if let Some(map_props) = map.get(device_id) {
+                            let mut merged_obj = Map::new();
+
+                            for (k, v) in list_obj.iter() {
+                                merged_obj.insert(k.clone(), v.clone());
+                            }
+
+                            for (k, v) in map_props.iter() {
+                                merged_obj.insert(k.clone(), Value::String(v.clone()));
+                                // Convert String to Value::String
+                            }
+
+                            merged_list.push(Value::Object(merged_obj));
+                        } else {
+                            // If device_id is not found in the map, keep the original list item.
+                            merged_list.push(list_item.clone());
+                            eprintln!("Warning: device_id {} not found in map", device_id);
+                        }
+                    }
+                } else {
+                    merged_list.push(list_item.clone());
+                    eprintln!("Warning: list item does not contain device_id");
+                }
+            }
+        }
+    }
+    Ok(Value::Array(merged_list))
 }
