@@ -56,6 +56,11 @@ enum Commands {
 
     /// Get hostname name
     Hostname,
+
+    /// Send a command
+    Command {
+        command: String,
+    },
 }
 
 impl Cli {
@@ -72,12 +77,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .init();
 
     match cli.command() {
-        Commands::Ls { long } => commands::ls::run(&cli.host, &cli.port, long, cli.output),
-        Commands::Ll => commands::ls::run(&cli.host, &cli.port, true, cli.output),
+        Commands::Ls { long } => commands::ls::run(&cli.host, &cli.port, true, cli.output),
+        Commands::Ll => commands::ll::run(&cli.host, &cli.port, true, cli.output),
         Commands::Version => commands::version::run(&cli.host, &cli.port),
         Commands::Foo => commands::foo::run(&cli.host, &cli.port),
         Commands::Model => commands::model::run(&cli.host, &cli.port),
         Commands::Hostname => commands::hostname::run(&cli.host, &cli.port),
+        Commands::Command { command } => commands::command::run(&cli.host, &cli.port, &command),
     };
 
     Ok(())
