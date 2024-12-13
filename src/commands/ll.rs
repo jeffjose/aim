@@ -57,8 +57,14 @@ pub async fn run(host: &str, port: &str, long: bool, output_type: OutputType) {
 
     println!("device_ids = {:?}", device_ids);
 
-    let propnames = vec!["ro.boot.qemu.avd_name".to_string()];
-    let props = lib::get_props_parallel(host, port, &propnames).await;
+    let propnames = vec!["ro.product.model".to_string()];
+    let props = lib::get_props_parallel(
+        host,
+        port,
+        &propnames,
+        std::option::Option::Some("R5CTB143WKV"),
+    )
+    .await;
     println!("props = {:?}", props);
 }
 
@@ -66,10 +72,12 @@ fn format(responses: &[String]) -> Value {
     extract_device_info(responses.join("\n"))
 }
 
+#[allow(dead_code)]
 fn display_json(json: &Value) {
     println!("{}", serde_json::to_string_pretty(json).unwrap())
 }
 
+#[allow(dead_code)]
 fn display_table(json: &Value, headers_to_display: &Vec<String>) {
     let mut table = Table::new();
     table.set_header(headers_to_display.iter().map(|s| s.to_uppercase()));

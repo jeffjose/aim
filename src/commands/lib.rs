@@ -96,9 +96,16 @@ fn remove_unnecessary_unicode(input: &str) -> String {
         .collect()
 }
 
-pub fn run_command(host: &str, port: &str, command: &str) -> String {
-    let formatted_message = format!("shell,v2,TERM=xterm-256color,raw:{}", command);
-    let messages = vec!["host:tport:any", formatted_message.as_str()];
+pub fn run_command(host: &str, port: &str, command: &str, device_id: Option<&str>) -> String {
+    let host_command = match device_id {
+        Some(id) => format!("host:tport:serial:{}", id),
+        None => "host:tport:any".to_string(),
+    };
+
+    let formatted_command = format!("shell,v2,TERM=xterm-256color,raw:{}", command);
+
+    let messages: Vec<&str> = vec![host_command.as_str(), formatted_command.as_str()];
+
     match send_and_receive(&host, &port, messages) {
         Ok(responses) => format_responses(&responses),
         Err(e) => {
@@ -121,16 +128,24 @@ pub fn format_responses(responses: &[String]) -> String {
 pub fn get_prop(host: &str, port: &str, propname: &str) -> String {
     let command = format!("getprop {} {}", propname, propname);
 
-    run_command(host, port, command.as_str())
+    run_command(host, port, command.as_str(), None)
 }
 
 pub async fn run_command_async(
     host: &str,
     port: &str,
     command: &str,
+    device_id: Option<&str>,
 ) -> Result<String, Box<dyn Error>> {
-    let formatted_message = format!("shell,v2,TERM=xterm-256color,raw:{}", command);
-    let messages = vec!["host:tport:any", formatted_message.as_str()];
+    let host_command = match device_id {
+        Some(id) => format!("host:tport:serial:{}", id),
+        None => "host:tport:any".to_string(),
+    };
+
+    let formatted_command = format!("shell,v2,TERM=xterm-256color,raw:{}", command);
+
+    let messages: Vec<&str> = vec![host_command.as_str(), formatted_command.as_str()];
+
     match send_and_receive(&host, &port, messages) {
         Ok(responses) => Ok(format_responses(&responses)),
         Err(e) => {
@@ -144,27 +159,33 @@ pub async fn get_prop_async(
     host: &str,
     port: &str,
     propname: &str,
+    device_id: Option<&str>,
 ) -> Result<String, Box<dyn Error>> {
     let command = format!("getprop {} {}", propname, propname);
-    run_command_async(host, port, command.as_str()).await
+    run_command_async(host, port, command.as_str(), device_id).await
 }
 
 pub async fn get_props_parallel(
     host: &str,
     port: &str,
     propnames: &[String],
+    device_id: Option<&str>,
 ) -> HashMap<String, String> {
     let mut tasks: Vec<JoinHandle<(String, String)>> = Vec::new();
     let host = Arc::new(host.to_string()); // Arc for shared ownership in async tasks
     let port = Arc::new(port.to_string());
+            let device_id = device_id.map(|id| Arc::new(id.to_string()));
 
     for propname in propnames {
         let host_clone = Arc::clone(&host);
         let port_clone = Arc::clone(&port);
         let propname = propname.to_string();
+                let device_id_clone = device_id.clone();
+
+
 
         tasks.push(tokio::spawn(async move {
-            let result = get_prop_async(&host_clone, &port_clone, &propname)
+            let result = get_prop_async(&host_clone, &port_clone, &propname, device_id_clone.as_ref().map(|arc| arc.as_str()))
                 .await
                 .unwrap();
             (propname, result)
