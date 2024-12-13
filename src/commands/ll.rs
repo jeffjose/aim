@@ -13,12 +13,11 @@ struct TableDetails {
 }
 
 static HEADERS: LazyLock<HashMap<String, TableDetails>> = LazyLock::new(|| {
-    println!("initializing");
     let mut m = HashMap::new();
     m.insert(
         "device_id".to_string(),
         TableDetails {
-            display_name: "DEVICE ID".to_string(),
+            display_name: "ADB ID".to_string(),
         },
     );
     m.insert(
@@ -46,7 +45,13 @@ static HEADERS: LazyLock<HashMap<String, TableDetails>> = LazyLock::new(|| {
         },
     );
     m.insert(
-        "model".to_string(),
+        "ro.product.product.brand".to_string(),
+        TableDetails {
+            display_name: "BRAND".to_string(),
+        },
+    );
+    m.insert(
+        "ro.product.model".to_string(),
         TableDetails {
             display_name: "MODEL".to_string(),
         },
@@ -62,12 +67,13 @@ pub async fn run(host: &str, port: &str, long: bool, output_type: OutputType) {
     if long {
         messages = vec!["host:devices-l"];
         headers_to_display = vec![
+            "ro.product.product.brand".to_string(),
+            "ro.product.model".to_string(),
+            //"product".to_string(),
             "device_id".to_string(),
-            "type".to_string(),
-            "device".to_string(),
-            "product".to_string(),
-            "transport_id".to_string(),
-            "model".to_string(),
+            //"type".to_string(),
+            //"device".to_string(),
+            //"transport_id".to_string(),
         ];
     } else {
         messages = vec!["host:devices"];
@@ -144,7 +150,6 @@ fn display_json(json: &Value) {
 #[allow(dead_code)]
 fn display_table(json: &Value, headers_to_display: &Vec<String>) {
     let mut table = Table::new();
-
 
     let headers: Vec<String> = headers_to_display
         .iter()
