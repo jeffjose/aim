@@ -85,17 +85,16 @@ fn extract_device_info(input: String) -> Value {
 
     let mut devices: Vec<Value> = Vec::new();
 
-    let (
-        mut device_id,
-        mut type_str,
-        mut usb,
-        mut product,
-        mut model,
-        mut device,
-        mut transport_id,
-    ): (&str, &str, &str, &str, &str, &str, &str) = ("", "", "", "", "", "", "");
-
     for line in input.lines() {
+        let (
+            mut device_id,
+            mut type_str,
+            mut usb,
+            mut product,
+            mut model,
+            mut device,
+            mut transport_id,
+        ): (&str, &str, &str, &str, &str, &str, &str) = ("", "", "", "", "", "", "");
         if let Some(captures) = re_full.captures(line) {
             device_id = captures.get(1).map(|m| m.as_str()).unwrap_or_default();
             type_str = captures.get(2).map(|m| m.as_str()).unwrap_or_default();
@@ -107,7 +106,6 @@ fn extract_device_info(input: String) -> Value {
         } else if let Some(captures) = re_truncated.captures(line) {
             device_id = captures.get(1).map(|m| m.as_str()).unwrap_or_default();
             type_str = captures.get(2).map(|m| m.as_str()).unwrap_or_default();
-            usb = "";
             product = captures.get(3).map(|m| m.as_str()).unwrap_or_default();
             model = captures.get(4).map(|m| m.as_str()).unwrap_or_default();
             device = captures.get(5).map(|m| m.as_str()).unwrap_or_default();
