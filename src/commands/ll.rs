@@ -4,7 +4,8 @@ use super::lib;
 use comfy_table::Table;
 use log::debug;
 use regex::Regex;
-use serde_json::{json, Value};
+use serde_json::{json, Result, Value};
+use std::collections::HashMap;
 
 pub async fn run(host: &str, port: &str, long: bool, output_type: OutputType) {
     let headers_to_display;
@@ -36,7 +37,7 @@ pub async fn run(host: &str, port: &str, long: bool, output_type: OutputType) {
     };
     let mut device_ids: Vec<String> = Vec::new();
 
-    if let Value::Array(arr) = json {
+    if let Value::Array(arr) = &json {
         for item in arr {
             if let Value::Object(obj) = item {
                 if let Some(device_id_value) = obj.get("device_id") {
@@ -55,26 +56,35 @@ pub async fn run(host: &str, port: &str, long: bool, output_type: OutputType) {
         eprintln!("Warning: JSON is not an array.");
     }
 
-    println!("device_ids = {:?}", device_ids);
+    debug!("device_ids = {:?}", device_ids);
 
-    let propnames = vec!["ro.product.model".to_string()];
-    let props = lib::get_props_parallel(
-        host,
-        port,
-        &propnames,
-        std::option::Option::Some("R5CTB143WKV"),
-    )
-    .await;
-    println!("props = {:?}", props);
+    let propnames = vec![
+        "ro.product.product.brand".to_string(),
+        "ro.product.model".to_string(),
+    ];
+
+    let mut all_props = HashMap::new();
+
+    for device_id in device_ids {
+        let props = lib::get_props_parallel(host, port, &propnames, Some(device_id.as_str())).await;
+
+        all_props.insert(device_id, props);
+    }
+
+    debug!("all_props = {:?}", all_props);
+
+    let all_props_json = json!(all_props);
+
+    display_json(&json, &all_props_json)
 }
 
 fn format(responses: &[String]) -> Value {
     extract_device_info(responses.join("\n"))
 }
 
-#[allow(dead_code)]
-fn display_json(json: &Value) {
-    println!("{}", serde_json::to_string_pretty(json).unwrap())
+fn display_json(json: &Value, all_props_json: &Value) {
+    println!("{}", serde_json::to_string_pretty(json).unwrap());
+    println!("{}", serde_json::to_string_pretty(all_props_json).unwrap());
 }
 
 #[allow(dead_code)]
