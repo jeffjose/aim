@@ -6,7 +6,7 @@ use log::debug;
 use regex::Regex;
 use serde_json::{json, Value};
 
-pub fn run(host: &str, port: &str, long: bool, output_type: OutputType) {
+pub async fn run(host: &str, port: &str, long: bool, output_type: OutputType) {
     let headers_to_display;
     let messages: Vec<&str>;
 
@@ -55,7 +55,11 @@ pub fn run(host: &str, port: &str, long: bool, output_type: OutputType) {
         eprintln!("Warning: JSON is not an array.");
     }
 
-    println!("{:?}", device_ids);
+    println!("device_ids = {:?}", device_ids);
+
+    let propnames = vec!["ro.boot.qemu.avd_name".to_string()];
+    let props = lib::get_props_parallel(host, port, &propnames).await;
+    println!("props = {:?}", props);
 }
 
 fn format(responses: &[String]) -> Value {

@@ -85,7 +85,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     match cli.command() {
         Commands::Ls { long } => commands::ls::run(&cli.host, &cli.port, true, cli.output),
-        Commands::Ll => commands::ll::run(&cli.host, &cli.port, true, cli.output),
+        Commands::Ll => commands::ll::run(&cli.host, &cli.port, true, cli.output).await,
         Commands::Version => commands::version::run(&cli.host, &cli.port),
         Commands::Foo => commands::foo::run(&cli.host, &cli.port),
         Commands::Model => commands::model::run(&cli.host, &cli.port),
