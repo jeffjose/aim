@@ -1,7 +1,11 @@
 use log::*;
+use std::collections::HashMap;
+use std::error::Error;
 use std::io::{Read, Write};
 use std::net::{TcpStream, ToSocketAddrs};
 use std::str;
+use std::sync::Arc;
+use tokio::task::JoinHandle;
 
 pub fn send_and_receive(
     host: &str,
@@ -116,4 +120,60 @@ pub fn get_prop(host: &str, port: &str, propname: &str) -> String {
     let command = format!("getprop {} {}", propname, propname);
 
     run_command(host, port, command.as_str())
+}
+
+pub async fn run_command_async(
+    host: &str,
+    port: &str,
+    command: &str,
+) -> Result<String, Box<dyn Error>> {
+    let formatted_message = format!("shell,v2,TERM=xterm-256color,raw:{}", command);
+    let messages = vec!["host:tport:any", formatted_message.as_str()];
+    match send_and_receive(&host, &port, messages) {
+        Ok(responses) => Ok(format_responses(&responses)),
+        Err(e) => {
+            eprintln!("Error: {}", e);
+            Err(e)
+        }
+    }
+}
+
+pub async fn get_prop_async(
+    host: &str,
+    port: &str,
+    propname: &str,
+) -> Result<String, Box<dyn Error>> {
+    let command = format!("getprop {} {}", propname, propname);
+    run_command_async(host, port, command.as_str()).await
+}
+
+pub async fn get_props_parallel(
+    host: &str,
+    port: &str,
+    propnames: &[&str],
+) -> HashMap<String, String> {
+    let mut tasks: Vec<JoinHandle<(String, String)>> = Vec::new();
+    let host = Arc::new(host.to_string()); // Arc for shared ownership in async tasks
+    let port = Arc::new(port.to_string());
+
+    for propname in propnames {
+        let host_clone = Arc::clone(&host);
+        let port_clone = Arc::clone(&port);
+        let propname = propname.to_string();
+
+        tasks.push(tokio::spawn(async move {
+            let result = get_prop_async(&host_clone, &port_clone, &propname)
+                .await
+                .unwrap();
+            (propname, result)
+        }));
+    }
+
+    let mut results = HashMap::new();
+    for task in tasks {
+        let (propname, result) = task.await.unwrap();
+        results.insert(propname, result);
+    }
+
+    results
 }
