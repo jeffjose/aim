@@ -86,9 +86,9 @@ pub async fn run(host: &str, port: &str, output_type: OutputType) {
     let messages = vec!["host:devices-l"];
 
     let headers_to_display = vec![
+        "device_id_short".to_string(),
         "ro.product.product.brand".to_string(),
         "ro.product.model".to_string(),
-        "device_id_short".to_string(),
         "adb_id".to_string(),
         "device_name".to_string(),
     ];
