@@ -63,6 +63,10 @@ enum Commands {
     Getprop {
         propname: String,
     },
+
+    Getprops {
+        propnames: Vec<String>,
+    },
 }
 
 impl Cli {
@@ -85,8 +89,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Commands::Version => commands::version::run(&cli.host, &cli.port),
         Commands::Foo => commands::foo::run(&cli.host, &cli.port),
         Commands::Model => commands::model::run(&cli.host, &cli.port),
-        Commands::Getprop { propname } => commands::getprop::run(&cli.host, &cli.port, &propname),
         Commands::Command { command } => commands::command::run(&cli.host, &cli.port, &command),
+        Commands::Getprop { propname } => commands::getprop::run(&cli.host, &cli.port, &propname),
+        Commands::Getprops { propnames } => {
+            commands::getprops::run(&cli.host, &cli.port, &propnames).await
+        }
     };
 
     Ok(())

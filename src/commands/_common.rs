@@ -150,7 +150,7 @@ pub async fn get_prop_async(
 pub async fn get_props_parallel(
     host: &str,
     port: &str,
-    propnames: &[&str],
+    propnames: &[String],
 ) -> HashMap<String, String> {
     let mut tasks: Vec<JoinHandle<(String, String)>> = Vec::new();
     let host = Arc::new(host.to_string()); // Arc for shared ownership in async tasks
