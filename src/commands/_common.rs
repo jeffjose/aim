@@ -91,3 +91,29 @@ fn remove_unnecessary_unicode(input: &str) -> String {
         .filter(|&c| c != '\u{0}' && (c.is_ascii_graphic() || c == '\n' || c == ' ' || c == '\t'))
         .collect()
 }
+
+pub fn run_command(host: &str, port: &str, command: &str) -> String {
+    let formatted_message = format!("shell,v2,TERM=xterm-256color,raw:{}", command);
+    let messages = vec!["host:tport:any", formatted_message.as_str()];
+    match send_and_receive(&host, &port, messages) {
+        Ok(responses) => format_responses(&responses),
+        Err(e) => {
+            eprintln!("Error: {}", e);
+            String::new()
+        }
+    }
+}
+
+pub fn format_responses(responses: &[String]) -> String {
+    responses
+        .iter()
+        .map(|r| r.trim())
+        .collect::<Vec<&str>>()
+        .join("\n")
+}
+
+pub fn get_prop(host: &str, port: &str, propname: &str) -> String {
+    let command = format!("getprop {} {}", propname, propname);
+
+    return run_command(host, port, command.as_str());
+}
