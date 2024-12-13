@@ -1,3 +1,4 @@
+use crate::library::hash::{petname, sha256_short};
 use crate::{library::hash::sha256, OutputType};
 
 use crate::library::adb;
@@ -71,6 +72,13 @@ static HEADERS: LazyLock<HashMap<String, TableDetails>> = LazyLock::new(|| {
         },
     );
 
+    m.insert(
+        "device_name".to_string(),
+        TableDetails {
+            display_name: "NAME".to_string(),
+        },
+    );
+
     m
 });
 
@@ -82,6 +90,7 @@ pub async fn run(host: &str, port: &str, output_type: OutputType) {
         "ro.product.model".to_string(),
         "device_id_short".to_string(),
         "adb_id".to_string(),
+        "device_name".to_string(),
     ];
     let device_info = match adb::send_and_receive(&host, &port, messages) {
         Ok(responses) => {
@@ -136,8 +145,9 @@ pub async fn run(host: &str, port: &str, output_type: OutputType) {
             ("device_id".to_string(), sha256(&device_id_input_string)),
             (
                 "device_id_short".to_string(),
-                sha256(&device_id_input_string)[..12].to_string(),
+                sha256_short(&device_id_input_string).to_string(),
             ),
+            ("device_name".to_string(), petname(&device_id_input_string)),
         ];
 
         props.extend(device_ids);
