@@ -1,8 +1,8 @@
-use super::_common;
+use super::lib;
 
 pub fn run(host: &str, port: &str) {
     let messages = vec!["host:version"];
-    match _common::send_and_receive(&host, &port, messages) {
+    match lib::send_and_receive(&host, &port, messages) {
         Ok(responses) => {
             let formatted_output = format(&responses);
             println!("{}", formatted_output)

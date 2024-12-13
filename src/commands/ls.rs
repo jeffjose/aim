@@ -1,6 +1,6 @@
 use crate::OutputType;
 
-use super::_common;
+use super::lib;
 use comfy_table::Table;
 use log::debug;
 use regex::Regex;
@@ -23,7 +23,7 @@ pub fn run(host: &str, port: &str, long: bool, output_type: OutputType) {
         messages = vec!["host:devices"];
         headers_to_display = vec!["device_id".to_string(), "type".to_string()];
     }
-    match _common::send_and_receive(&host, &port, messages) {
+    match lib::send_and_receive(&host, &port, messages) {
         Ok(responses) => {
             let json = format(&responses);
 

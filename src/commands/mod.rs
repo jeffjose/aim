@@ -1,4 +1,4 @@
-pub mod _common;
+pub mod lib;
 pub mod command;
 pub mod foo;
 pub mod getprop;
