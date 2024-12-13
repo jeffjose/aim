@@ -115,5 +115,5 @@ pub fn format_responses(responses: &[String]) -> String {
 pub fn get_prop(host: &str, port: &str, propname: &str) -> String {
     let command = format!("getprop {} {}", propname, propname);
 
-    return run_command(host, port, command.as_str());
+    run_command(host, port, command.as_str())
 }
