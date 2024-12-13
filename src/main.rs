@@ -1,5 +1,5 @@
-mod subcommands;
 mod library;
+mod subcommands;
 
 use clap::{Parser, Subcommand};
 
@@ -45,19 +45,14 @@ enum Commands {
     // },
     Ls,
 
-    //Ll,
-    /// Gets the server version
-    Version,
-
-    /// Send bogus command to adb-server
-    Foo,
-
-    /// Get model name
-    Model,
-
     /// Send a command
     Command {
         command: String,
+    },
+
+    /// Device name or ID
+    Inspect {
+        id: String,
     },
 
     /// Get a prop
@@ -86,14 +81,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     match cli.command() {
         Commands::Ls => subcommands::ls::run(&cli.host, &cli.port, cli.output).await,
-        Commands::Version => subcommands::version::run(&cli.host, &cli.port),
-        Commands::Foo => subcommands::foo::run(&cli.host, &cli.port),
-        Commands::Model => subcommands::model::run(&cli.host, &cli.port),
         Commands::Command { command } => subcommands::command::run(&cli.host, &cli.port, &command),
-        Commands::Getprop { propname } => subcommands::getprop::run(&cli.host, &cli.port, &propname),
+        Commands::Getprop { propname } => {
+            subcommands::getprop::run(&cli.host, &cli.port, &propname)
+        }
         Commands::Getprops { propnames } => {
             subcommands::getprops::run(&cli.host, &cli.port, &propnames).await
         }
+        Commands::Inspect { id } => subcommands::command::run(&cli.host, &cli.port, &id),
     };
 
     Ok(())
