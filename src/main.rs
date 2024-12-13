@@ -1,4 +1,5 @@
-mod commands;
+mod subcommands;
+mod library;
 
 use clap::{Parser, Subcommand};
 
@@ -38,13 +39,13 @@ struct Cli {
 #[derive(Subcommand, Clone, Debug)]
 enum Commands {
     /// Lists devices
-    Ls {
-        #[clap(long, short = 'l')]
-        long: bool,
-    },
+    // Ls {
+    //     #[clap(long, short = 'l')]
+    //     long: bool,
+    // },
+    Ls,
 
-    Ll,
-
+    //Ll,
     /// Gets the server version
     Version,
 
@@ -71,7 +72,7 @@ enum Commands {
 
 impl Cli {
     pub fn command(&self) -> Commands {
-        self.command.clone().unwrap_or(Commands::Ls { long: false })
+        self.command.clone().unwrap_or(Commands::Ls)
     }
 }
 
@@ -84,15 +85,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .init();
 
     match cli.command() {
-        Commands::Ls { long } => commands::ls::run(&cli.host, &cli.port, true, cli.output),
-        Commands::Ll => commands::ll::run(&cli.host, &cli.port, true, cli.output).await,
-        Commands::Version => commands::version::run(&cli.host, &cli.port),
-        Commands::Foo => commands::foo::run(&cli.host, &cli.port),
-        Commands::Model => commands::model::run(&cli.host, &cli.port),
-        Commands::Command { command } => commands::command::run(&cli.host, &cli.port, &command),
-        Commands::Getprop { propname } => commands::getprop::run(&cli.host, &cli.port, &propname),
+        Commands::Ls => subcommands::ls::run(&cli.host, &cli.port, cli.output).await,
+        Commands::Version => subcommands::version::run(&cli.host, &cli.port),
+        Commands::Foo => subcommands::foo::run(&cli.host, &cli.port),
+        Commands::Model => subcommands::model::run(&cli.host, &cli.port),
+        Commands::Command { command } => subcommands::command::run(&cli.host, &cli.port, &command),
+        Commands::Getprop { propname } => subcommands::getprop::run(&cli.host, &cli.port, &propname),
         Commands::Getprops { propnames } => {
-            commands::getprops::run(&cli.host, &cli.port, &propnames).await
+            subcommands::getprops::run(&cli.host, &cli.port, &propnames).await
         }
     };
 

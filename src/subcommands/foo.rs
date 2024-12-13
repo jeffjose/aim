@@ -1,8 +1,8 @@
-use super::lib;
+use crate::library::adb;
 
 pub fn run(host: &str, port: &str) {
-    let messages = vec!["host:version"];
-    match lib::send_and_receive(&host, &port, messages) {
+    let messages = vec!["host:foobar"];
+    match adb::send_and_receive(&host, &port, messages) {
         Ok(responses) => {
             let formatted_output = format(&responses);
             println!("{}", formatted_output)

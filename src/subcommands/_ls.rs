@@ -13,7 +13,7 @@ pub fn run(host: &str, port: &str, long: bool, output_type: OutputType) {
     if long {
         messages = vec!["host:devices-l"];
         headers_to_display = vec![
-            "device_id".to_string(),
+            "adb_id".to_string(),
             "type".to_string(),
             "device".to_string(),
             "product".to_string(),
@@ -21,9 +21,9 @@ pub fn run(host: &str, port: &str, long: bool, output_type: OutputType) {
         ];
     } else {
         messages = vec!["host:devices"];
-        headers_to_display = vec!["device_id".to_string(), "type".to_string()];
+        headers_to_display = vec!["adb_id".to_string(), "type".to_string()];
     }
-    match lib::send_and_receive(&host, &port, messages) {
+    match adb::send_and_receive(&host, &port, messages) {
         Ok(responses) => {
             let json = format(&responses);
 
@@ -87,7 +87,7 @@ fn extract_device_info(input: String) -> Value {
 
     for line in input.lines() {
         let (
-            mut device_id,
+            mut adb_id,
             mut type_str,
             mut usb,
             mut product,
@@ -96,7 +96,7 @@ fn extract_device_info(input: String) -> Value {
             mut transport_id,
         ): (&str, &str, &str, &str, &str, &str, &str) = ("", "", "", "", "", "", "");
         if let Some(captures) = re_full.captures(line) {
-            device_id = captures.get(1).map(|m| m.as_str()).unwrap_or_default();
+            adb_id = captures.get(1).map(|m| m.as_str()).unwrap_or_default();
             type_str = captures.get(2).map(|m| m.as_str()).unwrap_or_default();
             usb = captures.get(3).map(|m| m.as_str()).unwrap_or_default();
             product = captures.get(4).map(|m| m.as_str()).unwrap_or_default();
@@ -104,7 +104,7 @@ fn extract_device_info(input: String) -> Value {
             device = captures.get(6).map(|m| m.as_str()).unwrap_or_default();
             transport_id = captures.get(7).map(|m| m.as_str()).unwrap_or_default();
         } else if let Some(captures) = re_truncated.captures(line) {
-            device_id = captures.get(1).map(|m| m.as_str()).unwrap_or_default();
+            adb_id = captures.get(1).map(|m| m.as_str()).unwrap_or_default();
             type_str = captures.get(2).map(|m| m.as_str()).unwrap_or_default();
             product = captures.get(3).map(|m| m.as_str()).unwrap_or_default();
             model = captures.get(4).map(|m| m.as_str()).unwrap_or_default();
@@ -113,12 +113,12 @@ fn extract_device_info(input: String) -> Value {
         }
         // This needs to come last, because this will always match
         else if let Some(captures) = re_short.captures(line) {
-            device_id = captures.get(1).map(|m| m.as_str()).unwrap_or_default();
+            adb_id = captures.get(1).map(|m| m.as_str()).unwrap_or_default();
             type_str = captures.get(2).map(|m| m.as_str()).unwrap_or_default();
         }
 
         let device_json = json!({
-            "device_id": device_id,
+            "adb_id": adb_id,
             "type": type_str,
             "usb": usb,
             "product": product,

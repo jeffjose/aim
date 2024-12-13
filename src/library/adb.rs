@@ -96,8 +96,8 @@ fn remove_unnecessary_unicode(input: &str) -> String {
         .collect()
 }
 
-pub fn run_command(host: &str, port: &str, command: &str, device_id: Option<&str>) -> String {
-    let host_command = match device_id {
+pub fn run_command(host: &str, port: &str, command: &str, adb_id: Option<&str>) -> String {
+    let host_command = match adb_id {
         Some(id) => format!("host:tport:serial:{}", id),
         None => "host:tport:any".to_string(),
     };
@@ -116,13 +116,17 @@ pub fn run_command(host: &str, port: &str, command: &str, device_id: Option<&str
 }
 
 pub fn format_responses(responses: &[String]) -> String {
-    debug!("responses = {:?}", responses);
-    responses
+    debug!("incoming responses = {:?}", responses);
+    let outgoing_responses = responses
         .iter()
         .map(|r| r.trim())
         .filter(|s| !s.is_empty())
         .collect::<Vec<&str>>()
-        .join("\n")
+        .join("\n");
+
+    debug!("outgoing responses = {:?}", outgoing_responses);
+
+    outgoing_responses
 }
 
 pub fn get_prop(host: &str, port: &str, propname: &str) -> String {
@@ -135,9 +139,9 @@ pub async fn run_command_async(
     host: &str,
     port: &str,
     command: &str,
-    device_id: Option<&str>,
+    adb_id: Option<&str>,
 ) -> Result<String, Box<dyn Error>> {
-    let host_command = match device_id {
+    let host_command = match adb_id {
         Some(id) => format!("host:tport:serial:{}", id),
         None => "host:tport:any".to_string(),
     };
@@ -147,7 +151,10 @@ pub async fn run_command_async(
     let messages: Vec<&str> = vec![host_command.as_str(), formatted_command.as_str()];
 
     match send_and_receive(&host, &port, messages) {
-        Ok(responses) => Ok(format_responses(&responses)),
+        Ok(responses) => {
+            debug!("{:?}", responses);
+            Ok(format_responses(&responses))
+        }
         Err(e) => {
             eprintln!("Error: {}", e);
             Err(e)
@@ -159,35 +166,38 @@ pub async fn get_prop_async(
     host: &str,
     port: &str,
     propname: &str,
-    device_id: Option<&str>,
+    adb_id: Option<&str>,
 ) -> Result<String, Box<dyn Error>> {
-    let command = format!("getprop {} {}", propname, propname);
-    run_command_async(host, port, command.as_str(), device_id).await
+    let command = format!("getprop {}", propname);
+    run_command_async(host, port, command.as_str(), adb_id).await
 }
 
 pub async fn get_props_parallel(
     host: &str,
     port: &str,
     propnames: &[String],
-    device_id: Option<&str>,
+    adb_id: Option<&str>,
 ) -> HashMap<String, String> {
     let mut tasks: Vec<JoinHandle<(String, String)>> = Vec::new();
     let host = Arc::new(host.to_string()); // Arc for shared ownership in async tasks
     let port = Arc::new(port.to_string());
-            let device_id = device_id.map(|id| Arc::new(id.to_string()));
+    let adb_id = adb_id.map(|id| Arc::new(id.to_string()));
 
     for propname in propnames {
         let host_clone = Arc::clone(&host);
         let port_clone = Arc::clone(&port);
         let propname = propname.to_string();
-                let device_id_clone = device_id.clone();
-
-
+        let adb_id_clone = adb_id.clone();
 
         tasks.push(tokio::spawn(async move {
-            let result = get_prop_async(&host_clone, &port_clone, &propname, device_id_clone.as_ref().map(|arc| arc.as_str()))
-                .await
-                .unwrap();
+            let result = get_prop_async(
+                &host_clone,
+                &port_clone,
+                &propname,
+                adb_id_clone.as_ref().map(|arc| arc.as_str()),
+            )
+            .await
+            .unwrap();
             (propname, result)
         }));
     }
