@@ -23,19 +23,39 @@ pub fn run(host: &str, port: &str, long: bool, output_type: OutputType) {
         messages = vec!["host:devices"];
         headers_to_display = vec!["device_id".to_string(), "type".to_string()];
     }
-    match _common::send_and_receive(&host, &port, messages) {
+    let json = match _common::send_and_receive(&host, &port, messages) {
         Ok(responses) => {
-            let json = format(&responses);
+            format(&responses)
 
-            match output_type {
-                OutputType::Json => display_json(&json),
-                OutputType::Table => display_table(&json, &headers_to_display),
+            //match output_type {
+            //    OutputType::Json => display_json(&json),
+            //    OutputType::Table => display_table(&json, &headers_to_display),
+            //}
+        }
+        Err(e) => format(&Vec::new()),
+    };
+    let mut device_ids: Vec<String> = Vec::new();
+
+    if let Value::Array(arr) = json {
+        for item in arr {
+            if let Value::Object(obj) = item {
+                if let Some(device_id_value) = obj.get("device_id") {
+                    if let Value::String(device_id_str) = device_id_value {
+                        device_ids.push(device_id_str.clone());
+                    } else {
+                        eprintln!(
+                            "Warning: 'device_id' is not a string: {:?}",
+                            device_id_value
+                        );
+                    }
+                }
             }
         }
-        Err(e) => {
-            eprintln!("Error: {}", e)
-        }
+    } else {
+        eprintln!("Warning: JSON is not an array.");
     }
+
+    println!("{:?}", device_ids);
 }
 
 fn format(responses: &[String]) -> Value {
