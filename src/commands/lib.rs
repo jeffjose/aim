@@ -110,14 +110,12 @@ pub fn run_command(host: &str, port: &str, command: &str) -> String {
 
 pub fn format_responses(responses: &[String]) -> String {
     debug!("responses = {:?}", responses);
-    let r = responses
+    responses
         .iter()
         .map(|r| r.trim())
+        .filter(|s| !s.is_empty())
         .collect::<Vec<&str>>()
-        .join("\n");
-
-    debug!("   r = {:?}", r);
-    r
+        .join("\n")
 }
 
 pub fn get_prop(host: &str, port: &str, propname: &str) -> String {
