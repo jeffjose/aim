@@ -6,7 +6,7 @@ use crate::types::DeviceDetails;
 use comfy_table::Table;
 use log::debug;
 use regex::Regex;
-use serde_json::{json, Map, Result, Value};
+use serde_json::{json, Value};
 use std::{collections::HashMap, sync::LazyLock};
 
 #[derive(Debug)]
@@ -80,6 +80,21 @@ static HEADERS: LazyLock<HashMap<String, TableDetails>> = LazyLock::new(|| {
     );
 
     m
+});
+
+static RE_SHORT: LazyLock<Regex> = LazyLock::new(|| {
+    // 00d14B141FDCH0001U         device
+    Regex::new(r"^(\S+)\s+(\S+)").unwrap()
+});
+
+static RE_FULL: LazyLock<Regex> = LazyLock::new(|| {
+    // 00d14B141FDCH0001U         device usb:1-9 product:blazer model:Blazer device:blazer transport_id:1
+    Regex::new(r"^(\S+)\s+(\S+)\s+usb:(\S+)\s+product:(\S+)\s+model:(\S+)\s+device:(\S+)\s+transport_id:(\S+)").unwrap()
+});
+
+static RE_TRUNCATED: LazyLock<Regex> = LazyLock::new(|| {
+    // emulator-5554          device product:sdk_gphone64_x86_64 model:sdk_gphone64_x86_64 device:emu64xa transport_id:3
+    Regex::new(r"^(\S+)\s+(\S+)\s+product:(\S+)\s+model:(\S+)\s+device:(\S+)\s+transport_id:(\S+)").unwrap()
 });
 
 pub async fn run(host: &str, port: &str, output_type: OutputType) {
@@ -180,61 +195,56 @@ fn display_table(devices: &[DeviceDetails], headers: &[String]) {
     println!("{table}");
 }
 
+#[derive(Default)]
+struct DeviceCapture<'a> {
+    adb_id: &'a str,
+    type_str: &'a str,
+    usb: &'a str,
+    product: &'a str,
+    model: &'a str,
+    device: &'a str,
+    transport_id: &'a str,
+}
+
 fn extract_device_info(input: String) -> Value {
-    // 00d14B141FDCH0001U         device
-    let re_short = Regex::new(r"^(\S+)\s+(\S+)").unwrap();
-
-    // 00d14B141FDCH0001U         device usb:1-9 product:blazer model:Blazer device:blazer transport_id:1
-    let re_full = Regex::new(r"^(\S+)\s+(\S+)\s+usb:(\S+)\s+product:(\S+)\s+model:(\S+)\s+device:(\S+)\s+transport_id:(\S+)").unwrap();
-
-    // emulator-5554          device product:sdk_gphone64_x86_64 model:sdk_gphone64_x86_64 device:emu64xa transport_id:3
-    let re_truncated = Regex::new(
-        r"^(\S+)\s+(\S+)\s+product:(\S+)\s+model:(\S+)\s+device:(\S+)\s+transport_id:(\S+)",
-    )
-    .unwrap();
-
     let mut devices: Vec<Value> = Vec::new();
 
     for line in input.lines() {
-        let (
-            mut adb_id,
-            mut type_str,
-            mut usb,
-            mut product,
-            mut model,
-            mut device,
-            mut transport_id,
-        ): (&str, &str, &str, &str, &str, &str, &str) = ("", "", "", "", "", "", "");
-        if let Some(captures) = re_full.captures(line) {
-            adb_id = captures.get(1).map(|m| m.as_str()).unwrap_or_default();
-            type_str = captures.get(2).map(|m| m.as_str()).unwrap_or_default();
-            usb = captures.get(3).map(|m| m.as_str()).unwrap_or_default();
-            product = captures.get(4).map(|m| m.as_str()).unwrap_or_default();
-            model = captures.get(5).map(|m| m.as_str()).unwrap_or_default();
-            device = captures.get(6).map(|m| m.as_str()).unwrap_or_default();
-            transport_id = captures.get(7).map(|m| m.as_str()).unwrap_or_default();
-        } else if let Some(captures) = re_truncated.captures(line) {
-            adb_id = captures.get(1).map(|m| m.as_str()).unwrap_or_default();
-            type_str = captures.get(2).map(|m| m.as_str()).unwrap_or_default();
-            product = captures.get(3).map(|m| m.as_str()).unwrap_or_default();
-            model = captures.get(4).map(|m| m.as_str()).unwrap_or_default();
-            device = captures.get(5).map(|m| m.as_str()).unwrap_or_default();
-            transport_id = captures.get(6).map(|m| m.as_str()).unwrap_or_default();
-        }
-        // This needs to come last, because this will always match
-        else if let Some(captures) = re_short.captures(line) {
-            adb_id = captures.get(1).map(|m| m.as_str()).unwrap_or_default();
-            type_str = captures.get(2).map(|m| m.as_str()).unwrap_or_default();
-        }
+        let device_info = match (RE_FULL.captures(line), RE_TRUNCATED.captures(line), RE_SHORT.captures(line)) {
+            (Some(captures), _, _) => DeviceCapture {
+                adb_id: captures.get(1).map_or("", |m| m.as_str()),
+                type_str: captures.get(2).map_or("", |m| m.as_str()),
+                usb: captures.get(3).map_or("", |m| m.as_str()),
+                product: captures.get(4).map_or("", |m| m.as_str()),
+                model: captures.get(5).map_or("", |m| m.as_str()),
+                device: captures.get(6).map_or("", |m| m.as_str()),
+                transport_id: captures.get(7).map_or("", |m| m.as_str()),
+            },
+            (_, Some(captures), _) => DeviceCapture {
+                adb_id: captures.get(1).map_or("", |m| m.as_str()),
+                type_str: captures.get(2).map_or("", |m| m.as_str()),
+                product: captures.get(3).map_or("", |m| m.as_str()),
+                model: captures.get(4).map_or("", |m| m.as_str()),
+                device: captures.get(5).map_or("", |m| m.as_str()),
+                transport_id: captures.get(6).map_or("", |m| m.as_str()),
+                ..Default::default()
+            },
+            (_, _, Some(captures)) => DeviceCapture {
+                adb_id: captures.get(1).map_or("", |m| m.as_str()),
+                type_str: captures.get(2).map_or("", |m| m.as_str()),
+                ..Default::default()
+            },
+            _ => DeviceCapture::default(),
+        };
 
         let device_json = json!({
-            "adb_id": adb_id,
-            "type": type_str,
-            "usb": usb,
-            "product": product,
-            "model": model,
-            "device": device,
-            "transport_id": transport_id,
+            "adb_id": device_info.adb_id,
+            "type": device_info.type_str,
+            "usb": device_info.usb,
+            "product": device_info.product,
+            "model": device_info.model,
+            "device": device_info.device,
+            "transport_id": device_info.transport_id,
         });
 
         devices.push(device_json);
@@ -242,44 +252,4 @@ fn extract_device_info(input: String) -> Value {
 
     debug!("{:?}", devices);
     json!(devices)
-}
-
-fn merge_json_with_hashmap(
-    list: &Value,
-    map: &HashMap<String, HashMap<String, String>>,
-) -> Result<Value> {
-    let mut merged_list = Vec::new();
-
-    if let Value::Array(list_arr) = list {
-        for list_item in list_arr {
-            if let Value::Object(list_obj) = list_item {
-                if let Some(adb_id_value) = list_obj.get("adb_id") {
-                    if let Value::String(adb_id) = adb_id_value {
-                        if let Some(map_props) = map.get(adb_id) {
-                            let mut merged_obj = Map::new();
-
-                            for (k, v) in list_obj.iter() {
-                                merged_obj.insert(k.clone(), v.clone());
-                            }
-
-                            for (k, v) in map_props.iter() {
-                                merged_obj.insert(k.clone(), Value::String(v.clone()));
-                                // Convert String to Value::String
-                            }
-
-                            merged_list.push(Value::Object(merged_obj));
-                        } else {
-                            // If adb_id is not found in the map, keep the original list item.
-                            merged_list.push(list_item.clone());
-                            eprintln!("Warning: adb_id {} not found in map", adb_id);
-                        }
-                    }
-                } else {
-                    merged_list.push(list_item.clone());
-                    eprintln!("Warning: list item does not contain adb_id");
-                }
-            }
-        }
-    }
-    Ok(Value::Array(merged_list))
 }
