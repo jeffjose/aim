@@ -1,6 +1,7 @@
 mod cli;
 mod library;
 mod subcommands;
+mod types;
 
 use cli::{Cli, Commands};
 use clap::Parser;

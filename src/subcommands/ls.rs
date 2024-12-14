@@ -1,7 +1,7 @@
 use crate::library::hash::{petname, sha256, sha256_short};
 use crate::cli::OutputType;
-
 use crate::library::adb;
+use crate::types::DeviceDetails;
 
 use comfy_table::Table;
 use log::debug;
@@ -84,7 +84,6 @@ static HEADERS: LazyLock<HashMap<String, TableDetails>> = LazyLock::new(|| {
 
 pub async fn run(host: &str, port: &str, output_type: OutputType) {
     let messages = vec!["host:devices-l"];
-
     let headers_to_display = vec![
         "device_id_short".to_string(),
         "ro.product.product.brand".to_string(),
@@ -92,79 +91,54 @@ pub async fn run(host: &str, port: &str, output_type: OutputType) {
         "adb_id".to_string(),
         "device_name".to_string(),
     ];
-    let device_info = match adb::send_and_receive(&host, &port, messages) {
-        Ok(responses) => {
-            format(&responses)
 
-            //match output_type {
-            //    OutputType::Json => display_json(&json),
-            //    OutputType::Table => display_table(&json, &headers_to_display),
-            //}
-        }
+    let device_info = match adb::send_and_receive(host, port, messages) {
+        Ok(responses) => format(&responses),
         Err(_e) => format(&Vec::new()),
     };
-    let mut adb_ids: Vec<String> = Vec::new();
 
-    if let Value::Array(arr) = &device_info {
+    let mut devices: Vec<DeviceDetails> = Vec::new();
+    
+    if let Value::Array(arr) = device_info {
         for item in arr {
-            if let Value::Object(obj) = item {
-                if let Some(adb_id_value) = obj.get("adb_id") {
-                    if let Value::String(adb_id_str) = adb_id_value {
-                        adb_ids.push(adb_id_str.clone());
-                    } else {
-                        eprintln!("Warning: 'adb_id' is not a string: {:?}", adb_id_value);
-                    }
-                }
+            if let Some(mut device) = DeviceDetails::from_json(&item) {
+                // Get additional properties for this device
+                let propnames = vec![
+                    "ro.product.product.brand".to_string(),
+                    "ro.product.model".to_string(),
+                    "ro.boot.qemu.avd_name".to_string(),
+                ];
+
+                let props = adb::get_props_parallel(
+                    host, 
+                    port, 
+                    &propnames, 
+                    Some(&device.adb_id)
+                ).await;
+
+                // Generate device identifiers
+                let device_id_input = props.get("ro.boot.qemu.avd_name")
+                    .filter(|v| !v.is_empty())
+                    .unwrap_or(&device.adb_id);
+
+                let mut identifiers = HashMap::new();
+                identifiers.insert("device_id".to_string(), sha256(device_id_input));
+                identifiers.insert("device_id_short".to_string(), sha256_short(device_id_input).to_string());
+                identifiers.insert("device_name".to_string(), petname(device_id_input));
+
+                // Merge all properties
+                let mut all_props = props;
+                all_props.extend(identifiers);
+                
+                device.update_from_props(all_props);
+                devices.push(device);
             }
         }
-    } else {
-        eprintln!("Warning: JSON is not an array.");
     }
 
-    debug!("adb_ids = {:?}", adb_ids);
-
-    let propnames = vec![
-        "ro.product.product.brand".to_string(),
-        "ro.product.model".to_string(),
-        "ro.boot.qemu.avd_name".to_string(),
-    ];
-
-    let mut all_props = HashMap::new();
-
-    for adb_id in adb_ids {
-        let mut props =
-            adb::get_props_parallel(host, port, &propnames, Some(adb_id.as_str())).await;
-
-        let device_id_input_string = match props.get("ro.boot.qemu.avd_name") {
-            Some(value) if value == "" => &adb_id,
-            Some(value) => value,
-            None => &adb_id,
-        };
-
-        let device_ids = vec![
-            ("device_id".to_string(), sha256(&device_id_input_string)),
-            (
-                "device_id_short".to_string(),
-                sha256_short(&device_id_input_string).to_string(),
-            ),
-            ("device_name".to_string(), petname(&device_id_input_string)),
-        ];
-
-        props.extend(device_ids);
-
-        all_props.insert(adb_id, props);
-    }
-
-    debug!("all_props = {:?}", all_props);
-
-    let merged = merge_json_with_hashmap(&device_info, &all_props);
-
-    match merged {
-        Ok(merged) => match output_type {
-            OutputType::Json => display_json(&merged),
-            OutputType::Table => display_table(&merged, &headers_to_display),
-        },
-        Err(_e) => eprintln!("error"),
+    match output_type {
+        OutputType::Json => display_json(&devices),
+        OutputType::Table => display_table(&devices, &headers_to_display),
     }
 }
 
@@ -172,36 +146,35 @@ fn format(responses: &[String]) -> Value {
     extract_device_info(responses.join("\n"))
 }
 
-fn display_json(json: &Value) {
-    println!("{}", serde_json::to_string_pretty(json).unwrap());
+fn display_json(devices: &[DeviceDetails]) {
+    println!("{}", serde_json::to_string_pretty(devices).unwrap());
 }
 
-#[allow(dead_code)]
-fn display_table(json: &Value, headers_to_display: &Vec<String>) {
+fn display_table(devices: &[DeviceDetails], headers: &[String]) {
     let mut table = Table::new();
-
-    let headers: Vec<String> = headers_to_display
+    
+    let header_names: Vec<String> = headers
         .iter()
         .filter_map(|key| HEADERS.get(key).map(|details| details.display_name.clone()))
         .collect();
 
-    table.set_header(headers);
-
+    table.set_header(&header_names);
     table.load_preset(comfy_table::presets::NOTHING);
 
-    if let Value::Array(arr) = json {
-        for item in arr {
-            if let Value::Object(obj) = item {
-                let mut values: Vec<&str> = Vec::new();
-
-                for header in headers_to_display {
-                    let value = obj.get(header).and_then(Value::as_str).unwrap_or_default();
-                    values.push(value)
-                }
-
-                table.add_row(comfy_table::Row::from(values));
-            }
+    for device in devices {
+        let mut values: Vec<String> = Vec::new();
+        for header in headers {
+            let value = match header.as_str() {
+                "device_id_short" => device.device_id_short.clone(),
+                "ro.product.product.brand" => device.brand.clone().unwrap_or_default(),
+                "ro.product.model" => device.model.clone().unwrap_or_default(),
+                "adb_id" => device.adb_id.clone(),
+                "device_name" => device.device_name.clone(),
+                _ => device.additional_props.get(header).cloned().unwrap_or_default(),
+            };
+            values.push(value);
         }
+        table.add_row(values);
     }
 
     println!("{table}");

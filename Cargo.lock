@@ -41,6 +41,7 @@ dependencies = [
  "rand_seeder",
  "rand_xorshift",
  "regex",
+ "serde",
  "serde_json",
  "sha2",
  "tokio",
