@@ -1,5 +1,5 @@
-use crate::library::hash::{petname, sha256_short};
-use crate::{library::hash::sha256, OutputType};
+use crate::library::hash::{petname, sha256, sha256_short};
+use crate::cli::OutputType;
 
 use crate::library::adb;
 

@@ -1,0 +1,72 @@
+use clap::{Parser, Subcommand};
+
+#[derive(clap::ValueEnum, Clone, Debug)]
+pub enum OutputType {
+    Table,
+    Json,
+}
+
+#[derive(Debug, Parser)]
+#[command(author, version, about, long_about = None)]
+#[command(propagate_version = true)]
+pub struct Cli {
+    /// Verbosity level
+    #[command(flatten)]
+    pub verbose: clap_verbosity_flag::Verbosity,
+
+    /// Subcommand to execute
+    #[command(subcommand)]
+    command: Option<Commands>,
+
+    /// ADB server hostname
+    #[arg(long, global = true, default_value = "localhost")]
+    pub host: String,
+
+    /// ADB server port
+    #[arg(long, short = 'p', global = true, default_value = "5037")]
+    pub port: String,
+
+    /// Connection timeout in seconds
+    #[arg(long, short = 't', global = true, default_value_t = 5)]
+    pub timeout: u8,
+
+    /// Output format (table or json)
+    #[arg(long, short = 'o', global = true, default_value = "table")]
+    pub output: OutputType,
+}
+
+#[derive(Subcommand, Clone, Debug)]
+pub enum Commands {
+    /// Lists connected devices
+    Ls,
+
+    /// Sends a command to a device
+    Command {
+        /// The command to execute
+        command: String,
+    },
+
+    /// Inspects a specific device
+    Inspect {
+        /// Device ID or name
+        id: String,
+    },
+
+    /// Gets a specific property from a device
+    Getprop {
+        /// Name of the property to get
+        propname: String,
+    },
+
+    /// Gets multiple properties from a device
+    Getprops {
+        /// Names of properties to get
+        propnames: Vec<String>,
+    },
+}
+
+impl Cli {
+    pub fn command(&self) -> Commands {
+        self.command.clone().unwrap_or(Commands::Ls)
+    }
+} 
