@@ -56,6 +56,8 @@ pub enum Commands {
     Getprop {
         /// Name of the property to get
         propname: String,
+        /// Optional device ID (can be partial)
+        device_id: Option<String>,
     },
 
     /// Gets multiple properties from a device

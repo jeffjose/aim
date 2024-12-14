@@ -96,4 +96,11 @@ impl DeviceDetails {
             }
         }
     }
+
+    pub fn matches_id_prefix(&self, id_prefix: &str) -> bool {
+        let id_prefix = id_prefix.to_lowercase();
+        self.device_id.to_lowercase().starts_with(&id_prefix) ||
+        self.device_id_short.to_lowercase().starts_with(&id_prefix) ||
+        self.device_name.to_lowercase().starts_with(&id_prefix)
+    }
 } 
