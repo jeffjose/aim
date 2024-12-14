@@ -1,2 +1,2 @@
-pub mod adb;
 pub mod hash;
+pub mod adb;

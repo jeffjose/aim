@@ -1,13 +1,9 @@
-use crate::library::hash::{petname, sha256, sha256_short};
 use crate::cli::OutputType;
-use crate::library::adb;
 use crate::types::DeviceDetails;
-
+use crate::device::device_info::get_devices;
 use comfy_table::Table;
-use log::debug;
-use regex::Regex;
-use serde_json::{json, Value};
-use std::{collections::HashMap, sync::LazyLock};
+use std::collections::HashMap;
+use std::sync::LazyLock;
 
 #[derive(Debug)]
 struct TableDetails {
@@ -82,23 +78,12 @@ static HEADERS: LazyLock<HashMap<String, TableDetails>> = LazyLock::new(|| {
     m
 });
 
-static RE_SHORT: LazyLock<Regex> = LazyLock::new(|| {
-    // 00d14B141FDCH0001U         device
-    Regex::new(r"^(\S+)\s+(\S+)").unwrap()
-});
-
-static RE_FULL: LazyLock<Regex> = LazyLock::new(|| {
-    // 00d14B141FDCH0001U         device usb:1-9 product:blazer model:Blazer device:blazer transport_id:1
-    Regex::new(r"^(\S+)\s+(\S+)\s+usb:(\S+)\s+product:(\S+)\s+model:(\S+)\s+device:(\S+)\s+transport_id:(\S+)").unwrap()
-});
-
-static RE_TRUNCATED: LazyLock<Regex> = LazyLock::new(|| {
-    // emulator-5554          device product:sdk_gphone64_x86_64 model:sdk_gphone64_x86_64 device:emu64xa transport_id:3
-    Regex::new(r"^(\S+)\s+(\S+)\s+product:(\S+)\s+model:(\S+)\s+device:(\S+)\s+transport_id:(\S+)").unwrap()
-});
-
 pub async fn run(host: &str, port: &str, output_type: OutputType) {
-    let messages = vec!["host:devices-l"];
+    let devices = get_devices(host, port).await;
+    display_devices(&devices, output_type);
+}
+
+pub fn display_devices(devices: &[DeviceDetails], output_type: OutputType) {
     let headers_to_display = vec![
         "device_id_short".to_string(),
         "ro.product.product.brand".to_string(),
@@ -107,58 +92,10 @@ pub async fn run(host: &str, port: &str, output_type: OutputType) {
         "device_name".to_string(),
     ];
 
-    let device_info = match adb::send_and_receive(host, port, messages) {
-        Ok(responses) => format(&responses),
-        Err(_e) => format(&Vec::new()),
-    };
-
-    let mut devices: Vec<DeviceDetails> = Vec::new();
-    
-    if let Value::Array(arr) = device_info {
-        for item in arr {
-            if let Some(mut device) = DeviceDetails::from_json(&item) {
-                // Get additional properties for this device
-                let propnames = vec![
-                    "ro.product.product.brand".to_string(),
-                    "ro.product.model".to_string(),
-                    "ro.boot.qemu.avd_name".to_string(),
-                ];
-
-                let props = adb::get_props_parallel(
-                    host, 
-                    port, 
-                    &propnames, 
-                    Some(&device.adb_id)
-                ).await;
-
-                // Generate device identifiers
-                let device_id_input = props.get("ro.boot.qemu.avd_name")
-                    .filter(|v| !v.is_empty())
-                    .unwrap_or(&device.adb_id);
-
-                let mut identifiers = HashMap::new();
-                identifiers.insert("device_id".to_string(), sha256(device_id_input));
-                identifiers.insert("device_id_short".to_string(), sha256_short(device_id_input).to_string());
-                identifiers.insert("device_name".to_string(), petname(device_id_input));
-
-                // Merge all properties
-                let mut all_props = props;
-                all_props.extend(identifiers);
-                
-                device.update_from_props(all_props);
-                devices.push(device);
-            }
-        }
-    }
-
     match output_type {
-        OutputType::Json => display_json(&devices),
-        OutputType::Table => display_table(&devices, &headers_to_display),
+        OutputType::Json => display_json(devices),
+        OutputType::Table => display_table(devices, &headers_to_display),
     }
-}
-
-fn format(responses: &[String]) -> Value {
-    extract_device_info(responses.join("\n"))
 }
 
 fn display_json(devices: &[DeviceDetails]) {
@@ -167,7 +104,7 @@ fn display_json(devices: &[DeviceDetails]) {
 
 fn display_table(devices: &[DeviceDetails], headers: &[String]) {
     let mut table = Table::new();
-    
+
     let header_names: Vec<String> = headers
         .iter()
         .filter_map(|key| HEADERS.get(key).map(|details| details.display_name.clone()))
@@ -185,7 +122,11 @@ fn display_table(devices: &[DeviceDetails], headers: &[String]) {
                 "ro.product.model" => device.model.clone().unwrap_or_default(),
                 "adb_id" => device.adb_id.clone(),
                 "device_name" => device.device_name.clone(),
-                _ => device.additional_props.get(header).cloned().unwrap_or_default(),
+                _ => device
+                    .additional_props
+                    .get(header)
+                    .cloned()
+                    .unwrap_or_default(),
             };
             values.push(value);
         }
@@ -193,63 +134,4 @@ fn display_table(devices: &[DeviceDetails], headers: &[String]) {
     }
 
     println!("{table}");
-}
-
-#[derive(Default)]
-struct DeviceCapture<'a> {
-    adb_id: &'a str,
-    type_str: &'a str,
-    usb: &'a str,
-    product: &'a str,
-    model: &'a str,
-    device: &'a str,
-    transport_id: &'a str,
-}
-
-fn extract_device_info(input: String) -> Value {
-    let mut devices: Vec<Value> = Vec::new();
-
-    for line in input.lines() {
-        let device_info = match (RE_FULL.captures(line), RE_TRUNCATED.captures(line), RE_SHORT.captures(line)) {
-            (Some(captures), _, _) => DeviceCapture {
-                adb_id: captures.get(1).map_or("", |m| m.as_str()),
-                type_str: captures.get(2).map_or("", |m| m.as_str()),
-                usb: captures.get(3).map_or("", |m| m.as_str()),
-                product: captures.get(4).map_or("", |m| m.as_str()),
-                model: captures.get(5).map_or("", |m| m.as_str()),
-                device: captures.get(6).map_or("", |m| m.as_str()),
-                transport_id: captures.get(7).map_or("", |m| m.as_str()),
-            },
-            (_, Some(captures), _) => DeviceCapture {
-                adb_id: captures.get(1).map_or("", |m| m.as_str()),
-                type_str: captures.get(2).map_or("", |m| m.as_str()),
-                product: captures.get(3).map_or("", |m| m.as_str()),
-                model: captures.get(4).map_or("", |m| m.as_str()),
-                device: captures.get(5).map_or("", |m| m.as_str()),
-                transport_id: captures.get(6).map_or("", |m| m.as_str()),
-                ..Default::default()
-            },
-            (_, _, Some(captures)) => DeviceCapture {
-                adb_id: captures.get(1).map_or("", |m| m.as_str()),
-                type_str: captures.get(2).map_or("", |m| m.as_str()),
-                ..Default::default()
-            },
-            _ => DeviceCapture::default(),
-        };
-
-        let device_json = json!({
-            "adb_id": device_info.adb_id,
-            "type": device_info.type_str,
-            "usb": device_info.usb,
-            "product": device_info.product,
-            "model": device_info.model,
-            "device": device_info.device,
-            "transport_id": device_info.transport_id,
-        });
-
-        devices.push(device_json);
-    }
-
-    debug!("{:?}", devices);
-    json!(devices)
 }
