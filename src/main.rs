@@ -69,6 +69,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let devices = device::device_info::get_devices(&cli.host, &cli.port).await;
     debug!("Found {} devices", devices.len());
 
+    // Check if any devices were found (except for the 'ls' command which should work regardless)
+    if devices.is_empty() && !matches!(cli.command(), Commands::Ls) {
+        return Err(error::AdbError::NoDevicesFound.into());
+    }
+
     match cli.command() {
         Commands::Ls => {
             subcommands::ls::display_devices(&devices, cli.output);
