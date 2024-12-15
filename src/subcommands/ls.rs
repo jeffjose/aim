@@ -95,7 +95,12 @@ pub fn display_devices(devices: &[DeviceDetails], output_type: OutputType) {
     match output_type {
         OutputType::Json => display_json(devices),
         OutputType::Table => display_table(devices, &headers_to_display),
+        OutputType::Plain => display_plain(devices),
     }
+}
+
+fn display_plain(devices: &[DeviceDetails]) {
+    println!("{:?}", devices);
 }
 
 fn display_json(devices: &[DeviceDetails]) {

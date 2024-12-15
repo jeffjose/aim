@@ -4,6 +4,7 @@ use clap::{Parser, Subcommand};
 pub enum OutputType {
     Table,
     Json,
+    Plain,
 }
 
 #[derive(Debug, Parser)]
@@ -58,6 +59,9 @@ pub enum Commands {
         propname: String,
         /// Optional device ID (can be partial)
         device_id: Option<String>,
+        /// Output format (table or json)
+        #[arg(short = 'o', long, default_value = "plain")]
+        output: OutputType,
     },
 
     /// Gets multiple properties from a device

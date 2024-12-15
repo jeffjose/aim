@@ -54,11 +54,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Commands::Getprop {
             propname,
             device_id,
+            output,
         } => {
             let target_device = find_target_device(&devices, device_id.as_ref())?;
 
             if let Err(e) =
-                subcommands::getprop::run(&cli.host, &cli.port, &propname, Some(target_device))
+                subcommands::getprop::run(&cli.host, &cli.port, &propname, Some(target_device), output)
                     .await
             {
                 error!("{}", e);
