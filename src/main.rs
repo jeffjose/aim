@@ -46,13 +46,33 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
             };
 
-            if let Err(e) = subcommands::getprop::run(&cli.host, &cli.port, &propname, Some(target_device)) {
+            if let Err(e) = subcommands::getprop::run(&cli.host, &cli.port, &propname, Some(target_device)).await {
                 error!("{}", e);
                 std::process::exit(1);
             }
         }
-        Commands::Getprops { propnames } => {
-            subcommands::getprops::run(&cli.host, &cli.port, &propnames).await;
+        Commands::Getprops { propnames, device_id } => {
+            let target_device = match device_id {
+                // If device_id is provided, do partial match
+                Some(id) => {
+                    devices.iter()
+                        .find(|d| d.matches_id_prefix(&id))
+                        .ok_or_else(|| error::AdbError::DeviceNotFound(id.clone()))?
+                }
+                // If no device_id provided, check if there's exactly one device
+                None => {
+                    if devices.len() == 1 {
+                        &devices[0]
+                    } else {
+                        return Err(error::AdbError::DeviceNotFound("No device ID provided and multiple devices found".to_string()).into());
+                    }
+                }
+            };
+
+            if let Err(e) = subcommands::getprops::run(&cli.host, &cli.port, &propnames, Some(target_device)).await {
+                error!("{}", e);
+                std::process::exit(1);
+            }
         }
         Commands::Inspect { id } => {
             subcommands::command::run(&cli.host, &cli.port, &id);

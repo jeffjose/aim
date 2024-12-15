@@ -2,7 +2,6 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
-
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DeviceDetails {
     // Basic device identifiers
@@ -15,7 +14,7 @@ pub struct DeviceDetails {
     // Device properties from getprop
     pub brand: Option<String>,
     pub model: Option<String>,
-    
+
     // Connection details
     pub usb: Option<String>,
     pub product: Option<String>,
@@ -47,7 +46,7 @@ impl DeviceDetails {
 
     pub fn from_json(value: &serde_json::Value) -> Option<Self> {
         let obj = value.as_object()?;
-        
+
         let mut device = DeviceDetails::new(
             obj.get("adb_id")?.as_str()?.to_string(),
             obj.get("type")?.as_str()?.to_string(),
@@ -90,8 +89,15 @@ impl DeviceDetails {
 
         // Store remaining properties
         for (key, value) in props {
-            if !["ro.product.product.brand", "ro.product.model", "device_id", "device_id_short", "device_name"]
-                .contains(&key.as_str()) {
+            if ![
+                "ro.product.product.brand",
+                "ro.product.model",
+                "device_id",
+                "device_id_short",
+                "device_name",
+            ]
+            .contains(&key.as_str())
+            {
                 self.additional_props.insert(key, value);
             }
         }
@@ -99,8 +105,15 @@ impl DeviceDetails {
 
     pub fn matches_id_prefix(&self, id_prefix: &str) -> bool {
         let id_prefix = id_prefix.to_lowercase();
-        self.device_id.to_lowercase().starts_with(&id_prefix) ||
-        self.device_id_short.to_lowercase().starts_with(&id_prefix) ||
-        self.device_name.to_lowercase().starts_with(&id_prefix)
+        let matched = self.device_id.to_lowercase().starts_with(&id_prefix)
+            || self.device_id_short.to_lowercase().starts_with(&id_prefix)
+            || self.device_name.to_lowercase().eq(&id_prefix);
+
+        println!(
+            "Checking [{}] {} {} ({}) - {}",
+            matched, self.device_id_short, self.device_name, self.adb_id, id_prefix
+        );
+
+        matched
     }
-} 
+}

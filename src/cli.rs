@@ -64,6 +64,9 @@ pub enum Commands {
     Getprops {
         /// Names of properties to get
         propnames: Vec<String>,
+        /// Optional device ID (can be partial)
+        #[arg(last = true)]
+        device_id: Option<String>,
     },
 }
 

@@ -84,15 +84,13 @@ fn clean_str(s: &str) -> String {
 }
 
 fn remove_unnecessary_unicode(input: &str) -> String {
-    let input = if input.len() >= 4 {
-        &input[4..] // Slice from the 4th byte to the end
-    } else {
-        "" // Handle cases where the string is shorter than 4 bytes
-    };
+    let input = input.strip_prefix("OKAY").unwrap_or(input);
+
+    let input = input.get(4..).unwrap_or("");
 
     input
         .chars()
-        .filter(|&c| c != '\u{0}' && (c.is_ascii_graphic() || c == '\n' || c == ' ' || c == '\t'))
+        .filter(|&c| c != '\u{0}' && (c.is_ascii_graphic() || c.is_whitespace()))
         .collect()
 }
 
