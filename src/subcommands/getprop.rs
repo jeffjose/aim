@@ -8,7 +8,7 @@ pub async fn run(
     target_device: Option<&DeviceDetails>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let adb_id = target_device.map(|d| d.adb_id.as_str());
-    let result = adb::run_command_async(host, port, &format!("getprop {}", propname), adb_id).await;
+    let result = adb::getprop_async(host, port,propname, adb_id).await;
 
     if let Some(device) = target_device {
         println!(

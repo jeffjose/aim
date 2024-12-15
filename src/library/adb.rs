@@ -127,12 +127,6 @@ pub fn format_responses(responses: &[String]) -> String {
     outgoing_responses
 }
 
-pub fn get_prop(host: &str, port: &str, propname: &str) -> String {
-    let command = format!("getprop {} {}", propname, propname);
-
-    run_command(host, port, command.as_str(), None)
-}
-
 pub async fn run_command_async(
     host: &str,
     port: &str,
@@ -160,7 +154,7 @@ pub async fn run_command_async(
     }
 }
 
-pub async fn get_prop_async(
+pub async fn getprop_async(
     host: &str,
     port: &str,
     propname: &str,
@@ -170,7 +164,7 @@ pub async fn get_prop_async(
     run_command_async(host, port, command.as_str(), adb_id).await
 }
 
-pub async fn get_props_parallel(
+pub async fn getprops_parallel(
     host: &str,
     port: &str,
     propnames: &[String],
@@ -188,7 +182,7 @@ pub async fn get_props_parallel(
         let adb_id_clone = adb_id.clone();
 
         tasks.push(tokio::spawn(async move {
-            let result = get_prop_async(
+            let result = getprop_async(
                 &host_clone,
                 &port_clone,
                 &propname,

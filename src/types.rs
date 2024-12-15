@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use log::info;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -109,7 +110,7 @@ impl DeviceDetails {
             || self.device_id_short.to_lowercase().starts_with(&id_prefix)
             || self.device_name.to_lowercase().eq(&id_prefix);
 
-        println!(
+        info!(
             "Checking [{}] {} {} ({}) - {}",
             matched, self.device_id_short, self.device_name, self.adb_id, id_prefix
         );

@@ -6,12 +6,17 @@ use regex::Regex;
 use serde_json::{json, Value};
 
 use crate::library::adb;
-use crate::library::hash::{sha256, sha256_short, petname};
+use crate::library::hash::{petname, sha256, sha256_short};
 use crate::types::DeviceDetails;
 
 static RE_SHORT: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^(\S+)\s+(\S+)").unwrap());
-static RE_FULL: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^(\S+)\s+(\S+)\s+usb:(\S+)\s+product:(\S+)\s+model:(\S+)\s+device:(\S+)\s+transport_id:(\S+)").unwrap());
-static RE_TRUNCATED: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^(\S+)\s+(\S+)\s+product:(\S+)\s+model:(\S+)\s+device:(\S+)\s+transport_id:(\S+)").unwrap());
+static RE_FULL: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"^(\S+)\s+(\S+)\s+usb:(\S+)\s+product:(\S+)\s+model:(\S+)\s+device:(\S+)\s+transport_id:(\S+)").unwrap()
+});
+static RE_TRUNCATED: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"^(\S+)\s+(\S+)\s+product:(\S+)\s+model:(\S+)\s+device:(\S+)\s+transport_id:(\S+)")
+        .unwrap()
+});
 
 pub async fn get_devices(host: &str, port: &str) -> Vec<DeviceDetails> {
     let messages = vec!["host:devices-l"];
@@ -21,7 +26,7 @@ pub async fn get_devices(host: &str, port: &str) -> Vec<DeviceDetails> {
     };
 
     let mut devices: Vec<DeviceDetails> = Vec::new();
-    
+
     if let Value::Array(arr) = device_info {
         for item in arr {
             if let Some(mut device) = DeviceDetails::from_json(&item) {
@@ -31,25 +36,25 @@ pub async fn get_devices(host: &str, port: &str) -> Vec<DeviceDetails> {
                     "ro.boot.qemu.avd_name".to_string(),
                 ];
 
-                let props = adb::get_props_parallel(
-                    host, 
-                    port, 
-                    &propnames, 
-                    Some(&device.adb_id)
-                ).await;
+                let props =
+                    adb::getprops_parallel(host, port, &propnames, Some(&device.adb_id)).await;
 
-                let device_id_input = props.get("ro.boot.qemu.avd_name")
+                let device_id_input = props
+                    .get("ro.boot.qemu.avd_name")
                     .filter(|v| !v.is_empty())
                     .unwrap_or(&device.adb_id);
 
                 let mut identifiers = HashMap::new();
                 identifiers.insert("device_id".to_string(), sha256(device_id_input));
-                identifiers.insert("device_id_short".to_string(), sha256_short(device_id_input).to_string());
+                identifiers.insert(
+                    "device_id_short".to_string(),
+                    sha256_short(device_id_input).to_string(),
+                );
                 identifiers.insert("device_name".to_string(), petname(device_id_input));
 
                 let mut all_props = props;
                 all_props.extend(identifiers);
-                
+
                 device.update_from_props(all_props);
                 devices.push(device);
             }
@@ -78,7 +83,11 @@ fn extract_device_info(input: String) -> Value {
     let mut devices: Vec<Value> = Vec::new();
 
     for line in input.lines() {
-        let device_info = match (RE_FULL.captures(line), RE_TRUNCATED.captures(line), RE_SHORT.captures(line)) {
+        let device_info = match (
+            RE_FULL.captures(line),
+            RE_TRUNCATED.captures(line),
+            RE_SHORT.captures(line),
+        ) {
             (Some(captures), _, _) => DeviceCapture {
                 adb_id: captures.get(1).map_or("", |m| m.as_str()),
                 type_str: captures.get(2).map_or("", |m| m.as_str()),
@@ -120,4 +129,4 @@ fn extract_device_info(input: String) -> Value {
 
     debug!("{:?}", devices);
     json!(devices)
-} 
+}
