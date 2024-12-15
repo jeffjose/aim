@@ -1,4 +1,5 @@
 mod cli;
+mod config;
 mod device;
 mod error;
 mod library;
@@ -9,6 +10,30 @@ use clap::Parser;
 use cli::{Cli, Commands};
 use log::{debug, error};
 use types::DeviceDetails;
+
+fn parse_args() -> Cli {
+    let config = config::Config::load();
+
+    // Get raw args and check if the first argument is an alias
+    let mut args: Vec<String> = std::env::args().collect();
+    if args.len() > 1 {
+        let potential_alias = &args[1];
+        let resolved = config.resolve_alias(potential_alias);
+        debug!("Potential alias: {}", potential_alias);
+        debug!("Resolved alias: {}", resolved);
+        if resolved != *potential_alias {
+            // Remove the alias argument
+            args.remove(1);
+            // Split the resolved command and insert all parts
+            let resolved_parts: Vec<String> =
+                resolved.split_whitespace().map(String::from).collect();
+            args.splice(1..1, resolved_parts);
+        }
+    }
+
+    debug!("{:?}", args);
+    Cli::parse_from(args)
+}
 
 fn find_target_device<'a>(
     devices: &'a [DeviceDetails],
@@ -34,7 +59,7 @@ fn find_target_device<'a>(
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let cli = Cli::parse();
+    let cli = parse_args();
 
     env_logger::Builder::new()
         .filter_level(cli.verbose.log_level_filter())
@@ -58,9 +83,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         } => {
             let target_device = find_target_device(&devices, device_id.as_ref())?;
 
-            if let Err(e) =
-                subcommands::getprop::run(&cli.host, &cli.port, &propname, Some(target_device), output)
-                    .await
+            if let Err(e) = subcommands::getprop::run(
+                &cli.host,
+                &cli.port,
+                &propname,
+                Some(target_device),
+                output,
+            )
+            .await
             {
                 error!("{}", e);
                 std::process::exit(1);
