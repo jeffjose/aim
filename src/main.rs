@@ -51,10 +51,28 @@ fn find_target_device<'a>(
     device_id: Option<&String>,
 ) -> Result<&'a DeviceDetails, Box<dyn std::error::Error>> {
     match device_id {
-        Some(id) => devices
-            .iter()
-            .find(|d| d.matches_id_prefix(id))
-            .ok_or_else(|| error::AdbError::DeviceNotFound(id.clone()).into()),
+        Some(id) => {
+            let matching_devices: Vec<&DeviceDetails> = devices
+                .iter()
+                .filter(|d| d.matches_id_prefix(id))
+                .collect();
+
+            match matching_devices.len() {
+                0 => Err(error::AdbError::DeviceNotFound(id.clone()).into()),
+                1 => Ok(matching_devices[0]),
+                _ => {
+                    let matching_ids: Vec<String> = matching_devices
+                        .iter()
+                        .map(|d| d.adb_id.clone())
+                        .collect();
+                    Err(error::AdbError::AmbiguousDeviceMatch {
+                        prefix: id.clone(),
+                        matches: matching_ids,
+                    }
+                    .into())
+                }
+            }
+        }
         None => {
             if devices.len() == 1 {
                 Ok(&devices[0])
