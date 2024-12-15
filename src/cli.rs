@@ -59,7 +59,7 @@ pub enum Commands {
         propname: String,
         /// Optional device ID (can be partial)
         device_id: Option<String>,
-        /// Output format (table or json)
+        /// Output format (table, json, plain)
         #[arg(short = 'o', long, default_value = "plain")]
         output: OutputType,
     },
