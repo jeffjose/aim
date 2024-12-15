@@ -22,12 +22,23 @@ fn parse_args() -> Cli {
         debug!("Potential alias: {}", potential_alias);
         debug!("Resolved alias: {}", resolved);
         if resolved != *potential_alias {
-            // Remove the alias argument
+            // Remove the alias argument but keep any additional args
+            let additional_args = if args.len() > 2 {
+                args.split_off(2)
+            } else {
+                Vec::new()
+            };
+            
+            // Remove the alias
             args.remove(1);
+            
             // Split the resolved command and insert all parts
             let resolved_parts: Vec<String> =
                 resolved.split_whitespace().map(String::from).collect();
             args.splice(1..1, resolved_parts);
+            
+            // Add back any additional arguments
+            args.extend(additional_args);
         }
     }
 
