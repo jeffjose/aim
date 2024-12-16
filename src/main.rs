@@ -8,9 +8,8 @@ mod types;
 
 use clap::Parser;
 use cli::{Cli, Commands};
-use log::{debug, error};
-use types::DeviceDetails;
 use device::device_info;
+use log::{debug, error};
 
 fn parse_args() -> Cli {
     let config = config::Config::load();
@@ -124,7 +123,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
         Commands::Copy { src, dst } => {
-            subcommands::copy::run(subcommands::copy::CopyArgs { src, dst }, &devices).await?
+            subcommands::copy::run(
+                subcommands::copy::CopyArgs {
+                    src: src.into(),
+                    dst: dst.into(),
+                },
+                &devices,
+            )
+            .await?
         }
     }
 

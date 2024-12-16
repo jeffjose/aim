@@ -1,98 +1,66 @@
-use crate::types::DeviceDetails;
-use anyhow::Result;
-use log::*;
+use crate::{
+    device::device_info,
+    error::AdbError,
+    types::DeviceDetails,
+};
+use log::debug;
+use std::path::PathBuf;
 
 pub struct CopyArgs {
-    pub src: String,
-    pub dst: String,
+    pub src: PathBuf,
+    pub dst: PathBuf,
 }
 
-#[derive(Debug)]
-struct ParsedPath {
-    device_id: Option<String>,
-    path: String,
-}
+pub async fn run(args: CopyArgs, devices: &[DeviceDetails]) -> Result<(), Box<dyn std::error::Error>> {
+    let (src_device_id, src_path) = parse_device_path(&args.src)?;
+    let (dst_device_id, dst_path) = parse_device_path(&args.dst)?;
 
-fn parse_path(input: &str) -> Result<ParsedPath> {
-    let parts: Vec<&str> = input.split(':').collect();
-    match parts.as_slice() {
-        // If there's a colon, treat the first part as device_id
-        [device_id, path] => Ok(ParsedPath {
-            device_id: Some(device_id.to_string()),
-            path: path.to_string(),
-        }),
-        // If there's no colon, treat the entire string as a local path
-        [path] => Ok(ParsedPath {
-            device_id: None,
-            path: path.to_string(),
-        }),
-        _ => Err(anyhow::anyhow!("Invalid path format. Use [device_id:]path")),
+    // Use the centralized device matching logic
+    let src_device = if let Some(id) = src_device_id {
+        Some(device_info::find_target_device(devices, Some(&id))?)
+    } else {
+        None
+    };
+
+    let dst_device = if let Some(id) = dst_device_id {
+        Some(device_info::find_target_device(devices, Some(&id))?)
+    } else {
+        None
+    };
+
+    match (src_device, dst_device) {
+        (Some(_), Some(_)) => Err(AdbError::InvalidCopyOperation(
+            "Cannot copy between two devices".to_string(),
+        )
+        .into()),
+        (None, None) => Err(AdbError::InvalidCopyOperation(
+            "At least one path must specify a device".to_string(),
+        )
+        .into()),
+        (Some(device), None) => {
+            debug!("Copying from device {} to local", device.adb_id);
+            // Pull from device
+            //adb::pull(device, &src_path, &dst_path).await?;
+            Ok(())
+        }
+        (None, Some(device)) => {
+            debug!("Copying from local to device {}", device.adb_id);
+            // Push to device
+            //adb::push(device, &src_path, &dst_path).await?;
+            Ok(())
+        }
     }
 }
 
-async fn get_matching_device<'a>(
-    devices: &'a [DeviceDetails],
-    partial_id: &str,
-) -> Result<&'a DeviceDetails> {
-    let matching_devices: Vec<&DeviceDetails> = devices
-        .iter()
-        .filter(|device| device.matches_id_prefix(partial_id))
-        .collect();
-
-    match matching_devices.len() {
-        0 => Err(anyhow::anyhow!(
-            "No devices found matching ID '{}'",
-            partial_id
-        )),
-        1 => Ok(matching_devices[0]),
-        _ => Err(anyhow::anyhow!(
-            "Multiple devices match '{}': {:?}",
-            partial_id,
-            matching_devices
-                .iter()
-                .map(|d| d.device_name.clone())
-                .collect::<Vec<_>>()
-        )),
+fn parse_device_path(path: &PathBuf) -> Result<(Option<String>, PathBuf), Box<dyn std::error::Error>> {
+    let path_str = path.to_string_lossy();
+    if let Some(colon_idx) = path_str.find(':') {
+        let (device, path) = path_str.split_at(colon_idx);
+        Ok((
+            Some(device.to_string()),
+            PathBuf::from(&path[1..]), // Skip the colon
+        ))
+    } else {
+        Ok((None, path.clone()))
     }
-}
-
-pub async fn run(args: CopyArgs, devices: &[DeviceDetails]) -> Result<()> {
-    info!("Copy command with src: {}, dst: {}", args.src, args.dst);
-
-    // Parse source and destination paths
-    let src = parse_path(&args.src)?;
-    let dst = parse_path(&args.dst)?;
-
-    // Resolve device IDs if present
-    let src_device = match src.device_id {
-        Some(ref partial_id) => Some(get_matching_device(devices, partial_id).await?),
-        None => None,
-    };
-
-    let dst_device = match dst.device_id {
-        Some(ref partial_id) => Some(get_matching_device(devices, partial_id).await?),
-        None => None,
-    };
-
-    println!("Copy operation details:");
-    println!("Source:");
-    println!(
-        "  Device: {}",
-        src_device
-            .map(|d| &d.device_name)
-            .unwrap_or(&"local".to_string())
-    );
-    println!("  Path: {}", src.path);
-    println!("Destination:");
-    println!(
-        "  Device: {}",
-        dst_device
-            .map(|d| &d.device_name)
-            .unwrap_or(&"local".to_string())
-    );
-    println!("  Path: {}", dst.path);
-
-    // TODO: Implement actual copy logic based on source and destination types
-
-    Ok(())
 }

@@ -13,6 +13,7 @@ pub enum AdbError {
         device_id: String,
         matching_configs: Vec<String>,
     },
+    InvalidCopyOperation(String),
     // Add other error variants as needed
 }
 
@@ -45,6 +46,7 @@ impl fmt::Display for AdbError {
                 }
                 write!(f, "Please provide a more specific device ID")
             }
+            AdbError::InvalidCopyOperation(msg) => write!(f, "Invalid copy operation: {}", msg),
         }
     }
 }
