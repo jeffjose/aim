@@ -1,6 +1,5 @@
 use crate::cli::OutputType;
 use crate::types::DeviceDetails;
-use crate::device::device_info::get_devices;
 use comfy_table::Table;
 use std::collections::HashMap;
 use std::sync::LazyLock;
@@ -85,9 +84,8 @@ static HEADERS: LazyLock<HashMap<String, TableDetails>> = LazyLock::new(|| {
     m
 });
 
-pub async fn run(host: &str, port: &str, output_type: OutputType) {
-    let devices = get_devices(host, port).await;
-    display_devices(&devices, output_type);
+pub async fn run(devices: &[DeviceDetails], output_type: OutputType) {
+    display_devices(devices, output_type);
 }
 
 pub fn display_devices(devices: &[DeviceDetails], output_type: OutputType) {

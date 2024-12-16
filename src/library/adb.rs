@@ -94,24 +94,24 @@ fn remove_unnecessary_unicode(input: &str) -> String {
         .collect()
 }
 
-pub fn run_command(host: &str, port: &str, command: &str, adb_id: Option<&str>) -> String {
-    let host_command = match adb_id {
-        Some(id) => format!("host:tport:serial:{}", id),
-        None => "host:tport:any".to_string(),
-    };
+// pub fn run_command(host: &str, port: &str, command: &str, adb_id: Option<&str>) -> String {
+//     let host_command = match adb_id {
+//         Some(id) => format!("host:tport:serial:{}", id),
+//         None => "host:tport:any".to_string(),
+//     };
 
-    let formatted_command = format!("shell,v2,TERM=xterm-256color,raw:{}", command);
+//     let formatted_command = format!("shell,v2,TERM=xterm-256color,raw:{}", command);
 
-    let messages: Vec<&str> = vec![host_command.as_str(), formatted_command.as_str()];
+//     let messages: Vec<&str> = vec![host_command.as_str(), formatted_command.as_str()];
 
-    match send_and_receive(&host, &port, messages) {
-        Ok(responses) => format_responses(&responses),
-        Err(e) => {
-            eprintln!("Error: {}", e);
-            String::new()
-        }
-    }
-}
+//     match send_and_receive(&host, &port, messages) {
+//         Ok(responses) => format_responses(&responses),
+//         Err(e) => {
+//             eprintln!("Error: {}", e);
+//             String::new()
+//         }
+//     }
+// }
 
 pub fn format_responses(responses: &[String]) -> String {
     debug!("incoming responses = {:?}", responses);

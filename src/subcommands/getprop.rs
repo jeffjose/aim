@@ -2,8 +2,6 @@ use crate::cli::OutputType;
 use crate::library::adb;
 use crate::types::DeviceDetails;
 use comfy_table::Table;
-use std::collections::HashMap;
-use std::sync::LazyLock;
 
 pub async fn run(
     host: &str,
@@ -31,6 +29,7 @@ fn display_json(propname: &str, value: &str) {
     println!("{}", serde_json::to_string_pretty(&json).unwrap());
 }
 
+#[allow(unused_variables)]
 fn display_table(device: Option<&DeviceDetails>, propname: &str, value: &str) {
     let mut table = Table::new();
     table.set_header(vec!["PROPERTY", "VALUE"]);

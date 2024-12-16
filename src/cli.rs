@@ -76,6 +76,14 @@ pub enum Commands {
         /// New name for the device
         new_name: String,
     },
+
+    /// Copy files to/from device
+    Copy {
+        /// Source in format device_id:path
+        src: String,
+        /// Destination path
+        dst: String,
+    },
 }
 
 impl Cli {

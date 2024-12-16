@@ -28,15 +28,15 @@ fn parse_args() -> Cli {
             } else {
                 Vec::new()
             };
-            
+
             // Remove the alias
             args.remove(1);
-            
+
             // Split the resolved command and insert all parts
             let resolved_parts: Vec<String> =
                 resolved.split_whitespace().map(String::from).collect();
             args.splice(1..1, resolved_parts);
-            
+
             // Add back any additional arguments
             args.extend(additional_args);
         }
@@ -52,19 +52,15 @@ fn find_target_device<'a>(
 ) -> Result<&'a DeviceDetails, Box<dyn std::error::Error>> {
     match device_id {
         Some(id) => {
-            let matching_devices: Vec<&DeviceDetails> = devices
-                .iter()
-                .filter(|d| d.matches_id_prefix(id))
-                .collect();
+            let matching_devices: Vec<&DeviceDetails> =
+                devices.iter().filter(|d| d.matches_id_prefix(id)).collect();
 
             match matching_devices.len() {
                 0 => Err(error::AdbError::DeviceNotFound(id.clone()).into()),
                 1 => Ok(matching_devices[0]),
                 _ => {
-                    let matching_ids: Vec<String> = matching_devices
-                        .iter()
-                        .map(|d| d.adb_id.clone())
-                        .collect();
+                    let matching_ids: Vec<String> =
+                        matching_devices.iter().map(|d| d.adb_id.clone()).collect();
                     Err(error::AdbError::AmbiguousDeviceMatch {
                         prefix: id.clone(),
                         matches: matching_ids,
@@ -105,14 +101,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     match cli.command() {
         Commands::Ls => {
-            subcommands::ls::display_devices(&devices, cli.output);
+            subcommands::ls::run(&devices, cli.output).await;
         }
         Commands::Command { command, device_id } => {
-
             let target_device = find_target_device(&devices, device_id.as_ref())?;
 
-            if let Err(e) = subcommands::command::run(&cli.host, &cli.port, &command, Some(target_device)).await  {
-
+            if let Err(e) =
+                subcommands::command::run(&cli.host, &cli.port, &command, Some(target_device)).await
+            {
                 error!("{}", e);
 
                 std::process::exit(1);
@@ -152,12 +148,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 std::process::exit(1);
             }
         }
-        Commands::Rename { device_id, new_name } => {
+        Commands::Rename {
+            device_id,
+            new_name,
+        } => {
             let target_device = find_target_device(&devices, Some(&device_id))?;
             if let Err(e) = subcommands::rename::run(target_device, &new_name).await {
                 error!("Failed to rename device: {}", e);
                 std::process::exit(1);
             }
+        }
+        Commands::Copy { src, dst } => {
+            subcommands::copy::run(subcommands::copy::CopyArgs { src, dst }, &devices).await?
         }
     }
 

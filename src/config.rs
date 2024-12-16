@@ -1,9 +1,7 @@
 use log::debug;
 use serde::Deserialize;
 use std::collections::HashMap;
-use std::fs;
 use std::path::PathBuf;
-use crate::error::AdbError;
 
 #[derive(Debug, Default, Deserialize)]
 pub struct Config {
