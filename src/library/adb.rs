@@ -1,20 +1,20 @@
 use log::*;
 use std::collections::HashMap;
 use std::error::Error;
+use std::fs::File;
 use std::io::{Read, Write};
 use std::net::{TcpStream, ToSocketAddrs};
+use std::path::PathBuf;
 use std::str;
 use std::sync::Arc;
 use tokio::task::JoinHandle;
-use std::fs::File;
-use std::path::PathBuf;
 
 use crate::types::DeviceDetails;
 
 const SYNC_DATA: &[u8] = b"SEND";
 const SYNC_DONE: &[u8] = b"DONE";
 
-pub fn send_and_receive(
+pub fn send(
     host: &str,
     port: &str,
     messages: Vec<&str>,
@@ -149,7 +149,7 @@ pub async fn run_shell_command_async(
 
     let messages: Vec<&str> = vec![host_command.as_str(), formatted_command.as_str()];
 
-    match send_and_receive(&host, &port, messages) {
+    match send(&host, &port, messages) {
         Ok(responses) => {
             debug!("{:?}", responses);
             Ok(format_responses(&responses))
@@ -174,7 +174,7 @@ pub async fn run_command_async(
 
     let messages: Vec<&str> = vec![host_command.as_str(), command];
 
-    match send_and_receive(&host, &port, messages) {
+    match send(&host, &port, messages) {
         Ok(responses) => {
             debug!("{:?}", responses);
             Ok(format_responses(&responses))
@@ -248,20 +248,24 @@ pub async fn push(
     ];
 
     // Send initial commands
-    send_and_receive("127.0.0.1", "5037", messages.iter().map(|s| s.as_str()).collect())?;
+    send(
+        "127.0.0.1",
+        "5037",
+        messages.iter().map(|s| s.as_str()).collect(),
+    )?;
 
     // Read and send file data
     let mut file = File::open(src_path)?;
     let mut buffer = [0u8; 64 * 1024]; // 64KB chunks
-    
+
     let mut stream = TcpStream::connect("127.0.0.1:5037")?;
-    
+
     loop {
         let bytes_read = file.read(&mut buffer)?;
         if bytes_read == 0 {
             break;
         }
-        
+
         stream.write_all(SYNC_DATA)?;
         stream.write_all(&(bytes_read as u32).to_le_bytes())?;
         stream.write_all(&buffer[..bytes_read])?;
@@ -270,7 +274,7 @@ pub async fn push(
     // Send DONE command
     stream.write_all(SYNC_DONE)?;
     stream.write_all(&(0u32).to_le_bytes())?;
-    
+
     // Check final response
     let mut response = [0u8; 4];
     stream.read_exact(&mut response)?;

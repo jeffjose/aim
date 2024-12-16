@@ -22,7 +22,7 @@ static RE_TRUNCATED: LazyLock<Regex> = LazyLock::new(|| {
 pub async fn get_devices(host: &str, port: &str) -> Vec<DeviceDetails> {
     let config = Config::load();
     let messages = vec!["host:devices-l"];
-    let device_info = match adb::send_and_receive(host, port, messages) {
+    let device_info = match adb::send(host, port, messages) {
         Ok(responses) => format_device_list(&responses),
         Err(_e) => format_device_list(&Vec::new()),
     };
