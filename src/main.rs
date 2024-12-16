@@ -10,6 +10,7 @@ use clap::Parser;
 use cli::{Cli, Commands};
 use log::{debug, error};
 use types::DeviceDetails;
+use device::device_info;
 
 fn parse_args() -> Cli {
     let config = config::Config::load();
@@ -46,42 +47,6 @@ fn parse_args() -> Cli {
     Cli::parse_from(args)
 }
 
-fn find_target_device<'a>(
-    devices: &'a [DeviceDetails],
-    device_id: Option<&String>,
-) -> Result<&'a DeviceDetails, Box<dyn std::error::Error>> {
-    match device_id {
-        Some(id) => {
-            let matching_devices: Vec<&DeviceDetails> =
-                devices.iter().filter(|d| d.matches_id_prefix(id)).collect();
-
-            match matching_devices.len() {
-                0 => Err(error::AdbError::DeviceNotFound(id.clone()).into()),
-                1 => Ok(matching_devices[0]),
-                _ => {
-                    let matching_ids: Vec<String> =
-                        matching_devices.iter().map(|d| d.adb_id.clone()).collect();
-                    Err(error::AdbError::AmbiguousDeviceMatch {
-                        prefix: id.clone(),
-                        matches: matching_ids,
-                    }
-                    .into())
-                }
-            }
-        }
-        None => {
-            if devices.len() == 1 {
-                Ok(&devices[0])
-            } else {
-                Err(error::AdbError::DeviceNotFound(
-                    "No device ID provided and multiple devices found".to_string(),
-                )
-                .into())
-            }
-        }
-    }
-}
-
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = parse_args();
@@ -91,7 +56,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .init();
 
     // Get device list before running any commands
-    let devices = device::device_info::get_devices(&cli.host, &cli.port).await;
+    let devices = device_info::get_devices(&cli.host, &cli.port).await;
     debug!("Found {} devices", devices.len());
 
     // Check if any devices were found (except for the 'ls' command which should work regardless)
@@ -104,7 +69,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             subcommands::ls::run(&devices, cli.output).await;
         }
         Commands::Command { command, device_id } => {
-            let target_device = find_target_device(&devices, device_id.as_ref())?;
+            let target_device = device_info::find_target_device(&devices, device_id.as_ref())?;
 
             if let Err(e) =
                 subcommands::command::run(&cli.host, &cli.port, &command, Some(target_device)).await
@@ -119,7 +84,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             device_id,
             output,
         } => {
-            let target_device = find_target_device(&devices, device_id.as_ref())?;
+            let target_device = device_info::find_target_device(&devices, device_id.as_ref())?;
 
             if let Err(e) = subcommands::getprop::run(
                 &cli.host,
@@ -138,7 +103,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             propnames,
             device_id,
         } => {
-            let target_device = find_target_device(&devices, device_id.as_ref())?;
+            let target_device = device_info::find_target_device(&devices, device_id.as_ref())?;
 
             if let Err(e) =
                 subcommands::getprops::run(&cli.host, &cli.port, &propnames, Some(target_device))
@@ -152,7 +117,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             device_id,
             new_name,
         } => {
-            let target_device = find_target_device(&devices, Some(&device_id))?;
+            let target_device = device_info::find_target_device(&devices, Some(&device_id))?;
             if let Err(e) = subcommands::rename::run(target_device, &new_name).await {
                 error!("Failed to rename device: {}", e);
                 std::process::exit(1);

@@ -8,7 +8,7 @@ use serde_json::{json, Value};
 use crate::config::Config;
 use crate::library::adb;
 use crate::library::hash::{petname, sha256, sha256_short};
-use crate::types::DeviceDetails;
+use crate::{error::AdbError, types::DeviceDetails};
 
 static RE_SHORT: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^(\S+)\s+(\S+)").unwrap());
 static RE_FULL: LazyLock<Regex> = LazyLock::new(|| {
@@ -136,4 +136,44 @@ fn extract_device_info(input: String) -> Value {
 
     debug!("{:?}", devices);
     json!(devices)
+}
+
+/// Find a target device from a list of devices based on an optional device ID.
+/// If no device ID is provided and there is exactly one device, that device is returned.
+/// If no device ID is provided and there are multiple devices, an error is returned.
+/// If a device ID is provided, it will match against device IDs that start with the provided prefix.
+pub fn find_target_device<'a>(
+    devices: &'a [DeviceDetails],
+    device_id: Option<&String>,
+) -> Result<&'a DeviceDetails, Box<dyn std::error::Error>> {
+    match device_id {
+        Some(id) => {
+            let matching_devices: Vec<&DeviceDetails> =
+                devices.iter().filter(|d| d.matches_id_prefix(id)).collect();
+
+            match matching_devices.len() {
+                0 => Err(AdbError::DeviceNotFound(id.clone()).into()),
+                1 => Ok(matching_devices[0]),
+                _ => {
+                    let matching_ids: Vec<String> =
+                        matching_devices.iter().map(|d| d.adb_id.clone()).collect();
+                    Err(AdbError::AmbiguousDeviceMatch {
+                        prefix: id.clone(),
+                        matches: matching_ids,
+                    }
+                    .into())
+                }
+            }
+        }
+        None => {
+            if devices.len() == 1 {
+                Ok(&devices[0])
+            } else {
+                Err(AdbError::DeviceNotFound(
+                    "No device ID provided and multiple devices found".to_string(),
+                )
+                .into())
+            }
+        }
+    }
 }
