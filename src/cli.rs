@@ -81,7 +81,7 @@ pub enum Commands {
     Copy {
         /// Source in format device_id:path
         src: String,
-        /// Destination path
+        /// Destionation in format device_id:path
         dst: String,
     },
 }
