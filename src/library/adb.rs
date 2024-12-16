@@ -6,6 +6,13 @@ use std::net::{TcpStream, ToSocketAddrs};
 use std::str;
 use std::sync::Arc;
 use tokio::task::JoinHandle;
+use std::fs::File;
+use std::path::PathBuf;
+
+use crate::types::DeviceDetails;
+
+const SYNC_DATA: &[u8] = b"SEND";
+const SYNC_DONE: &[u8] = b"DONE";
 
 pub fn send_and_receive(
     host: &str,
@@ -226,4 +233,50 @@ pub async fn getprops_parallel(
     }
 
     results
+}
+
+pub async fn push(
+    device: &DeviceDetails,
+    src_path: &PathBuf,
+    dst_path: &PathBuf,
+) -> Result<(), Box<dyn std::error::Error>> {
+    // First select the device
+    let messages = vec![
+        format!("host:transport:{}", device.adb_id),
+        format!("sync:"),
+        format!("SEND,{},{}", 0o666, dst_path.to_string_lossy()),
+    ];
+
+    // Send initial commands
+    send_and_receive("127.0.0.1", "5037", messages.iter().map(|s| s.as_str()).collect())?;
+
+    // Read and send file data
+    let mut file = File::open(src_path)?;
+    let mut buffer = [0u8; 64 * 1024]; // 64KB chunks
+    
+    let mut stream = TcpStream::connect("127.0.0.1:5037")?;
+    
+    loop {
+        let bytes_read = file.read(&mut buffer)?;
+        if bytes_read == 0 {
+            break;
+        }
+        
+        stream.write_all(SYNC_DATA)?;
+        stream.write_all(&(bytes_read as u32).to_le_bytes())?;
+        stream.write_all(&buffer[..bytes_read])?;
+    }
+
+    // Send DONE command
+    stream.write_all(SYNC_DONE)?;
+    stream.write_all(&(0u32).to_le_bytes())?;
+    
+    // Check final response
+    let mut response = [0u8; 4];
+    stream.read_exact(&mut response)?;
+    if &response != b"OKAY" {
+        return Err("Final sync failed".into());
+    }
+
+    Ok(())
 }

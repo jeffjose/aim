@@ -1,6 +1,7 @@
 use crate::{
     device::device_info,
     error::AdbError,
+    library::adb,
     types::DeviceDetails,
 };
 use log::debug;
@@ -38,24 +39,18 @@ pub async fn run(args: CopyArgs, devices: &[DeviceDetails]) -> Result<(), Box<dy
         )
         .into()),
         (Some(device), None) => {
+            debug!("Copying from device {} to local", device.adb_id);
+            // TODO: Implement pull operation
             println!(
-                "Would pull from device {} path {} to local path {}",
-                device.adb_id,
+                "Pull operation not yet implemented: {} -> {}",
                 src_path.display(),
                 dst_path.display()
             );
-            debug!("Copying from device {} to local", device.adb_id);
             Ok(())
         }
         (None, Some(device)) => {
-            println!(
-                "Would push from local path {} to device {} path {}",
-                src_path.display(),
-                device.adb_id,
-                dst_path.display()
-            );
             debug!("Copying from local to device {}", device.adb_id);
-            Ok(())
+            adb::push(device, &src_path, &dst_path).await
         }
     }
 }
