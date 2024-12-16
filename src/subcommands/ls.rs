@@ -75,6 +75,13 @@ static HEADERS: LazyLock<HashMap<String, TableDetails>> = LazyLock::new(|| {
         },
     );
 
+    m.insert(
+        "adb_status".to_string(),
+        TableDetails {
+            display_name: "STATUS".to_string(),
+        },
+    );
+
     m
 });
 
@@ -88,6 +95,7 @@ pub fn display_devices(devices: &[DeviceDetails], output_type: OutputType) {
         "device_id_short".to_string(),
         "ro.product.product.brand".to_string(),
         "ro.product.model".to_string(),
+        "adb_status".to_string(),
         "adb_id".to_string(),
         "device_name".to_string(),
     ];
@@ -125,6 +133,13 @@ fn display_table(devices: &[DeviceDetails], headers: &[String]) {
                 "device_id_short" => device.device_id_short.clone(),
                 "ro.product.product.brand" => device.brand.clone().unwrap_or_default(),
                 "ro.product.model" => device.model.clone().unwrap_or_default(),
+                "adb_status" => {
+                    if device.additional_props.get("service.adb.root") == Some(&"1".to_string()) {
+                        "root".to_string()
+                    } else {
+                        "".to_string()
+                    }
+                },
                 "adb_id" => device.adb_id.clone(),
                 "device_name" => device.device_name.clone(),
                 _ => device

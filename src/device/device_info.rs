@@ -34,6 +34,7 @@ pub async fn get_devices(host: &str, port: &str) -> Vec<DeviceDetails> {
                     "ro.product.product.brand".to_string(),
                     "ro.product.model".to_string(),
                     "ro.boot.qemu.avd_name".to_string(),
+                    "service.adb.root".to_string(),
                 ];
 
                 let props =
@@ -54,7 +55,6 @@ pub async fn get_devices(host: &str, port: &str) -> Vec<DeviceDetails> {
 
                 let mut all_props = props;
                 all_props.extend(identifiers);
-
                 device.update_from_props(all_props);
                 devices.push(device);
             }
