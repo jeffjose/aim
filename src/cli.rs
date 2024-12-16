@@ -45,12 +45,8 @@ pub enum Commands {
     Command {
         /// The command to execute
         command: String,
-    },
-
-    /// Inspects a specific device
-    Inspect {
-        /// Device ID or name
-        id: String,
+        /// Optional device ID (can be partial)
+        device_id: Option<String>,
     },
 
     /// Gets a specific property from a device
@@ -86,4 +82,4 @@ impl Cli {
     pub fn command(&self) -> Commands {
         self.command.clone().unwrap_or(Commands::Ls)
     }
-} 
+}

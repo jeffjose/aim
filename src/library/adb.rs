@@ -127,7 +127,7 @@ pub fn format_responses(responses: &[String]) -> String {
     outgoing_responses
 }
 
-pub async fn run_command_async(
+pub async fn run_shell_command_async(
     host: &str,
     port: &str,
     command: &str,
@@ -154,6 +154,31 @@ pub async fn run_command_async(
     }
 }
 
+pub async fn run_command_async(
+    host: &str,
+    port: &str,
+    command: &str,
+    adb_id: Option<&str>,
+) -> Result<String, Box<dyn Error>> {
+    let host_command = match adb_id {
+        Some(id) => format!("host:tport:serial:{}", id),
+        None => "host:tport:any".to_string(),
+    };
+
+    let messages: Vec<&str> = vec![host_command.as_str(), command];
+
+    match send_and_receive(&host, &port, messages) {
+        Ok(responses) => {
+            debug!("{:?}", responses);
+            Ok(format_responses(&responses))
+        }
+        Err(e) => {
+            eprintln!("Error: {}", e);
+            Err(e)
+        }
+    }
+}
+
 pub async fn getprop_async(
     host: &str,
     port: &str,
@@ -161,7 +186,7 @@ pub async fn getprop_async(
     adb_id: Option<&str>,
 ) -> Result<String, Box<dyn Error>> {
     let command = format!("getprop {}", propname);
-    run_command_async(host, port, command.as_str(), adb_id).await
+    run_shell_command_async(host, port, command.as_str(), adb_id).await
 }
 
 pub async fn getprops_parallel(

@@ -107,8 +107,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Commands::Ls => {
             subcommands::ls::display_devices(&devices, cli.output);
         }
-        Commands::Command { command } => {
-            subcommands::command::run(&cli.host, &cli.port, &command);
+        Commands::Command { command, device_id } => {
+
+            let target_device = find_target_device(&devices, device_id.as_ref())?;
+
+            if let Err(e) = subcommands::command::run(&cli.host, &cli.port, &command, Some(target_device)).await  {
+
+                error!("{}", e);
+
+                std::process::exit(1);
+            }
         }
         Commands::Getprop {
             propname,
@@ -143,9 +151,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 error!("{}", e);
                 std::process::exit(1);
             }
-        }
-        Commands::Inspect { id } => {
-            subcommands::command::run(&cli.host, &cli.port, &id);
         }
         Commands::Rename { device_id, new_name } => {
             let target_device = find_target_device(&devices, Some(&device_id))?;
