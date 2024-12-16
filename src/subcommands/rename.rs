@@ -4,8 +4,17 @@ use log::debug;
 use std::fs;
 use std::path::PathBuf;
 
+#[cfg(test)]
+pub fn set_test_config_path(path: PathBuf) -> PathBuf {
+    path
+}
+
 pub async fn run(device: &DeviceDetails, new_name: &str) -> Result<(), Box<dyn std::error::Error>> {
+    #[cfg(test)]
+    let config_path = set_test_config_path(get_config_path()?);
+    #[cfg(not(test))]
     let config_path = get_config_path()?;
+    
     debug!("Config path: {:?}", config_path);
 
     // Read existing config
