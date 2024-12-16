@@ -38,15 +38,23 @@ pub async fn run(args: CopyArgs, devices: &[DeviceDetails]) -> Result<(), Box<dy
         )
         .into()),
         (Some(device), None) => {
+            println!(
+                "Would pull from device {} path {} to local path {}",
+                device.adb_id,
+                src_path.display(),
+                dst_path.display()
+            );
             debug!("Copying from device {} to local", device.adb_id);
-            // Pull from device
-            //adb::pull(device, &src_path, &dst_path).await?;
             Ok(())
         }
         (None, Some(device)) => {
+            println!(
+                "Would push from local path {} to device {} path {}",
+                src_path.display(),
+                device.adb_id,
+                dst_path.display()
+            );
             debug!("Copying from local to device {}", device.adb_id);
-            // Push to device
-            //adb::push(device, &src_path, &dst_path).await?;
             Ok(())
         }
     }
