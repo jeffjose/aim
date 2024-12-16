@@ -45,19 +45,17 @@ impl Config {
                 }
 
                 // Parse device sections
-                for (key, value) in toml.iter() {
-                    debug!("Processing section: {} = {:?}", key, value);
-                    if let Some(device_id) = key.strip_prefix("device.") {
+                if let Some(device_section) = toml.get("device").and_then(|v| v.as_table()) {
+                    debug!("Processing device section: {:?}", device_section);
+                    for (device_id, value) in device_section {
+                        debug!("Processing device: {} = {:?}", device_id, value);
                         if let Some(table) = value.as_table() {
-                            if let Some(name) = table.get("name").and_then(|v| v.as_str()) {
-                                debug!("Adding device config: {} -> {}", device_id, name);
-                                config.devices.insert(
-                                    device_id.to_string(),
-                                    DeviceConfig {
-                                        name: Some(name.to_string()),
-                                    },
-                                );
-                            }
+                            debug!("Processing device config: {:?}", table);
+                            let device_config = DeviceConfig {
+                                name: table.get("name").and_then(|v| v.as_str()).map(String::from),
+                            };
+                            debug!("Adding device config: {} -> {:?}", device_id, device_config);
+                            config.devices.insert(device_id.to_string(), device_config);
                         }
                     }
                 }
