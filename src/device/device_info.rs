@@ -5,6 +5,7 @@ use log::debug;
 use regex::Regex;
 use serde_json::{json, Value};
 
+use crate::config::Config;
 use crate::library::adb;
 use crate::library::hash::{petname, sha256, sha256_short};
 use crate::types::DeviceDetails;
@@ -19,6 +20,7 @@ static RE_TRUNCATED: LazyLock<Regex> = LazyLock::new(|| {
 });
 
 pub async fn get_devices(host: &str, port: &str) -> Vec<DeviceDetails> {
+    let config = Config::load();
     let messages = vec!["host:devices-l"];
     let device_info = match adb::send_and_receive(host, port, messages) {
         Ok(responses) => format_device_list(&responses),
@@ -47,11 +49,16 @@ pub async fn get_devices(host: &str, port: &str) -> Vec<DeviceDetails> {
 
                 let mut identifiers = HashMap::new();
                 identifiers.insert("device_id".to_string(), sha256(device_id_input));
+                let device_id = sha256(device_id_input);
                 identifiers.insert(
                     "device_id_short".to_string(),
                     sha256_short(device_id_input).to_string(),
                 );
-                identifiers.insert("device_name".to_string(), petname(device_id_input));
+
+                let device_name = config
+                    .get_device_name(&device_id)
+                    .unwrap_or_else(|| petname(device_id_input));
+                identifiers.insert("device_name".to_string(), device_name);
 
                 let mut all_props = props;
                 all_props.extend(identifiers);
