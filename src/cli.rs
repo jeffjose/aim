@@ -72,6 +72,14 @@ pub enum Commands {
         #[arg(last = true)]
         device_id: Option<String>,
     },
+
+    /// Rename a device
+    Rename {
+        /// Current device ID (can be partial)
+        device_id: String,
+        /// New name for the device
+        new_name: String,
+    },
 }
 
 impl Cli {

@@ -147,6 +147,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Commands::Inspect { id } => {
             subcommands::command::run(&cli.host, &cli.port, &id);
         }
+        Commands::Rename { device_id, new_name } => {
+            let target_device = find_target_device(&devices, Some(&device_id))?;
+            if let Err(e) = subcommands::rename::run(target_device, &new_name).await {
+                error!("Failed to rename device: {}", e);
+                std::process::exit(1);
+            }
+        }
     }
 
     Ok(())
