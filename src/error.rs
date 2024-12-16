@@ -9,6 +9,10 @@ pub enum AdbError {
         prefix: String,
         matches: Vec<String>,
     },
+    AmbiguousConfigMatch {
+        device_id: String,
+        matching_configs: Vec<String>,
+    },
     // Add other error variants as needed
 }
 
@@ -16,11 +20,28 @@ impl fmt::Display for AdbError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             AdbError::DeviceNotFound(id) => write!(f, "Device not found: {}", id),
-            AdbError::NoDevicesFound => write!(f, "No devices found. Is the device connected and authorized?"),
+            AdbError::NoDevicesFound => write!(
+                f,
+                "No devices found. Is the device connected and authorized?"
+            ),
             AdbError::AmbiguousDeviceMatch { prefix, matches } => {
-                writeln!(f, "Multiple devices match prefix '{}'. Matching devices:", prefix)?;
+                writeln!(
+                    f,
+                    "Multiple devices match prefix '{}'. Matching devices:",
+                    prefix
+                )?;
                 for device in matches {
                     writeln!(f, "  - {}", device)?;
+                }
+                write!(f, "Please provide a more specific device ID")
+            }
+            AdbError::AmbiguousConfigMatch {
+                device_id,
+                matching_configs,
+            } => {
+                write!(f, "Ambiguous device configuration for '{}':", device_id)?;
+                for config in matching_configs {
+                    writeln!(f, "  - {}", config)?;
                 }
                 write!(f, "Please provide a more specific device ID")
             }
@@ -28,4 +49,4 @@ impl fmt::Display for AdbError {
     }
 }
 
-impl Error for AdbError {} 
+impl Error for AdbError {}

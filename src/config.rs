@@ -3,6 +3,7 @@ use serde::Deserialize;
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
+use crate::error::AdbError;
 
 #[derive(Debug, Default, Deserialize)]
 pub struct Config {
@@ -75,6 +76,30 @@ impl Config {
     }
 
     pub fn get_device_name(&self, device_id: &str) -> Option<String> {
-        self.devices.get(device_id).and_then(|d| d.name.clone())
+        let matches: Vec<(&String, &DeviceConfig)> = self.devices
+            .iter()
+            .filter(|(id, _)| {
+                let id = id.to_lowercase();
+                let device_id = device_id.to_lowercase();
+                id.starts_with(&device_id) || device_id.starts_with(&id)
+            })
+            .collect();
+
+        match matches.len() {
+            0 => None,
+            1 => matches[0].1.name.clone(),
+            _ => {
+                let matching_sections: Vec<String> = matches
+                    .iter()
+                    .map(|(id, _)| format!("device.{}", id))
+                    .collect();
+                println!(
+                    "Warning: Multiple config sections match device '{}': {}",
+                    device_id,
+                    matching_sections.join(", ")
+                );
+                None
+            }
+        }
     }
 }

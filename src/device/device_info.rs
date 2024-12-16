@@ -6,6 +6,7 @@ use regex::Regex;
 use serde_json::{json, Value};
 
 use crate::config::Config;
+use crate::error::AdbError;
 use crate::library::adb;
 use crate::library::hash::{petname, sha256, sha256_short};
 use crate::types::DeviceDetails;
