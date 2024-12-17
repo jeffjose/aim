@@ -282,18 +282,45 @@ pub async fn push(
     };
     println!("Using host command: {}", host_command);
 
-    // Select device first and start sync service
-    println!("Sending initial commands...");
-    send("127.0.0.1", "5037", vec![&host_command, "sync:"])?;
+    // Create a new function to get the stream
+    let mut stream = {
+        let server_address = format!("{}:{}", "127.0.0.1", "5037");
+        let mut addresses = server_address.to_socket_addrs()?;
+        let address = addresses.next().ok_or("Could not resolve address")?;
+        let mut stream = TcpStream::connect(address)?;
+        stream.set_read_timeout(Some(std::time::Duration::from_secs(2)))?;
+        stream.set_write_timeout(Some(std::time::Duration::from_secs(2)))?;
+        
+        // Send initial commands using the same stream
+        let request = format!("{:04x}{}", host_command.len(), host_command);
+        stream.write_all(request.as_bytes())?;
+        
+        // Read OKAY response
+        let mut response = [0u8; 4];
+        stream.read_exact(&mut response)?;
+        if &response != b"OKAY" {
+            return Err("Failed to select device".into());
+        }
 
-    println!("Connecting to ADB...");
-    let mut stream = TcpStream::connect("127.0.0.1:5037")?;
+        // Send sync command
+        let sync_cmd = "sync:";
+        let request = format!("{:04x}{}", sync_cmd.len(), sync_cmd);
+        stream.write_all(request.as_bytes())?;
+        
+        // Read OKAY response
+        stream.read_exact(&mut response)?;
+        if &response != b"OKAY" {
+            return Err("Failed to start sync".into());
+        }
+
+        stream
+    };
 
     // Get file permissions and prepare path header
     let perms = get_permissions(src_path)?;
     let path_header = format!("{},{}", dst_path.to_string_lossy(), perms);
     println!("Path header: {}", path_header);
-
+    
     // Send SEND command with path and mode
     println!("Sending SEND command...");
     stream.write_all(b"SEND")?;
