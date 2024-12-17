@@ -562,6 +562,24 @@ pub async fn pull(
     debug!("Source path: {:?}", src_path);
     debug!("Destination path: {:?}", dst_path);
 
+    // Get the filename from src_path
+    let filename = src_path
+        .file_name()
+        .ok_or("Source path must have a filename")?
+        .to_string_lossy();
+
+    // Construct the full destination path
+    let full_dst_path = if dst_path.to_string_lossy().ends_with('/') || dst_path.is_dir() {
+        // Append filename if:
+        // - dst_path ends with '/' (it's explicitly a directory)
+        // - OR dst_path is an existing directory
+        dst_path.join(&*filename)
+    } else {
+        dst_path.clone()
+    };
+
+    debug!("Full destination path: {:?}", full_dst_path);
+
     let host_command = match adb_id {
         Some(id) => format!("host:tport:serial:{}", id),
         None => "host:tport:any".to_string(),
@@ -594,15 +612,15 @@ pub async fn pull(
     adb.write_all(path_bytes)?;
 
     // Create destination directory if it doesn't exist
-    if let Some(parent) = dst_path.parent() {
+    if let Some(parent) = full_dst_path.parent() {
         println!("Creating directory: {:?}", parent);
         debug!("Creating destination directory: {:?}", parent);
         fs::create_dir_all(parent)?;
     }
 
     // Open destination file
-    println!("[4/4] Creating file: {:?}", dst_path);
-    let mut file = File::create(dst_path)?;
+    println!("[4/4] Creating file: {:?}", full_dst_path);
+    let mut file = File::create(&full_dst_path)?;
     let mut total_bytes = 0;
 
     // Setup progress bar (we don't know total size yet)
