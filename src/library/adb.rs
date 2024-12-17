@@ -492,7 +492,12 @@ pub fn start_adb_server(port: &str) -> Result<(), Box<dyn Error>> {
 pub fn check_server_status(host: &str, port: &str) -> bool {
     debug!("Checking if ADB server is running...");
 
-    if let Ok(mut stream) = TcpStream::connect(format!("{}:{}", host, port)) {
+    // Try to connect directly without using AdbStream to avoid recursion
+    if let Ok(mut stream) = TcpStream::connect(format!(
+        "{}:{}",
+        if host == "localhost" { "127.0.0.1" } else { host },
+        port
+    )) {
         debug!("Connected to ADB port, checking server response...");
 
         // Format the version command according to ADB protocol
