@@ -10,6 +10,8 @@ pub struct CopyArgs {
 pub async fn run(
     args: CopyArgs,
     devices: &[DeviceDetails],
+    host: &str,
+    port: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let (src_device_id, src_path) = parse_device_path(&args.src)?;
     let (dst_device_id, dst_path) = parse_device_path(&args.dst)?;
@@ -51,7 +53,13 @@ pub async fn run(
 
             let adb_id = Some(device.adb_id.as_str());
 
-            adb::push(adb_id, &src_path, &dst_path).await
+            adb::push(
+                host,
+                port,
+                adb_id,
+                &src_path,
+                &dst_path,
+            ).await
         }
     }
 }

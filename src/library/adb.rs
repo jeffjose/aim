@@ -327,6 +327,8 @@ fn get_permissions(path: &PathBuf) -> std::io::Result<u32> {
 }
 
 pub async fn push(
+    host: &str,
+    port: &str,
     adb_id: Option<&str>,
     src_path: &PathBuf,
     dst_path: &PathBuf,
@@ -341,7 +343,7 @@ pub async fn push(
     };
     debug!("Using host command: {}", host_command);
 
-    let mut adb = AdbStream::new("127.0.0.1", "5037")?;
+    let mut adb = AdbStream::new(host, port)?;
 
     // Send device selection command
     debug!("Sending host_command: {}", host_command);

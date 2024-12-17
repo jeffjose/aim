@@ -129,6 +129,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     dst: dst.into(),
                 },
                 &devices,
+                &cli.host,
+                &cli.port,
             )
             .await?
         }
