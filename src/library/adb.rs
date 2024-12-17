@@ -21,6 +21,10 @@ pub fn send(
     port: &str,
     messages: Vec<&str>,
 ) -> std::result::Result<Vec<String>, Box<dyn std::error::Error>> {
+    println!("=== Starting send operation ===");
+    println!("Host: {}, Port: {}", host, port);
+    println!("Messages to send: {:?}", messages);
+
     let server_address = format!(
         "{}:{}",
         if host == "localhost" {
@@ -30,50 +34,69 @@ pub fn send(
         },
         port
     );
+    println!("Connecting to address: {}", server_address);
 
     let mut addresses = server_address.to_socket_addrs()?;
-
     let address = addresses.next().ok_or("Could not resolve address")?;
+    println!("Resolved address: {:?}", address);
 
+    println!("Establishing connection...");
     let mut stream = TcpStream::connect(address)?;
+    println!("Connection established");
+
     stream.set_read_timeout(Some(std::time::Duration::from_secs(2)))?;
     stream.set_write_timeout(Some(std::time::Duration::from_secs(2)))?;
+    println!("Timeouts set");
 
     let mut responses = Vec::new();
 
     for (i, message) in messages.iter().enumerate() {
+        println!("\n--- Sending message {} of {} ---", i + 1, messages.len());
         info!("   [SEND-{}] {}", i, message);
 
         let request = format!("{:04x}{}", &message.len(), &message);
+        println!("Formatted request: {:?}", request);
 
         stream.write_all(request.as_bytes())?;
+        println!("Message written to stream");
 
         loop {
             let mut buffer = [0; 1024];
+            println!("Waiting for response...");
             match stream.read(&mut buffer) {
                 Ok(0) => {
-                    //println!("Server closed the connection.");
+                    println!("Server closed the connection");
                     break;
                 }
                 Ok(bytes_read) => {
                     let response = str::from_utf8(&buffer[..bytes_read])?;
+                    println!("Raw response: {:?}", response);
                     info!("[RECEIVE-{}] {:?}", i, response);
                     if response != "OKAY" {
+                        println!("Got non-OKAY response, adding to responses");
                         responses.push(clean_str(response));
                         break;
                     }
-                    //println!("Received: {}", response);
+                    println!("Got OKAY response");
                 }
-                Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => continue,
+                Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                    println!("Would block, continuing...");
+                    continue;
+                }
                 Err(e) => {
+                    println!("Error reading from socket: {}", e);
                     eprintln!("Error reading from socket: {}", e);
-                    return Err(e.into()); // Return the error
+                    return Err(e.into());
                 }
             }
         }
-
-        info!("[RECEIVE]: {:?}", responses.retain(|s| !s.is_empty()));
     }
+
+    println!("Cleaning up responses...");
+    responses.retain(|s| !s.is_empty());
+    println!("Final responses: {:?}", responses);
+    println!("=== Send operation completed ===");
+
     Ok(responses)
 }
 
