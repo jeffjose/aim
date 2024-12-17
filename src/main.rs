@@ -54,90 +54,96 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .filter_level(cli.verbose.log_level_filter())
         .init();
 
-    // Get device list before running any commands
-    let devices = device_info::get_devices(&cli.host, &cli.port).await;
-    debug!("Found {} devices", devices.len());
-
-    // Check if any devices were found (except for the 'ls' command which should work regardless)
-    if devices.is_empty() && !matches!(cli.command(), Commands::Ls) {
-        return Err(error::AdbError::NoDevicesFound.into());
-    }
-
     match cli.command() {
-        Commands::Ls => {
-            subcommands::ls::run(&devices, cli.output).await;
-        }
-        Commands::Command { command, device_id } => {
-            let target_device = device_info::find_target_device(&devices, device_id.as_ref())?;
-
-            if let Err(e) =
-                subcommands::command::run(&cli.host, &cli.port, &command, Some(target_device)).await
-            {
-                error!("{}", e);
-
-                std::process::exit(1);
-            }
-        }
-        Commands::Getprop {
-            propname,
-            device_id,
-            output,
-        } => {
-            let target_device = device_info::find_target_device(&devices, device_id.as_ref())?;
-
-            if let Err(e) = subcommands::getprop::run(
-                &cli.host,
-                &cli.port,
-                &propname,
-                Some(target_device),
-                output,
-            )
-            .await
-            {
-                error!("{}", e);
-                std::process::exit(1);
-            }
-        }
-        Commands::Getprops {
-            propnames,
-            device_id,
-        } => {
-            let target_device = device_info::find_target_device(&devices, device_id.as_ref())?;
-
-            if let Err(e) =
-                subcommands::getprops::run(&cli.host, &cli.port, &propnames, Some(target_device))
-                    .await
-            {
-                error!("{}", e);
-                std::process::exit(1);
-            }
-        }
-        Commands::Rename {
-            device_id,
-            new_name,
-        } => {
-            let target_device = device_info::find_target_device(&devices, Some(&device_id))?;
-            if let Err(e) = subcommands::rename::run(target_device, &new_name).await {
-                error!("Failed to rename device: {}", e);
-                std::process::exit(1);
-            }
-        }
-        Commands::Copy { src, dst } => {
-            subcommands::copy::run(
-                subcommands::copy::CopyArgs {
-                    src: src.into(),
-                    dst: dst.into(),
-                },
-                &devices,
-                &cli.host,
-                &cli.port,
-            )
-            .await?
-        }
         Commands::Server { operation } => {
             if let Err(e) = subcommands::server::run(&cli.host, &cli.port, &operation).await {
                 error!("Server operation failed: {}", e);
                 std::process::exit(1);
+            }
+            return Ok(());
+        }
+        _ => {
+            // Get device list before running any commands
+            let devices = device_info::get_devices(&cli.host, &cli.port).await;
+            debug!("Found {} devices", devices.len());
+
+            // Check if any devices were found (except for the 'ls' command which should work regardless)
+            if devices.is_empty() && !matches!(cli.command(), Commands::Ls) {
+                return Err(error::AdbError::NoDevicesFound.into());
+            }
+
+            match cli.command() {
+                Commands::Ls => {
+                    subcommands::ls::run(&devices, cli.output).await;
+                }
+                Commands::Command { command, device_id } => {
+                    let target_device = device_info::find_target_device(&devices, device_id.as_ref())?;
+
+                    if let Err(e) =
+                        subcommands::command::run(&cli.host, &cli.port, &command, Some(target_device)).await
+                    {
+                        error!("{}", e);
+
+                        std::process::exit(1);
+                    }
+                }
+                Commands::Getprop {
+                    propname,
+                    device_id,
+                    output,
+                } => {
+                    let target_device = device_info::find_target_device(&devices, device_id.as_ref())?;
+
+                    if let Err(e) = subcommands::getprop::run(
+                        &cli.host,
+                        &cli.port,
+                        &propname,
+                        Some(target_device),
+                        output,
+                    )
+                    .await
+                    {
+                        error!("{}", e);
+                        std::process::exit(1);
+                    }
+                }
+                Commands::Getprops {
+                    propnames,
+                    device_id,
+                } => {
+                    let target_device = device_info::find_target_device(&devices, device_id.as_ref())?;
+
+                    if let Err(e) =
+                        subcommands::getprops::run(&cli.host, &cli.port, &propnames, Some(target_device))
+                            .await
+                    {
+                        error!("{}", e);
+                        std::process::exit(1);
+                    }
+                }
+                Commands::Rename {
+                    device_id,
+                    new_name,
+                } => {
+                    let target_device = device_info::find_target_device(&devices, Some(&device_id))?;
+                    if let Err(e) = subcommands::rename::run(target_device, &new_name).await {
+                        error!("Failed to rename device: {}", e);
+                        std::process::exit(1);
+                    }
+                }
+                Commands::Copy { src, dst } => {
+                    subcommands::copy::run(
+                        subcommands::copy::CopyArgs {
+                            src: src.into(),
+                            dst: dst.into(),
+                        },
+                        &devices,
+                        &cli.host,
+                        &cli.port,
+                    )
+                    .await?
+                }
+                _ => unreachable!(),
             }
         }
     }
