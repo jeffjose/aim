@@ -24,7 +24,7 @@ struct AdbStream {
 
 impl AdbStream {
     fn new(host: &str, port: &str) -> Result<Self, Box<dyn Error>> {
-        println!("=== Creating new ADB stream ===");
+        debug!("=== Creating new ADB stream ===");
 
         // Check if server is running, if not start it
         if !check_server_running(host, port) {
@@ -45,51 +45,51 @@ impl AdbStream {
             },
             port
         );
-        println!("Connecting to address: {}", server_address);
+        debug!("Connecting to address: {}", server_address);
 
         let mut addresses = server_address.to_socket_addrs()?;
         let address = addresses.next().ok_or("Could not resolve address")?;
-        println!("Resolved address: {:?}", address);
+        debug!("Resolved address: {:?}", address);
 
-        println!("Establishing connection...");
+        debug!("Establishing connection...");
         let mut stream = TcpStream::connect(address)?;
-        println!("Connection established");
+        debug!("Connection established");
 
         stream.set_read_timeout(Some(std::time::Duration::from_secs(2)))?;
         stream.set_write_timeout(Some(std::time::Duration::from_secs(2)))?;
-        println!("Timeouts set");
+        debug!("Timeouts set");
 
         Ok(Self { stream })
     }
 
     fn send_command(&mut self, command: &str) -> Result<(), Box<dyn Error>> {
-        println!("Sending command: {}", command);
+        debug!("Sending command: {}", command);
         let request = format!("{:04x}{}", command.len(), command);
-        println!("Formatted request: {:?}", request);
+        debug!("Formatted request: {:?}", request);
         self.stream.write_all(request.as_bytes())?;
         Ok(())
     }
 
     fn read_response(&mut self) -> Result<String, Box<dyn Error>> {
         let mut buffer = [0; 1024];
-        println!("Waiting for response...");
+        debug!("Waiting for response...");
 
         match self.stream.read(&mut buffer) {
             Ok(0) => {
-                println!("Server closed the connection");
+                debug!("Server closed the connection");
                 Ok(String::new())
             }
             Ok(bytes_read) => {
                 let response = str::from_utf8(&buffer[..bytes_read])?.to_string();
-                println!("Raw response: {:?}", response);
+                debug!("Raw response: {:?}", response);
                 Ok(response)
             }
             Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {
-                println!("Would block");
+                debug!("Would block");
                 Ok(String::new())
             }
             Err(e) => {
-                println!("Error reading from socket: {}", e);
+                debug!("Error reading from socket: {}", e);
                 Err(e.into())
             }
         }
@@ -111,16 +111,16 @@ impl AdbStream {
 }
 
 pub fn send(host: &str, port: &str, messages: Vec<&str>) -> Result<Vec<String>, Box<dyn Error>> {
-    println!("=== Starting send operation ===");
-    println!("Messages to send: {:?}", messages);
+    debug!("=== Starting send operation ===");
+    debug!("Messages to send: {:?}", messages);
 
     let mut adb = AdbStream::new(host, port)?;
     let mut responses = Vec::new();
 
     for (i, message) in messages.iter().enumerate() {
-        println!("\n--- Sending message {} of {} ---", i + 1, messages.len());
-        println!("Message: {:?}", message);
-        println!("--------------------------------");
+        debug!("\n--- Sending message {} of {} ---", i + 1, messages.len());
+        debug!("Message: {:?}", message);
+        debug!("--------------------------------");
         adb.send_command(message)?;
 
         loop {
@@ -137,18 +137,18 @@ pub fn send(host: &str, port: &str, messages: Vec<&str>) -> Result<Vec<String>, 
                 if response.is_empty() {
                     break;
                 }
-                println!("!! Got more response: {:?}", response);
+                debug!("!! Got more response: {:?}", response);
                 responses.push(clean_str(&response));
             }
-            println!("Got response: {:?}", response);
+            debug!("Got response: {:?}", response);
             break;
         }
     }
 
-    println!("Cleaning up responses...");
+    debug!("Cleaning up responses...");
     responses.retain(|s| !s.is_empty());
-    println!("Final responses: {:?}", responses);
-    println!("=== Send operation completed ===");
+    debug!("Final responses: {:?}", responses);
+    debug!("=== Send operation completed ===");
 
     Ok(responses)
 }
@@ -324,15 +324,15 @@ pub async fn push(
     src_path: &PathBuf,
     dst_path: &PathBuf,
 ) -> Result<(), Box<dyn Error>> {
-    println!("Starting push operation:");
-    println!("Source path: {:?}", src_path);
-    println!("Destination path: {:?}", dst_path);
+    debug!("Starting push operation:");
+    debug!("Source path: {:?}", src_path);
+    debug!("Destination path: {:?}", dst_path);
 
     let host_command = match adb_id {
         Some(id) => format!("host:tport:serial:{}", id),
         None => "host:tport:any".to_string(),
     };
-    println!("Using host command: {}", host_command);
+    debug!("Using host command: {}", host_command);
 
     let mut adb = AdbStream::new("127.0.0.1", "5037")?;
 
@@ -347,16 +347,16 @@ pub async fn push(
     // Get file permissions and prepare path header
     let perms = get_permissions(src_path)?;
     let path_header = format!("{},{}", dst_path.to_string_lossy(), perms);
-    println!("Path header: {}", path_header);
+    debug!("Path header: {}", path_header);
 
     // Send SEND command with path and mode
-    println!("Sending SEND command...");
+    debug!("Sending SEND command...");
     adb.write_all(b"SEND")?;
     adb.write_all(&(path_header.len() as u32).to_le_bytes())?;
     adb.write_all(path_header.as_bytes())?;
 
     // Read and send file data in chunks
-    println!("Starting file transfer...");
+    debug!("Starting file transfer...");
     let mut file = File::open(src_path)?;
     let mut buffer = [0u8; 64 * 1024]; // 64KB chunks
     let mut total_bytes = 0;
@@ -371,11 +371,11 @@ pub async fn push(
         adb.write_all(b"DATA")?;
         adb.write_all(&(bytes_read as u32).to_le_bytes())?;
         adb.write_all(&buffer[..bytes_read])?;
-        println!("Sent {} bytes (total: {} bytes)", bytes_read, total_bytes);
+        debug!("Sent {} bytes (total: {} bytes)", bytes_read, total_bytes);
     }
 
     // Send DONE command with timestamp
-    println!("Sending DONE command...");
+    debug!("Sending DONE command...");
     adb.write_all(b"DONE")?;
     let timestamp = fs::metadata(src_path)?
         .modified()?
@@ -384,15 +384,15 @@ pub async fn push(
     adb.write_all(&timestamp.to_le_bytes())?;
 
     // Check final response
-    println!("Waiting for final response...");
+    debug!("Waiting for final response...");
     adb.read_okay()?;
 
-    println!("Push operation completed successfully!");
+    debug!("Push operation completed successfully!");
     Ok(())
 }
 
 fn start_adb_server() -> Result<(), Box<dyn Error>> {
-    println!("Checking if ADB server needs to be started...");
+    debug!("Checking if ADB server needs to be started...");
 
     // Create the command with proper detached settings
     let mut command = Command::new("adb");
@@ -409,26 +409,26 @@ fn start_adb_server() -> Result<(), Box<dyn Error>> {
         command.process_group(0);
     }
 
-    println!("Starting ADB server in detached mode...");
+    debug!("Starting ADB server in detached mode...");
     match command.spawn() {
         Ok(_) => {
-            println!("ADB server process spawned successfully");
+            debug!("ADB server process spawned successfully");
             // Give the server a moment to initialize
             std::thread::sleep(std::time::Duration::from_secs(1));
             Ok(())
         }
         Err(e) => {
-            println!("Failed to start ADB server: {}", e);
+            debug!("Failed to start ADB server: {}", e);
             Err(e.into())
         }
     }
 }
 
 fn check_server_running(host: &str, port: &str) -> bool {
-    println!("Checking if ADB server is running...");
+    debug!("Checking if ADB server is running...");
 
     if let Ok(mut stream) = TcpStream::connect(format!("{}:{}", host, port)) {
-        println!("Connected to ADB port, checking server response...");
+        debug!("Connected to ADB port, checking server response...");
 
         // Format the version command according to ADB protocol
         let request = "000chost:version";
@@ -436,12 +436,12 @@ fn check_server_running(host: &str, port: &str) -> bool {
             let mut response = [0u8; 4];
             if let Ok(_) = stream.read_exact(&mut response) {
                 let is_running = &response == b"OKAY";
-                println!("ADB server status: {}", if is_running { "running" } else { "not running" });
+                debug!("ADB server status: {}", if is_running { "running" } else { "not running" });
                 return is_running;
             }
         }
     }
 
-    println!("ADB server is not running");
+    debug!("ADB server is not running");
     false
 }
