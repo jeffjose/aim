@@ -64,9 +64,9 @@ impl AdbStream {
     }
 
     fn send_command(&mut self, command: &str) -> Result<(), Box<dyn Error>> {
-        println!("Sending command: {}", command);
+        debug!("Sending command: {}", command);
         let request = format!("{:04x}{}", command.len(), command);
-        println!("Formatted request: {:?}", request);
+        debug!("Formatted request: {:?}", request);
         self.stream.write_all(request.as_bytes())?;
         Ok(())
     }
@@ -99,7 +99,7 @@ impl AdbStream {
     fn read_okay(&mut self) -> Result<(), Box<dyn Error>> {
         let mut response = [0u8; 4];
         self.stream.read_exact(&mut response)?;
-        println!("Response in read_okay: {:?}", response);
+        debug!("Response in read_okay: {:?}", response);
         // Check if the response is "OKAY" or [8, 0, 0, 0]
         if &response != b"OKAY"
             && response != [8, 0, 0, 0]
@@ -321,7 +321,7 @@ pub async fn getprops_parallel(
 }
 
 fn get_permissions(path: &PathBuf) -> std::io::Result<u32> {
-    println!("get_permissions: {:?}", path);
+    debug!("get_permissions: {:?}", path);
     let metadata = fs::metadata(path)?;
     Ok(metadata.permissions().mode())
 }
@@ -344,12 +344,12 @@ pub async fn push(
     let mut adb = AdbStream::new("127.0.0.1", "5037")?;
 
     // Send device selection command
-    println!("Sending host_command: {}", host_command);
+    debug!("Sending host_command: {}", host_command);
     adb.send_command(&host_command)?;
     adb.read_okay()?;
 
     // Send sync command
-    println!("Sending sync: command");
+    debug!("Sending sync: command");
     adb.send_command("sync:")?;
 
     // jeffjose | Dec 17, 2024
@@ -380,16 +380,16 @@ pub async fn push(
     // Get file permissions and prepare path header
     let perms = get_permissions(src_path)?;
     let path_header = format!("{},{}", full_dst_path.to_string_lossy(), perms);
-    println!("Path header: {}", path_header);
+    debug!("Path header: {}", path_header);
 
     // Send SEND command with path and mode
-    println!("Sending SEND command...");
+    debug!("Sending SEND command...");
     adb.write_all(b"SEND")?;
     adb.write_all(&(path_header.len() as u32).to_le_bytes())?;
     adb.write_all(path_header.as_bytes())?;
 
     // Read and send file data in chunks
-    println!("Starting file transfer...");
+    debug!("Starting file transfer...");
     let mut file = File::open(src_path)?;
     let file_size = fs::metadata(src_path)?.len();
     let mut buffer = [0u8; 1024 * 1024]; // 1MB chunks
@@ -438,7 +438,7 @@ pub async fn push(
     ));
 
     // Send DONE command with timestamp
-    println!("Sending DONE command...");
+    debug!("Sending DONE command...");
     adb.write_all(b"DONE")?;
     let timestamp = fs::metadata(src_path)?
         .modified()?
@@ -447,10 +447,10 @@ pub async fn push(
     adb.write_all(&timestamp.to_le_bytes())?;
 
     // Check final response
-    println!("Waiting for final response...");
+    debug!("Waiting for final response...");
     //adb.read_okay()?;
 
-    println!("Push operation completed successfully!");
+    debug!("Push operation completed successfully!");
     Ok(())
 }
 
