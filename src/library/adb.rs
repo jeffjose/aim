@@ -248,53 +248,72 @@ pub async fn push(
     src_path: &PathBuf,
     dst_path: &PathBuf,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    println!("Starting push operation:");
+    println!("Source path: {:?}", src_path);
+    println!("Destination path: {:?}", dst_path);
+
     // First select the device
     let host_command = match adb_id {
         Some(id) => format!("host:tport:serial:{}", id),
         None => "host:tport:any".to_string(),
     };
+    println!("Using host command: {}", host_command);
 
-    // Select device first
-    // Then start sync service
+    // Select device first and start sync service
+    println!("Sending initial commands...");
     send("127.0.0.1", "5037", vec![&host_command, "sync:"])?;
 
+    println!("Connecting to ADB...");
     let mut stream = TcpStream::connect("127.0.0.1:5037")?;
-    
+
     // Get file permissions and prepare path header
     let perms = get_permissions(src_path)?;
     let path_header = format!("{},{}", dst_path.to_string_lossy(), perms);
-    
+    println!("Path header: {}", path_header);
+
     // Send SEND command with path and mode
+    println!("Sending SEND command...");
     stream.write_all(b"SEND")?;
     stream.write_all(&(path_header.len() as u32).to_le_bytes())?;
     stream.write_all(path_header.as_bytes())?;
 
     // Read and send file data in chunks
+    println!("Starting file transfer...");
     let mut file = File::open(src_path)?;
     let mut buffer = [0u8; 64 * 1024]; // 64KB chunks
+    let mut total_bytes = 0;
 
     loop {
         let bytes_read = file.read(&mut buffer)?;
         if bytes_read == 0 {
             break;
         }
+        total_bytes += bytes_read;
 
         stream.write_all(b"DATA")?;
         stream.write_all(&(bytes_read as u32).to_le_bytes())?;
         stream.write_all(&buffer[..bytes_read])?;
+        println!("Sent {} bytes (total: {} bytes)", bytes_read, total_bytes);
     }
 
     // Send DONE command with timestamp
+    println!("Sending DONE command...");
     stream.write_all(b"DONE")?;
-    let timestamp = fs::metadata(src_path)?.modified()?.duration_since(std::time::UNIX_EPOCH)?.as_secs() as u32;
+    let timestamp = fs::metadata(src_path)?
+        .modified()?
+        .duration_since(std::time::UNIX_EPOCH)?
+        .as_secs() as u32;
     stream.write_all(&timestamp.to_le_bytes())?;
 
     // Check final response
+    println!("Waiting for final response...");
     let mut response = [0u8; 4];
     stream.read_exact(&mut response)?;
     if &response != b"OKAY" {
+        println!("Error: Final sync failed");
         return Err("Final sync failed".into());
     }
 
+    println!("Push operation completed successfully!");
     Ok(())
 }
