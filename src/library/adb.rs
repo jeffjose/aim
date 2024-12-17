@@ -358,9 +358,27 @@ pub async fn push(
     adb.read_response()?;
     adb.read_okay()?;
 
+    // Get the filename from src_path
+    let filename = src_path
+        .file_name()
+        .ok_or("Source path must have a filename")?
+        .to_string_lossy();
+
+    // Construct the full destination path
+    let full_dst_path = if dst_path.to_string_lossy().ends_with('/') || fs::metadata(src_path)?.is_file() && !dst_path.file_name().is_some() {
+        // Append filename if:
+        // - dst_path ends with '/' (it's explicitly a directory)
+        // - OR src_path is a file AND dst_path doesn't have a filename component
+        dst_path.join(&*filename)
+    } else {
+        dst_path.clone()
+    };
+
+    debug!("Full destination path: {:?}", full_dst_path);
+
     // Get file permissions and prepare path header
     let perms = get_permissions(src_path)?;
-    let path_header = format!("{},{}", dst_path.to_string_lossy(), perms);
+    let path_header = format!("{},{}", full_dst_path.to_string_lossy(), perms);
     println!("Path header: {}", path_header);
 
     // Send SEND command with path and mode
