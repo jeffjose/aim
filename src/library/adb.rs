@@ -60,7 +60,7 @@ impl AdbStream {
     fn read_response(&mut self) -> Result<String, Box<dyn Error>> {
         let mut buffer = [0; 1024];
         println!("Waiting for response...");
-        
+
         match self.stream.read(&mut buffer) {
             Ok(0) => {
                 println!("Server closed the connection");
@@ -97,11 +97,7 @@ impl AdbStream {
     }
 }
 
-pub fn send(
-    host: &str,
-    port: &str,
-    messages: Vec<&str>,
-) -> Result<Vec<String>, Box<dyn Error>> {
+pub fn send(host: &str, port: &str, messages: Vec<&str>) -> Result<Vec<String>, Box<dyn Error>> {
     println!("=== Starting send operation ===");
     println!("Messages to send: {:?}", messages);
 
@@ -110,6 +106,8 @@ pub fn send(
 
     for (i, message) in messages.iter().enumerate() {
         println!("\n--- Sending message {} of {} ---", i + 1, messages.len());
+        println!("Message: {:?}", message);
+        println!("--------------------------------");
         adb.send_command(message)?;
 
         loop {
@@ -118,6 +116,15 @@ pub fn send(
                 continue;
             }
             if response != "OKAY" {
+                responses.push(clean_str(&response));
+            }
+            if response == "OKAY" {
+                // lets check if there's more response
+                let response = adb.read_response()?;
+                if response.is_empty() {
+                    break;
+                }
+                println!("!! Got more response: {:?}", response);
                 responses.push(clean_str(&response));
             }
             println!("Got response: {:?}", response);
@@ -315,7 +322,7 @@ pub async fn push(
     println!("Using host command: {}", host_command);
 
     let mut adb = AdbStream::new("127.0.0.1", "5037")?;
-    
+
     // Send device selection command
     adb.send_command(&host_command)?;
     adb.read_okay()?;
@@ -328,7 +335,7 @@ pub async fn push(
     let perms = get_permissions(src_path)?;
     let path_header = format!("{},{}", dst_path.to_string_lossy(), perms);
     println!("Path header: {}", path_header);
-    
+
     // Send SEND command with path and mode
     println!("Sending SEND command...");
     adb.write_all(b"SEND")?;
