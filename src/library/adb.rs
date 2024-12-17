@@ -10,6 +10,8 @@ use std::path::PathBuf;
 use std::str;
 use std::sync::Arc;
 use tokio::task::JoinHandle;
+use std::process::Command;
+use std::thread;
 
 use crate::types::DeviceDetails;
 
@@ -23,6 +25,17 @@ struct AdbStream {
 impl AdbStream {
     fn new(host: &str, port: &str) -> Result<Self, Box<dyn Error>> {
         println!("=== Creating new ADB stream ===");
+
+        // Check if server is running, if not start it
+        if !check_server_running(host, port) {
+            start_adb_server()?;
+
+            // Verify server started successfully
+            if !check_server_running(host, port) {
+                return Err("Failed to start ADB server".into());
+            }
+        }
+
         let server_address = format!(
             "{}:{}",
             if host == "localhost" {
@@ -376,4 +389,59 @@ pub async fn push(
 
     println!("Push operation completed successfully!");
     Ok(())
+}
+
+fn start_adb_server() -> Result<(), Box<dyn Error>> {
+    println!("Checking if ADB server needs to be started...");
+
+    // Create the command with proper detached settings
+    let mut command = Command::new("adb");
+    command
+        .args(["-L", "tcp:5037", "server", "--reply-fd", "4"])
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null());
+
+    // On Unix systems, set process group ID to detach completely
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::CommandExt;
+        command.process_group(0);
+    }
+
+    println!("Starting ADB server in detached mode...");
+    match command.spawn() {
+        Ok(_) => {
+            println!("ADB server process spawned successfully");
+            // Give the server a moment to initialize
+            std::thread::sleep(std::time::Duration::from_secs(1));
+            Ok(())
+        }
+        Err(e) => {
+            println!("Failed to start ADB server: {}", e);
+            Err(e.into())
+        }
+    }
+}
+
+fn check_server_running(host: &str, port: &str) -> bool {
+    println!("Checking if ADB server is running...");
+
+    if let Ok(mut stream) = TcpStream::connect(format!("{}:{}", host, port)) {
+        println!("Connected to ADB port, checking server response...");
+
+        // Format the version command according to ADB protocol
+        let request = "000chost:version";
+        if let Ok(_) = stream.write_all(request.as_bytes()) {
+            let mut response = [0u8; 4];
+            if let Ok(_) = stream.read_exact(&mut response) {
+                let is_running = &response == b"OKAY";
+                println!("ADB server status: {}", if is_running { "running" } else { "not running" });
+                return is_running;
+            }
+        }
+    }
+
+    println!("ADB server is not running");
+    false
 }
