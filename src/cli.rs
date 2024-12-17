@@ -97,6 +97,7 @@ pub enum Commands {
 pub enum ServerOperation {
     Start,
     Stop,
+    Restart,
 }
 
 impl Cli {

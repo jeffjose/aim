@@ -511,3 +511,21 @@ fn check_server_running(host: &str, port: &str) -> bool {
     debug!("ADB server is not running");
     false
 }
+
+pub fn kill_server(host: &str, port: &str) -> Result<(), Box<dyn Error>> {
+    debug!("Sending kill command to ADB server...");
+    match send(host, port, vec!["host:kill"]) {
+        Ok(_) => {
+            debug!("Kill command sent successfully");
+            Ok(())
+        }
+        Err(e) => {
+            if e.to_string().contains("Connection refused") {
+                debug!("Server is already stopped");
+                Ok(())
+            } else {
+                Err(e)
+            }
+        }
+    }
+}
