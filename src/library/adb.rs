@@ -1,6 +1,7 @@
 use log::*;
 use std::collections::HashMap;
 use std::error::Error;
+use std::fs;
 use std::fs::File;
 use std::io::{Read, Write};
 use std::net::{TcpStream, ToSocketAddrs};
@@ -235,17 +236,52 @@ pub async fn getprops_parallel(
     results
 }
 
+fn get_permissions(path: &PathBuf) -> std::io::Result<u32> {
+    let metadata = fs::metadata(path)?;
+    Ok(metadata.permissions().mode())
+}
+
+fn unix_perms_to_custom_format(perms: u32) -> u32 {
+    let mut result = 0;
+    let octal_perms = format!("{:o}", perms);
+
+    for (i, digit) in octal_perms.chars().rev().enumerate() {
+        let digit_value = digit.to_digit(10).unwrap();
+        result += digit_value * 10u32.pow(i as u32);
+    }
+
+    result
+}
+
+fn get_custom_permissions(path: &PathBuf) -> std::io::Result<u32> {
+    let perms = get_permissions(path)?;
+    Ok(unix_perms_to_custom_format(perms))
+}
+
 pub async fn push(
-    device: &DeviceDetails,
+    adb_id: Option<&str>,
     src_path: &PathBuf,
     dst_path: &PathBuf,
 ) -> Result<(), Box<dyn std::error::Error>> {
     // First select the device
-    let messages = vec![
-        format!("host:transport:{}", device.adb_id),
-        format!("sync:"),
-        format!("SEND,{},{}", 0o666, dst_path.to_string_lossy()),
-    ];
+
+    let host_command = match adb_id {
+        Some(id) => {
+            format!("host:tport:serial:{}", id)
+        }
+        None => "host:tport:any".to_string(),
+    };
+
+    let path_header = match get_custom_permissions(dst_path) {
+        Ok(perms) => format!("{},{},", dst_path.to_string_lossy(), perms),
+        Err(e) => {
+            // Handle the error appropriately, e.g., log it or return an error
+            eprintln!("Error getting permissions: {}", e);
+            return Err(Box::new(e)); // Or handle the error differently
+        }
+    };
+
+    let messages = [format!("sync:")];
 
     // Send initial commands
     send(
@@ -260,13 +296,14 @@ pub async fn push(
 
     let mut stream = TcpStream::connect("127.0.0.1:5037")?;
 
+    let _ = stream.write_all(format!("SEND{}{}", path_header.len(), path_header).as_bytes());
+
     loop {
         let bytes_read = file.read(&mut buffer)?;
         if bytes_read == 0 {
             break;
         }
 
-        stream.write_all(SYNC_DATA)?;
         stream.write_all(&(bytes_read as u32).to_le_bytes())?;
         stream.write_all(&buffer[..bytes_read])?;
     }

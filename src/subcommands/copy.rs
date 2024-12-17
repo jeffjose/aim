@@ -1,9 +1,4 @@
-use crate::{
-    device::device_info,
-    error::AdbError,
-    library::adb,
-    types::DeviceDetails,
-};
+use crate::{device::device_info, error::AdbError, library::adb, types::DeviceDetails};
 use log::debug;
 use std::path::PathBuf;
 
@@ -12,7 +7,10 @@ pub struct CopyArgs {
     pub dst: PathBuf,
 }
 
-pub async fn run(args: CopyArgs, devices: &[DeviceDetails]) -> Result<(), Box<dyn std::error::Error>> {
+pub async fn run(
+    args: CopyArgs,
+    devices: &[DeviceDetails],
+) -> Result<(), Box<dyn std::error::Error>> {
     let (src_device_id, src_path) = parse_device_path(&args.src)?;
     let (dst_device_id, dst_path) = parse_device_path(&args.dst)?;
 
@@ -50,12 +48,17 @@ pub async fn run(args: CopyArgs, devices: &[DeviceDetails]) -> Result<(), Box<dy
         }
         (None, Some(device)) => {
             debug!("Copying from local to device {}", device.adb_id);
-            adb::push(device, &src_path, &dst_path).await
+
+            let adb_id = Some(device.adb_id.as_str());
+
+            adb::push(adb_id, &src_path, &dst_path).await
         }
     }
 }
 
-fn parse_device_path(path: &PathBuf) -> Result<(Option<String>, PathBuf), Box<dyn std::error::Error>> {
+fn parse_device_path(
+    path: &PathBuf,
+) -> Result<(Option<String>, PathBuf), Box<dyn std::error::Error>> {
     let path_str = path.to_string_lossy();
     if let Some(colon_idx) = path_str.find(':') {
         let (device, path) = path_str.split_at(colon_idx);

@@ -1,0 +1,2 @@
+0020host:tport:serial:4B141FDCH0001U
+0005sync:
