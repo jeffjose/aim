@@ -29,7 +29,7 @@ impl AdbStream {
 
         // Check if server is running, if not start it
         if !check_server_running(host, port) {
-            start_adb_server()?;
+            start_adb_server(port)?;
 
             // Verify server started successfully
             if !check_server_running(host, port) {
@@ -456,13 +456,13 @@ pub async fn push(
     Ok(())
 }
 
-pub fn start_adb_server() -> Result<(), Box<dyn Error>> {
+pub fn start_adb_server(port: &str) -> Result<(), Box<dyn Error>> {
     debug!("Checking if ADB server needs to be started...");
 
     // Create the command with proper detached settings
     let mut command = Command::new("adb");
     command
-        .args(["-L", "tcp:5037", "server", "--reply-fd", "4"])
+        .args(["-L", &format!("tcp:{}", port), "server", "--reply-fd", "4"])
         .stdin(std::process::Stdio::null())
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null());
@@ -474,7 +474,7 @@ pub fn start_adb_server() -> Result<(), Box<dyn Error>> {
         command.process_group(0);
     }
 
-    debug!("Starting ADB server in detached mode...");
+    debug!("Starting ADB server in detached mode on port {}...", port);
     match command.spawn() {
         Ok(_) => {
             debug!("ADB server process spawned successfully");

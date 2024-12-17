@@ -9,7 +9,7 @@ pub async fn run(host: &str, port: &str, operation: &crate::cli::ServerOperation
     match operation {
         crate::cli::ServerOperation::Start => {
             debug!("Starting ADB server...");
-            start_adb_server()?;
+            start_adb_server(port)?;
             println!("ADB server started successfully");
         }
         crate::cli::ServerOperation::Stop => {
@@ -30,7 +30,7 @@ pub async fn run(host: &str, port: &str, operation: &crate::cli::ServerOperation
 
             // Start server
             debug!("Starting ADB server...");
-            start_adb_server()?;
+            start_adb_server(port)?;
             println!("ADB server restarted successfully");
         }
     }
