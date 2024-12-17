@@ -9,6 +9,7 @@ use std::path::PathBuf;
 use std::str;
 use std::sync::Arc;
 use tokio::task::JoinHandle;
+use std::os::unix::fs::PermissionsExt;
 
 use crate::types::DeviceDetails;
 
