@@ -16,79 +16,112 @@ use crate::types::DeviceDetails;
 const SYNC_DATA: &[u8] = b"SEND";
 const SYNC_DONE: &[u8] = b"DONE";
 
+struct AdbStream {
+    stream: TcpStream,
+}
+
+impl AdbStream {
+    fn new(host: &str, port: &str) -> Result<Self, Box<dyn Error>> {
+        println!("=== Creating new ADB stream ===");
+        let server_address = format!(
+            "{}:{}",
+            if host == "localhost" {
+                "127.0.0.1"
+            } else {
+                host
+            },
+            port
+        );
+        println!("Connecting to address: {}", server_address);
+
+        let mut addresses = server_address.to_socket_addrs()?;
+        let address = addresses.next().ok_or("Could not resolve address")?;
+        println!("Resolved address: {:?}", address);
+
+        println!("Establishing connection...");
+        let mut stream = TcpStream::connect(address)?;
+        println!("Connection established");
+
+        stream.set_read_timeout(Some(std::time::Duration::from_secs(2)))?;
+        stream.set_write_timeout(Some(std::time::Duration::from_secs(2)))?;
+        println!("Timeouts set");
+
+        Ok(Self { stream })
+    }
+
+    fn send_command(&mut self, command: &str) -> Result<(), Box<dyn Error>> {
+        println!("Sending command: {}", command);
+        let request = format!("{:04x}{}", command.len(), command);
+        println!("Formatted request: {:?}", request);
+        self.stream.write_all(request.as_bytes())?;
+        Ok(())
+    }
+
+    fn read_response(&mut self) -> Result<String, Box<dyn Error>> {
+        let mut buffer = [0; 1024];
+        println!("Waiting for response...");
+        
+        match self.stream.read(&mut buffer) {
+            Ok(0) => {
+                println!("Server closed the connection");
+                Ok(String::new())
+            }
+            Ok(bytes_read) => {
+                let response = str::from_utf8(&buffer[..bytes_read])?.to_string();
+                println!("Raw response: {:?}", response);
+                Ok(response)
+            }
+            Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                println!("Would block");
+                Ok(String::new())
+            }
+            Err(e) => {
+                println!("Error reading from socket: {}", e);
+                Err(e.into())
+            }
+        }
+    }
+
+    fn read_okay(&mut self) -> Result<(), Box<dyn Error>> {
+        let mut response = [0u8; 4];
+        self.stream.read_exact(&mut response)?;
+        if &response != b"OKAY" {
+            return Err("Expected OKAY response".into());
+        }
+        Ok(())
+    }
+
+    fn write_all(&mut self, buf: &[u8]) -> Result<(), Box<dyn Error>> {
+        self.stream.write_all(buf)?;
+        Ok(())
+    }
+}
+
 pub fn send(
     host: &str,
     port: &str,
     messages: Vec<&str>,
-) -> std::result::Result<Vec<String>, Box<dyn std::error::Error>> {
+) -> Result<Vec<String>, Box<dyn Error>> {
     println!("=== Starting send operation ===");
-    println!("Host: {}, Port: {}", host, port);
     println!("Messages to send: {:?}", messages);
 
-    let server_address = format!(
-        "{}:{}",
-        if host == "localhost" {
-            "127.0.0.1"
-        } else {
-            host
-        },
-        port
-    );
-    println!("Connecting to address: {}", server_address);
-
-    let mut addresses = server_address.to_socket_addrs()?;
-    let address = addresses.next().ok_or("Could not resolve address")?;
-    println!("Resolved address: {:?}", address);
-
-    println!("Establishing connection...");
-    let mut stream = TcpStream::connect(address)?;
-    println!("Connection established");
-
-    stream.set_read_timeout(Some(std::time::Duration::from_secs(2)))?;
-    stream.set_write_timeout(Some(std::time::Duration::from_secs(2)))?;
-    println!("Timeouts set");
-
+    let mut adb = AdbStream::new(host, port)?;
     let mut responses = Vec::new();
 
     for (i, message) in messages.iter().enumerate() {
         println!("\n--- Sending message {} of {} ---", i + 1, messages.len());
-        info!("   [SEND-{}] {}", i, message);
-
-        let request = format!("{:04x}{}", &message.len(), &message);
-        println!("Formatted request: {:?}", request);
-
-        stream.write_all(request.as_bytes())?;
-        println!("Message written to stream");
+        adb.send_command(message)?;
 
         loop {
-            let mut buffer = [0; 1024];
-            println!("Waiting for response...");
-            match stream.read(&mut buffer) {
-                Ok(0) => {
-                    println!("Server closed the connection");
-                    break;
-                }
-                Ok(bytes_read) => {
-                    let response = str::from_utf8(&buffer[..bytes_read])?;
-                    println!("Raw response: {:?}", response);
-                    info!("[RECEIVE-{}] {:?}", i, response);
-                    if response != "OKAY" {
-                        println!("Got non-OKAY response, adding to responses");
-                        responses.push(clean_str(response));
-                        break;
-                    }
-                    println!("Got OKAY response");
-                }
-                Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {
-                    println!("Would block, continuing...");
-                    continue;
-                }
-                Err(e) => {
-                    println!("Error reading from socket: {}", e);
-                    eprintln!("Error reading from socket: {}", e);
-                    return Err(e.into());
-                }
+            let response = adb.read_response()?;
+            if response.is_empty() {
+                continue;
             }
+            if response != "OKAY" {
+                responses.push(clean_str(&response));
+            }
+            println!("Got response: {:?}", response);
+            break;
         }
     }
 
@@ -270,51 +303,26 @@ pub async fn push(
     adb_id: Option<&str>,
     src_path: &PathBuf,
     dst_path: &PathBuf,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<(), Box<dyn Error>> {
     println!("Starting push operation:");
     println!("Source path: {:?}", src_path);
     println!("Destination path: {:?}", dst_path);
 
-    // First select the device
     let host_command = match adb_id {
         Some(id) => format!("host:tport:serial:{}", id),
         None => "host:tport:any".to_string(),
     };
     println!("Using host command: {}", host_command);
 
-    // Create a new function to get the stream
-    let mut stream = {
-        let server_address = format!("{}:{}", "127.0.0.1", "5037");
-        let mut addresses = server_address.to_socket_addrs()?;
-        let address = addresses.next().ok_or("Could not resolve address")?;
-        let mut stream = TcpStream::connect(address)?;
-        stream.set_read_timeout(Some(std::time::Duration::from_secs(2)))?;
-        stream.set_write_timeout(Some(std::time::Duration::from_secs(2)))?;
-        
-        // Send initial commands using the same stream
-        let request = format!("{:04x}{}", host_command.len(), host_command);
-        stream.write_all(request.as_bytes())?;
-        
-        // Read OKAY response
-        let mut response = [0u8; 4];
-        stream.read_exact(&mut response)?;
-        if &response != b"OKAY" {
-            return Err("Failed to select device".into());
-        }
+    let mut adb = AdbStream::new("127.0.0.1", "5037")?;
+    
+    // Send device selection command
+    adb.send_command(&host_command)?;
+    adb.read_okay()?;
 
-        // Send sync command
-        let sync_cmd = "sync:";
-        let request = format!("{:04x}{}", sync_cmd.len(), sync_cmd);
-        stream.write_all(request.as_bytes())?;
-        
-        // Read OKAY response
-        stream.read_exact(&mut response)?;
-        if &response != b"OKAY" {
-            return Err("Failed to start sync".into());
-        }
-
-        stream
-    };
+    // Send sync command
+    adb.send_command("sync:")?;
+    adb.read_okay()?;
 
     // Get file permissions and prepare path header
     let perms = get_permissions(src_path)?;
@@ -323,9 +331,9 @@ pub async fn push(
     
     // Send SEND command with path and mode
     println!("Sending SEND command...");
-    stream.write_all(b"SEND")?;
-    stream.write_all(&(path_header.len() as u32).to_le_bytes())?;
-    stream.write_all(path_header.as_bytes())?;
+    adb.write_all(b"SEND")?;
+    adb.write_all(&(path_header.len() as u32).to_le_bytes())?;
+    adb.write_all(path_header.as_bytes())?;
 
     // Read and send file data in chunks
     println!("Starting file transfer...");
@@ -340,29 +348,24 @@ pub async fn push(
         }
         total_bytes += bytes_read;
 
-        stream.write_all(b"DATA")?;
-        stream.write_all(&(bytes_read as u32).to_le_bytes())?;
-        stream.write_all(&buffer[..bytes_read])?;
+        adb.write_all(b"DATA")?;
+        adb.write_all(&(bytes_read as u32).to_le_bytes())?;
+        adb.write_all(&buffer[..bytes_read])?;
         println!("Sent {} bytes (total: {} bytes)", bytes_read, total_bytes);
     }
 
     // Send DONE command with timestamp
     println!("Sending DONE command...");
-    stream.write_all(b"DONE")?;
+    adb.write_all(b"DONE")?;
     let timestamp = fs::metadata(src_path)?
         .modified()?
         .duration_since(std::time::UNIX_EPOCH)?
         .as_secs() as u32;
-    stream.write_all(&timestamp.to_le_bytes())?;
+    adb.write_all(&timestamp.to_le_bytes())?;
 
     // Check final response
     println!("Waiting for final response...");
-    let mut response = [0u8; 4];
-    stream.read_exact(&mut response)?;
-    if &response != b"OKAY" {
-        println!("Error: Final sync failed");
-        return Err("Final sync failed".into());
-    }
+    adb.read_okay()?;
 
     println!("Push operation completed successfully!");
     Ok(())
