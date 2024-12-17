@@ -100,7 +100,11 @@ impl AdbStream {
         self.stream.read_exact(&mut response)?;
         println!("Response in read_okay: {:?}", response);
         // Check if the response is "OKAY" or [8, 0, 0, 0]
-        if &response != b"OKAY" && response != [8, 0, 0, 0] {
+        if &response != b"OKAY"
+            && response != [8, 0, 0, 0]
+            && response != [9, 0, 0, 0]
+            && response != [0, 0, 0, 0]
+        {
             return Err("Expected OKAY response".into());
         }
         Ok(())
@@ -316,7 +320,7 @@ pub async fn getprops_parallel(
 }
 
 fn get_permissions(path: &PathBuf) -> std::io::Result<u32> {
-    println!("{:?}", path);
+    println!("get_permissions: {:?}", path);
     let metadata = fs::metadata(path)?;
     Ok(metadata.permissions().mode())
 }
@@ -346,6 +350,12 @@ pub async fn push(
     // Send sync command
     println!("Sending sync: command");
     adb.send_command("sync:")?;
+
+    // jeffjose | Dec 17, 2024
+    // It is unclear why we need this specific combination of read_okay and read_response
+    // But this is the only one that worked
+    adb.read_okay()?;
+    adb.read_response()?;
     adb.read_okay()?;
 
     // Get file permissions and prepare path header
