@@ -250,15 +250,13 @@ pub async fn push(
 ) -> Result<(), Box<dyn std::error::Error>> {
     // First select the device
     let host_command = match adb_id {
-        Some(id) => format!("host:transport:{}", id),
-        None => "host:transport-any".to_string(),
+        Some(id) => format!("host:tport:serial:{}", id),
+        None => "host:tport:any".to_string(),
     };
 
     // Select device first
-    send("127.0.0.1", "5037", vec![&host_command])?;
-
     // Then start sync service
-    send("127.0.0.1", "5037", vec!["sync:"])?;
+    send("127.0.0.1", "5037", vec![&host_command, "sync:"])?;
 
     let mut stream = TcpStream::connect("127.0.0.1:5037")?;
     
