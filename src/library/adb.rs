@@ -13,10 +13,6 @@ use std::sync::Arc;
 use tokio::task::JoinHandle;
 use indicatif::ProgressBar;
 
-
-const SYNC_DATA: &[u8] = b"SEND";
-const SYNC_DONE: &[u8] = b"DONE";
-
 struct AdbStream {
     stream: TcpStream,
 }
