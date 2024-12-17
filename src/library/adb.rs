@@ -12,6 +12,7 @@ use std::str;
 use std::sync::Arc;
 use std::thread;
 use tokio::task::JoinHandle;
+use indicatif::ProgressBar;
 
 use crate::types::DeviceDetails;
 
@@ -390,9 +391,16 @@ pub async fn push(
     // Read and send file data in chunks
     println!("Starting file transfer...");
     let mut file = File::open(src_path)?;
-    //let mut buffer = [0u8; 64 * 1024]; // 64KB chunks
+    let file_size = fs::metadata(src_path)?.len();
     let mut buffer = [0u8; 1024 * 1024]; // 1MB chunks
     let mut total_bytes = 0;
+
+    // Setup progress bar
+    let pb = ProgressBar::new(file_size);
+    pb.set_style(indicatif::ProgressStyle::default_bar()
+        .template("{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({eta})")
+        .unwrap()
+        .progress_chars("#>-"));
 
     loop {
         let bytes_read = file.read(&mut buffer)?;
@@ -404,8 +412,13 @@ pub async fn push(
         adb.write_all(b"DATA")?;
         adb.write_all(&(bytes_read as u32).to_le_bytes())?;
         adb.write_all(&buffer[..bytes_read])?;
-        println!("Sent {} bytes (total: {} bytes)", bytes_read, total_bytes);
+        
+        // Update progress bar
+        pb.set_position(total_bytes as u64);
     }
+
+    // Finish progress bar
+    pb.finish_with_message("Transfer completed");
 
     // Send DONE command with timestamp
     println!("Sending DONE command...");
