@@ -398,11 +398,15 @@ pub async fn push(
     // Setup progress bar
     let pb = ProgressBar::new(file_size);
     pb.set_style(indicatif::ProgressStyle::default_bar()
-        .template("{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({eta})")
+        .template("{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({bytes_per_sec}) ({eta})")
         .unwrap()
         .progress_chars("#>-"));
 
+    let transfer_start = std::time::Instant::now();
+    let mut chunk_start;
+
     loop {
+        chunk_start = std::time::Instant::now();
         let bytes_read = file.read(&mut buffer)?;
         if bytes_read == 0 {
             break;
@@ -413,12 +417,25 @@ pub async fn push(
         adb.write_all(&(bytes_read as u32).to_le_bytes())?;
         adb.write_all(&buffer[..bytes_read])?;
         
-        // Update progress bar
+        // Calculate chunk transfer speed
+        let chunk_duration = chunk_start.elapsed();
+        let chunk_speed = bytes_read as f64 / chunk_duration.as_secs_f64() / 1024.0 / 1024.0; // MB/s
+        
+        // Update progress bar with transfer speed
+        pb.set_message(format!("{:.2} MB/s", chunk_speed));
         pb.set_position(total_bytes as u64);
     }
 
-    // Finish progress bar
-    pb.finish_with_message("Transfer completed");
+    // Calculate total transfer statistics
+    let total_duration = transfer_start.elapsed();
+    let avg_speed = (total_bytes as f64 / total_duration.as_secs_f64() / 1024.0 / 1024.0); // MB/s
+
+    // Finish progress bar with final statistics
+    pb.finish_with_message(format!(
+        "Transfer completed in {:.2}s at {:.2} MB/s average",
+        total_duration.as_secs_f64(),
+        avg_speed
+    ));
 
     // Send DONE command with timestamp
     println!("Sending DONE command...");
