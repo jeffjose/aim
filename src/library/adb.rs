@@ -392,7 +392,7 @@ pub async fn push(
     debug!("Starting file transfer...");
     let mut file = File::open(src_path)?;
     let file_size = fs::metadata(src_path)?.len();
-    let mut buffer = [0u8; 1024 * 1024]; // 1MB chunks
+    let mut buffer = [0u8; 64 * 1024]; // 64KB chunks
     let mut total_bytes = 0;
 
     // Setup progress bar
