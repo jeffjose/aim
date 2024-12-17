@@ -1,3 +1,4 @@
+use indicatif::ProgressBar;
 use log::*;
 use std::collections::HashMap;
 use std::error::Error;
@@ -11,7 +12,6 @@ use std::process::Command;
 use std::str;
 use std::sync::Arc;
 use tokio::task::JoinHandle;
-use indicatif::ProgressBar;
 
 struct AdbStream {
     stream: TcpStream,
@@ -99,6 +99,7 @@ impl AdbStream {
             && response != [8, 0, 0, 0]
             && response != [9, 0, 0, 0]
             && response != [0, 0, 0, 0]
+            && response != [3, 0, 0, 0]
         {
             return Err("Expected OKAY response".into());
         }
@@ -362,7 +363,9 @@ pub async fn push(
         .to_string_lossy();
 
     // Construct the full destination path
-    let full_dst_path = if dst_path.to_string_lossy().ends_with('/') || fs::metadata(src_path)?.is_file() && !dst_path.file_name().is_some() {
+    let full_dst_path = if dst_path.to_string_lossy().ends_with('/')
+        || fs::metadata(src_path)?.is_file() && !dst_path.file_name().is_some()
+    {
         // Append filename if:
         // - dst_path ends with '/' (it's explicitly a directory)
         // - OR src_path is a file AND dst_path doesn't have a filename component
@@ -412,11 +415,11 @@ pub async fn push(
         adb.write_all(b"DATA")?;
         adb.write_all(&(bytes_read as u32).to_le_bytes())?;
         adb.write_all(&buffer[..bytes_read])?;
-        
+
         // Calculate chunk transfer speed
         let chunk_duration = chunk_start.elapsed();
         let chunk_speed = bytes_read as f64 / chunk_duration.as_secs_f64() / 1024.0 / 1024.0; // MB/s
-        
+
         // Update progress bar with transfer speed
         pb.set_message(format!("{:.2} MB/s", chunk_speed));
         pb.set_position(total_bytes as u64);
@@ -489,7 +492,11 @@ pub fn check_server_status(host: &str, port: &str) -> bool {
     // Try to connect directly without using AdbStream to avoid recursion
     if let Ok(mut stream) = TcpStream::connect(format!(
         "{}:{}",
-        if host == "localhost" { "127.0.0.1" } else { host },
+        if host == "localhost" {
+            "127.0.0.1"
+        } else {
+            host
+        },
         port
     )) {
         debug!("Connected to ADB port, checking server response...");
@@ -568,8 +575,8 @@ pub async fn pull(
     adb.read_okay()?;
 
     // Send RECV command with path
-    debug!("Sending RECV command...");
-    adb.write_all(b"RECV")?;
+    debug!("Sending RCV2 command...");
+    adb.write_all(b"RCV2")?;
     let path_bytes = src_path.to_string_lossy();
     let path_bytes = path_bytes.as_bytes();
     adb.write_all(&(path_bytes.len() as u32).to_le_bytes())?;
@@ -586,9 +593,11 @@ pub async fn pull(
 
     // Setup progress bar (we don't know total size yet)
     let pb = ProgressBar::new_spinner();
-    pb.set_style(indicatif::ProgressStyle::default_spinner()
-        .template("{spinner:.green} [{elapsed_precise}] {bytes} ({bytes_per_sec})")
-        .unwrap());
+    pb.set_style(
+        indicatif::ProgressStyle::default_spinner()
+            .template("{spinner:.green} [{elapsed_precise}] {bytes} ({bytes_per_sec})")
+            .unwrap(),
+    );
 
     let transfer_start = std::time::Instant::now();
     let mut chunk_start;
