@@ -372,7 +372,8 @@ pub async fn push(
     // Read and send file data in chunks
     println!("Starting file transfer...");
     let mut file = File::open(src_path)?;
-    let mut buffer = [0u8; 64 * 1024]; // 64KB chunks
+    //let mut buffer = [0u8; 64 * 1024]; // 64KB chunks
+    let mut buffer = [0u8; 1024 * 1024]; // 1MB chunks
     let mut total_bytes = 0;
 
     loop {
