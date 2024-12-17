@@ -454,7 +454,7 @@ pub async fn push(
     Ok(())
 }
 
-fn start_adb_server() -> Result<(), Box<dyn Error>> {
+pub fn start_adb_server() -> Result<(), Box<dyn Error>> {
     debug!("Checking if ADB server needs to be started...");
 
     // Create the command with proper detached settings

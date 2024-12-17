@@ -4,6 +4,7 @@ pub mod getprops;
 pub mod ls;
 pub mod rename;
 pub mod copy;
+pub mod server;
 
 #[cfg(test)]
 mod rename_test;

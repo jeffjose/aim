@@ -84,6 +84,19 @@ pub enum Commands {
         /// Destionation in format device_id:path
         dst: String,
     },
+
+    /// Manage ADB server
+    Server {
+        /// Server operation to perform
+        #[arg(value_enum)]
+        operation: ServerOperation,
+    },
+}
+
+#[derive(clap::ValueEnum, Clone, Debug)]
+pub enum ServerOperation {
+    Start,
+    Stop,
 }
 
 impl Cli {
