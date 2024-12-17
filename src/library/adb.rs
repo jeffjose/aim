@@ -7,11 +7,11 @@ use std::io::{Read, Write};
 use std::net::{TcpStream, ToSocketAddrs};
 use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
+use std::process::Command;
 use std::str;
 use std::sync::Arc;
-use tokio::task::JoinHandle;
-use std::process::Command;
 use std::thread;
+use tokio::task::JoinHandle;
 
 use crate::types::DeviceDetails;
 
@@ -63,9 +63,9 @@ impl AdbStream {
     }
 
     fn send_command(&mut self, command: &str) -> Result<(), Box<dyn Error>> {
-        debug!("Sending command: {}", command);
+        println!("Sending command: {}", command);
         let request = format!("{:04x}{}", command.len(), command);
-        debug!("Formatted request: {:?}", request);
+        println!("Formatted request: {:?}", request);
         self.stream.write_all(request.as_bytes())?;
         Ok(())
     }
@@ -98,6 +98,7 @@ impl AdbStream {
     fn read_okay(&mut self) -> Result<(), Box<dyn Error>> {
         let mut response = [0u8; 4];
         self.stream.read_exact(&mut response)?;
+        println!("Response in read_okay: {:?}", response);
         if &response != b"OKAY" {
             return Err("Expected OKAY response".into());
         }
@@ -337,26 +338,28 @@ pub async fn push(
     let mut adb = AdbStream::new("127.0.0.1", "5037")?;
 
     // Send device selection command
+    println!("Sending host_command: {}", host_command);
     adb.send_command(&host_command)?;
     adb.read_okay()?;
 
     // Send sync command
+    println!("Sending sync: command");
     adb.send_command("sync:")?;
     adb.read_okay()?;
 
     // Get file permissions and prepare path header
     let perms = get_permissions(src_path)?;
     let path_header = format!("{},{}", dst_path.to_string_lossy(), perms);
-    debug!("Path header: {}", path_header);
+    println!("Path header: {}", path_header);
 
     // Send SEND command with path and mode
-    debug!("Sending SEND command...");
+    println!("Sending SEND command...");
     adb.write_all(b"SEND")?;
     adb.write_all(&(path_header.len() as u32).to_le_bytes())?;
     adb.write_all(path_header.as_bytes())?;
 
     // Read and send file data in chunks
-    debug!("Starting file transfer...");
+    println!("Starting file transfer...");
     let mut file = File::open(src_path)?;
     let mut buffer = [0u8; 64 * 1024]; // 64KB chunks
     let mut total_bytes = 0;
@@ -371,11 +374,11 @@ pub async fn push(
         adb.write_all(b"DATA")?;
         adb.write_all(&(bytes_read as u32).to_le_bytes())?;
         adb.write_all(&buffer[..bytes_read])?;
-        debug!("Sent {} bytes (total: {} bytes)", bytes_read, total_bytes);
+        println!("Sent {} bytes (total: {} bytes)", bytes_read, total_bytes);
     }
 
     // Send DONE command with timestamp
-    debug!("Sending DONE command...");
+    println!("Sending DONE command...");
     adb.write_all(b"DONE")?;
     let timestamp = fs::metadata(src_path)?
         .modified()?
@@ -384,10 +387,10 @@ pub async fn push(
     adb.write_all(&timestamp.to_le_bytes())?;
 
     // Check final response
-    debug!("Waiting for final response...");
-    adb.read_okay()?;
+    println!("Waiting for final response...");
+    //adb.read_okay()?;
 
-    debug!("Push operation completed successfully!");
+    println!("Push operation completed successfully!");
     Ok(())
 }
 
@@ -436,7 +439,10 @@ fn check_server_running(host: &str, port: &str) -> bool {
             let mut response = [0u8; 4];
             if let Ok(_) = stream.read_exact(&mut response) {
                 let is_running = &response == b"OKAY";
-                debug!("ADB server status: {}", if is_running { "running" } else { "not running" });
+                debug!(
+                    "ADB server status: {}",
+                    if is_running { "running" } else { "not running" }
+                );
                 return is_running;
             }
         }
