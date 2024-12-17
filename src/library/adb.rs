@@ -249,39 +249,31 @@ pub async fn push(
     dst_path: &PathBuf,
 ) -> Result<(), Box<dyn std::error::Error>> {
     // First select the device
-
     let host_command = match adb_id {
-        Some(id) => {
-            format!("host:tport:serial:{}", id)
-        }
-        None => "host:tport:any".to_string(),
+        Some(id) => format!("host:transport:{}", id),
+        None => "host:transport-any".to_string(),
     };
 
-    let path_header = match get_permissions(src_path) {
-        Ok(perms) => format!("{},{}", dst_path.to_string_lossy(), perms),
-        Err(e) => {
-            // Handle the error appropriately, e.g., log it or return an error
-            eprintln!("Error getting permissions: {}", e);
-            return Err(Box::new(e)); // Or handle the error differently
-        }
-    };
+    // Select device first
+    send("127.0.0.1", "5037", vec![&host_command])?;
 
-    let messages = [format!("sync:")];
-
-    // Send initial commands
-    send(
-        "127.0.0.1",
-        "5037",
-        messages.iter().map(|s| s.as_str()).collect(),
-    )?;
-
-    // Read and send file data
-    let mut file = File::open(src_path)?;
-    let mut buffer = [0u8; 64 * 1024]; // 64KB chunks
+    // Then start sync service
+    send("127.0.0.1", "5037", vec!["sync:"])?;
 
     let mut stream = TcpStream::connect("127.0.0.1:5037")?;
+    
+    // Get file permissions and prepare path header
+    let perms = get_permissions(src_path)?;
+    let path_header = format!("{},{}", dst_path.to_string_lossy(), perms);
+    
+    // Send SEND command with path and mode
+    stream.write_all(b"SEND")?;
+    stream.write_all(&(path_header.len() as u32).to_le_bytes())?;
+    stream.write_all(path_header.as_bytes())?;
 
-    let _ = stream.write_all(format!("SEND{}{}", path_header.len(), path_header).as_bytes());
+    // Read and send file data in chunks
+    let mut file = File::open(src_path)?;
+    let mut buffer = [0u8; 64 * 1024]; // 64KB chunks
 
     loop {
         let bytes_read = file.read(&mut buffer)?;
@@ -294,9 +286,10 @@ pub async fn push(
         stream.write_all(&buffer[..bytes_read])?;
     }
 
-    // Send DONE command
-    stream.write_all(SYNC_DONE)?;
-    stream.write_all(&(0u32).to_le_bytes())?;
+    // Send DONE command with timestamp
+    stream.write_all(b"DONE")?;
+    let timestamp = fs::metadata(src_path)?.modified()?.duration_since(std::time::UNIX_EPOCH)?.as_secs() as u32;
+    stream.write_all(&timestamp.to_le_bytes())?;
 
     // Check final response
     let mut response = [0u8; 4];
