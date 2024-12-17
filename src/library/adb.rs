@@ -541,3 +541,110 @@ pub fn kill_server(host: &str, port: &str) -> Result<(), Box<dyn Error>> {
         }
     }
 }
+
+pub async fn pull(
+    host: &str,
+    port: &str,
+    adb_id: Option<&str>,
+    src_path: &PathBuf,
+    dst_path: &PathBuf,
+) -> Result<(), Box<dyn Error>> {
+    debug!("Starting pull operation:");
+    debug!("Source path: {:?}", src_path);
+    debug!("Destination path: {:?}", dst_path);
+
+    let host_command = match adb_id {
+        Some(id) => format!("host:tport:serial:{}", id),
+        None => "host:tport:any".to_string(),
+    };
+    debug!("Using host command: {}", host_command);
+
+    let mut adb = AdbStream::new(host, port)?;
+
+    // Send device selection command
+    debug!("Sending host_command: {}", host_command);
+    adb.send_command(&host_command)?;
+    adb.read_okay()?;
+
+    // Send sync command
+    debug!("Sending sync: command");
+    adb.send_command("sync:")?;
+    adb.read_okay()?;
+    adb.read_response()?;
+    adb.read_okay()?;
+
+    // Send RECV command with path
+    debug!("Sending RECV command...");
+    adb.write_all(b"RECV")?;
+    let path_bytes = src_path.to_string_lossy();
+    let path_bytes = path_bytes.as_bytes();
+    adb.write_all(&(path_bytes.len() as u32).to_le_bytes())?;
+    adb.write_all(path_bytes)?;
+
+    // Create destination directory if it doesn't exist
+    if let Some(parent) = dst_path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+
+    // Open destination file
+    let mut file = File::create(dst_path)?;
+    let mut total_bytes = 0;
+
+    // Setup progress bar (we don't know total size yet)
+    let pb = ProgressBar::new_spinner();
+    pb.set_style(indicatif::ProgressStyle::default_spinner()
+        .template("{spinner:.green} [{elapsed_precise}] {bytes} ({bytes_per_sec})")
+        .unwrap());
+
+    let transfer_start = std::time::Instant::now();
+    let mut chunk_start;
+
+    loop {
+        // Read data header
+        let mut response = [0u8; 4];
+        if adb.stream.read_exact(&mut response).is_err() {
+            break;
+        }
+
+        match &response {
+            b"DATA" => {
+                // Read data length
+                let mut len_bytes = [0u8; 4];
+                adb.stream.read_exact(&mut len_bytes)?;
+                let len = u32::from_le_bytes(len_bytes) as usize;
+
+                // Read and write data
+                chunk_start = std::time::Instant::now();
+                let mut buffer = vec![0u8; len];
+                adb.stream.read_exact(&mut buffer)?;
+                file.write_all(&buffer)?;
+                total_bytes += len;
+
+                // Calculate chunk transfer speed
+                let chunk_duration = chunk_start.elapsed();
+                let chunk_speed = len as f64 / chunk_duration.as_secs_f64() / 1024.0 / 1024.0; // MB/s
+
+                // Update progress
+                pb.set_message(format!("{:.2} MB/s", chunk_speed));
+                pb.set_position(total_bytes as u64);
+            }
+            b"DONE" => break,
+            _ => return Err("Unexpected response during file transfer".into()),
+        }
+    }
+
+    // Calculate total transfer statistics
+    let total_duration = transfer_start.elapsed();
+    let avg_speed = total_bytes as f64 / total_duration.as_secs_f64() / 1024.0 / 1024.0; // MB/s
+
+    // Finish progress bar with final statistics
+    pb.finish_with_message(format!(
+        "Transfer completed: {} bytes in {:.2}s at {:.2} MB/s average",
+        total_bytes,
+        total_duration.as_secs_f64(),
+        avg_speed
+    ));
+
+    debug!("Pull operation completed successfully!");
+    Ok(())
+}

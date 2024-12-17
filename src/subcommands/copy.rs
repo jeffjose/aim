@@ -40,26 +40,13 @@ pub async fn run(
         .into()),
         (Some(device), None) => {
             debug!("Copying from device {} to local", device.adb_id);
-            // TODO: Implement pull operation
-            println!(
-                "Pull operation not yet implemented: {} -> {}",
-                src_path.display(),
-                dst_path.display()
-            );
-            Ok(())
+            let adb_id = Some(device.adb_id.as_str());
+            adb::pull(host, port, adb_id, &src_path, &dst_path).await
         }
         (None, Some(device)) => {
             debug!("Copying from local to device {}", device.adb_id);
-
             let adb_id = Some(device.adb_id.as_str());
-
-            adb::push(
-                host,
-                port,
-                adb_id,
-                &src_path,
-                &dst_path,
-            ).await
+            adb::push(host, port, adb_id, &src_path, &dst_path).await
         }
     }
 }
