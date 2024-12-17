@@ -99,7 +99,8 @@ impl AdbStream {
         let mut response = [0u8; 4];
         self.stream.read_exact(&mut response)?;
         println!("Response in read_okay: {:?}", response);
-        if &response != b"OKAY" {
+        // Check if the response is "OKAY" or [8, 0, 0, 0]
+        if &response != b"OKAY" && response != [8, 0, 0, 0] {
             return Err("Expected OKAY response".into());
         }
         Ok(())
