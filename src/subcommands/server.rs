@@ -1,10 +1,9 @@
 use std::error::Error;
-use std::process::Command;
 use log::*;
 
-use crate::library::adb::start_adb_server;
+use crate::library::adb::{start_adb_server, send};
 
-pub async fn run(operation: &crate::cli::ServerOperation) -> Result<(), Box<dyn Error>> {
+pub async fn run(host: &str, port: &str, operation: &crate::cli::ServerOperation) -> Result<(), Box<dyn Error>> {
     match operation {
         crate::cli::ServerOperation::Start => {
             debug!("Starting ADB server...");
@@ -13,15 +12,17 @@ pub async fn run(operation: &crate::cli::ServerOperation) -> Result<(), Box<dyn 
         }
         crate::cli::ServerOperation::Stop => {
             debug!("Stopping ADB server...");
-            let output = Command::new("adb")
-                .arg("kill-server")
-                .output()?;
-
-            if output.status.success() {
-                println!("ADB server stopped successfully");
-            } else {
-                let error = String::from_utf8_lossy(&output.stderr);
-                return Err(format!("Failed to stop ADB server: {}", error).into());
+            
+            // Send kill command using the existing ADB protocol implementation
+            match send(host, port, vec!["host:kill"]) {
+                Ok(_) => println!("ADB server stopped successfully"),
+                Err(e) => {
+                    if e.to_string().contains("Connection refused") {
+                        println!("ADB server is not running");
+                    } else {
+                        return Err(e);
+                    }
+                }
             }
         }
     }

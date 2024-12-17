@@ -133,7 +133,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .await?
         }
         Commands::Server { operation } => {
-            if let Err(e) = subcommands::server::run(&operation).await {
+            if let Err(e) = subcommands::server::run(&cli.host, &cli.port, &operation).await {
                 error!("Server operation failed: {}", e);
                 std::process::exit(1);
             }
