@@ -5,11 +5,11 @@ use std::fs;
 use std::fs::File;
 use std::io::{Read, Write};
 use std::net::{TcpStream, ToSocketAddrs};
+use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
 use std::str;
 use std::sync::Arc;
 use tokio::task::JoinHandle;
-use std::os::unix::fs::PermissionsExt;
 
 use crate::types::DeviceDetails;
 
@@ -238,25 +238,9 @@ pub async fn getprops_parallel(
 }
 
 fn get_permissions(path: &PathBuf) -> std::io::Result<u32> {
+    println!("{:?}", path);
     let metadata = fs::metadata(path)?;
     Ok(metadata.permissions().mode())
-}
-
-fn unix_perms_to_custom_format(perms: u32) -> u32 {
-    let mut result = 0;
-    let octal_perms = format!("{:o}", perms);
-
-    for (i, digit) in octal_perms.chars().rev().enumerate() {
-        let digit_value = digit.to_digit(10).unwrap();
-        result += digit_value * 10u32.pow(i as u32);
-    }
-
-    result
-}
-
-fn get_custom_permissions(path: &PathBuf) -> std::io::Result<u32> {
-    let perms = get_permissions(path)?;
-    Ok(unix_perms_to_custom_format(perms))
 }
 
 pub async fn push(
@@ -273,8 +257,8 @@ pub async fn push(
         None => "host:tport:any".to_string(),
     };
 
-    let path_header = match get_custom_permissions(dst_path) {
-        Ok(perms) => format!("{},{},", dst_path.to_string_lossy(), perms),
+    let path_header = match get_permissions(src_path) {
+        Ok(perms) => format!("{},{}", dst_path.to_string_lossy(), perms),
         Err(e) => {
             // Handle the error appropriately, e.g., log it or return an error
             eprintln!("Error getting permissions: {}", e);
@@ -305,6 +289,7 @@ pub async fn push(
             break;
         }
 
+        stream.write_all(b"DATA")?;
         stream.write_all(&(bytes_read as u32).to_le_bytes())?;
         stream.write_all(&buffer[..bytes_read])?;
     }
