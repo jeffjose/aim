@@ -3,7 +3,7 @@ use log::*;
 use tokio::time::sleep;
 use std::time::Duration;
 
-use crate::library::adb::{start_adb_server, kill_server};
+use crate::library::adb::{start_adb_server, kill_server, check_server_status};
 
 pub async fn run(host: &str, port: &str, operation: &crate::cli::ServerOperation) -> Result<(), Box<dyn Error>> {
     match operation {
@@ -32,6 +32,10 @@ pub async fn run(host: &str, port: &str, operation: &crate::cli::ServerOperation
             debug!("Starting ADB server...");
             start_adb_server(port)?;
             println!("ADB server restarted successfully");
+        }
+        crate::cli::ServerOperation::Status => {
+            let is_running = check_server_status(host, port);
+            println!("ADB server is {}", if is_running { "running" } else { "not running" });
         }
     }
     Ok(())

@@ -98,6 +98,7 @@ pub enum ServerOperation {
     Start,
     Stop,
     Restart,
+    Status,
 }
 
 impl Cli {

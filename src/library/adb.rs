@@ -489,7 +489,7 @@ pub fn start_adb_server(port: &str) -> Result<(), Box<dyn Error>> {
     }
 }
 
-fn check_server_running(host: &str, port: &str) -> bool {
+pub fn check_server_status(host: &str, port: &str) -> bool {
     debug!("Checking if ADB server is running...");
 
     if let Ok(mut stream) = TcpStream::connect(format!("{}:{}", host, port)) {
@@ -512,6 +512,11 @@ fn check_server_running(host: &str, port: &str) -> bool {
 
     debug!("ADB server is not running");
     false
+}
+
+// Update the existing check_server_running to use the new function
+fn check_server_running(host: &str, port: &str) -> bool {
+    check_server_status(host, port)
 }
 
 pub fn kill_server(host: &str, port: &str) -> Result<(), Box<dyn Error>> {
