@@ -11,7 +11,13 @@ use std::path::PathBuf;
 use std::process::Command;
 use std::str;
 use std::sync::Arc;
+use std::thread;
 use tokio::task::JoinHandle;
+
+use crate::types::DeviceDetails;
+
+const SYNC_DATA: &[u8] = b"SEND";
+const SYNC_DONE: &[u8] = b"DONE";
 
 struct AdbStream {
     stream: TcpStream,
@@ -47,7 +53,7 @@ impl AdbStream {
         debug!("Resolved address: {:?}", address);
 
         debug!("Establishing connection...");
-        let stream = TcpStream::connect(address)?;
+        let mut stream = TcpStream::connect(address)?;
         debug!("Connection established");
 
         stream.set_read_timeout(Some(std::time::Duration::from_secs(2)))?;
@@ -99,7 +105,6 @@ impl AdbStream {
             && response != [8, 0, 0, 0]
             && response != [9, 0, 0, 0]
             && response != [0, 0, 0, 0]
-            && response != [3, 0, 0, 0]
         {
             return Err("Expected OKAY response".into());
         }
@@ -427,7 +432,7 @@ pub async fn push(
 
     // Calculate total transfer statistics
     let total_duration = transfer_start.elapsed();
-    let avg_speed = total_bytes as f64 / total_duration.as_secs_f64() / 1024.0 / 1024.0; // MB/s
+    let avg_speed = (total_bytes as f64 / total_duration.as_secs_f64() / 1024.0 / 1024.0); // MB/s
 
     // Finish progress bar with final statistics
     pb.finish_with_message(format!(
@@ -550,6 +555,9 @@ pub async fn pull(
     src_path: &PathBuf,
     dst_path: &PathBuf,
 ) -> Result<(), Box<dyn Error>> {
+    println!("\n=== Starting Pull Operation ===");
+    println!("Source: {:?}", src_path);
+    println!("Destination: {:?}", dst_path);
     debug!("Starting pull operation:");
     debug!("Source path: {:?}", src_path);
     debug!("Destination path: {:?}", dst_path);
@@ -563,11 +571,13 @@ pub async fn pull(
     let mut adb = AdbStream::new(host, port)?;
 
     // Send device selection command
+    println!("\n[1/4] Connecting to device...");
     debug!("Sending host_command: {}", host_command);
     adb.send_command(&host_command)?;
     adb.read_okay()?;
 
     // Send sync command
+    println!("[2/4] Initializing sync...");
     debug!("Sending sync: command");
     adb.send_command("sync:")?;
     adb.read_okay()?;
@@ -575,8 +585,9 @@ pub async fn pull(
     adb.read_okay()?;
 
     // Send RECV command with path
-    debug!("Sending RCV2 command...");
-    adb.write_all(b"RCV2")?;
+    println!("[3/4] Starting file transfer...");
+    debug!("Sending RECV command...");
+    adb.write_all(b"RECV")?;
     let path_bytes = src_path.to_string_lossy();
     let path_bytes = path_bytes.as_bytes();
     adb.write_all(&(path_bytes.len() as u32).to_le_bytes())?;
@@ -584,10 +595,13 @@ pub async fn pull(
 
     // Create destination directory if it doesn't exist
     if let Some(parent) = dst_path.parent() {
+        println!("Creating directory: {:?}", parent);
+        debug!("Creating destination directory: {:?}", parent);
         fs::create_dir_all(parent)?;
     }
 
     // Open destination file
+    println!("[4/4] Creating file: {:?}", dst_path);
     let mut file = File::create(dst_path)?;
     let mut total_bytes = 0;
 
@@ -602,6 +616,7 @@ pub async fn pull(
     let transfer_start = std::time::Instant::now();
     let mut chunk_start;
 
+    println!("\nTransferring data...");
     loop {
         // Read data header
         let mut response = [0u8; 4];
@@ -631,7 +646,10 @@ pub async fn pull(
                 pb.set_message(format!("{:.2} MB/s", chunk_speed));
                 pb.set_position(total_bytes as u64);
             }
-            b"DONE" => break,
+            b"DONE" => {
+                println!("\nTransfer complete!");
+                break;
+            }
             _ => return Err("Unexpected response during file transfer".into()),
         }
     }
@@ -648,6 +666,10 @@ pub async fn pull(
         avg_speed
     ));
 
+    println!("\n=== Pull Operation Completed Successfully ===");
+    println!("Total bytes: {}", total_bytes);
+    println!("Duration: {:.2}s", total_duration.as_secs_f64());
+    println!("Average speed: {:.2} MB/s", avg_speed);
     debug!("Pull operation completed successfully!");
     Ok(())
 }
