@@ -431,8 +431,9 @@ pub async fn push(
     let mut response_buf = [0u8; 72]; // STA2 response is 72 bytes
     adb.stream.read_exact(&mut response_buf)?;
 
+    println!("{:?}", response_buf);
     let stat_response = AdbStatResponse::from_bytes(&response_buf)?;
-    debug!("STA2 response: {:?}", stat_response);
+    println!("STA2 response: {:?}", stat_response);
 
     // Check if destination is a directory
     let is_directory = (stat_response.file_perm >> 12) & 0xF == 4;
@@ -766,6 +767,8 @@ pub async fn pull(
 pub struct AdbStatResponse {
     /// File permissions
     pub file_perm: u32,
+    // File type
+    pub file_type: &'static str,
     /// unknown field
     pub unknown: u32,
     /// File modification time
@@ -781,6 +784,9 @@ impl AdbStatResponse {
 
         let file_perm = cursor.read_u32::<LittleEndian>()?;
 
+        // Extract file type
+        let file_type = Self::get_file_type(file_perm);
+
         //Skip the 4 bytes representing the unknown field
         cursor.set_position(16);
 
@@ -793,11 +799,23 @@ impl AdbStatResponse {
 
         Ok(Self {
             file_perm,
+            file_type,
             unknown,
             mod_time,
         })
     }
+        fn get_file_type(file_perm: u32) -> &'static str {
+        match (file_perm >> 12) & 0xF {
+            0 => "No Type",
+            1 => "Named Pipe (FIFO)",
+            2 => "Character Device",
+            4 => "Directory",
+            6 => "Block Device",
+            _ => "Unknown",
+        }
+    }
 }
+
 
 impl Display for AdbStatResponse {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -805,21 +823,11 @@ impl Display for AdbStatResponse {
         // Create DateTime from SystemTime
         let datetime = DateTime::<Utc>::from(d);
 
-        // Extract file type from file_perm
-        let file_type = match (self.file_perm >> 12) & 0xF {
-            0 => "No Type",
-            1 => "Named Pipe (FIFO)",
-            2 => "Character Device",
-            4 => "Directory",
-            6 => "Block Device",
-            _ => "Unknown",
-        };
-
         // Extract owner permissions
         let owner_perm = (self.file_perm >> 6) & 0x7;
 
         writeln!(f, "File permissions: {}", self.file_perm)?;
-        writeln!(f, "File Type: {}", file_type)?;
+        writeln!(f, "File Type: {}", self.file_type)?;
         writeln!(f, "Owner Permissions: {}", owner_perm)?;
         writeln!(f, "unknown: {}", self.unknown)?;
         write!(
@@ -830,3 +838,7 @@ impl Display for AdbStatResponse {
         Ok(())
     }
 }
+
+
+// foo    - [83, 84, 65, 50, 0, 0, 0, 0, 143, 0, 0, 0, 0, 0, 0, 0, 253, 79, 1, 0, 0, 0, 0, 0, 176, 129, 0, 0, 1, 0, 0, 0, 33, 40, 0, 0, 255, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 184, 34, 99, 103, 0, 0, 0, 0, 184, 34, 99, 103, 0, 0, 0, 0, 228, 37, 99, 103, 0, 0, 0, 0]
+// sdcard - [83, 84, 65, 50, 0, 0, 0, 0, 143, 0, 0, 0, 0, 0, 0, 0, 239, 31, 0, 0, 0, 0, 0, 0, 248, 69, 0, 0, 18, 0, 0, 0, 255, 3, 0, 0, 255, 3, 0, 0, 124, 13, 0, 0, 0, 0, 0, 0, 252, 81, 85, 103, 0, 0, 0, 0, 206, 42, 99, 103, 0, 0, 0, 0, 206, 42, 99, 103, 0, 0, 0, 0]
