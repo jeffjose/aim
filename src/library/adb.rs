@@ -20,6 +20,9 @@ const BUFFER_SIZE: usize = 1024;
 const CHUNK_SIZE: usize = 64 * 1024; // 64KB chunks for file transfers
 const SERVER_START_DELAY: std::time::Duration = std::time::Duration::from_secs(1);
 const DEFAULT_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(2);
+const RESPONSE_OKAY: &[u8] = b"OKAY";
+
+type AdbResult<T> = Result<T, Box<dyn Error>>;
 
 struct AdbStream {
     stream: TcpStream,
@@ -73,12 +76,11 @@ impl AdbStream {
         Ok(stream)
     }
 
-    fn send_command(&mut self, command: &str) -> Result<(), Box<dyn Error>> {
+    fn send_command(&mut self, command: &str) -> AdbResult<()> {
         debug!("Sending command: {}", command);
         let request = format!("{:04x}{}", command.len(), command);
         debug!("Formatted request: {:?}", request);
-        self.stream.write_all(request.as_bytes())?;
-        Ok(())
+        self.write_all(request.as_bytes())
     }
 
     fn read_response(&mut self) -> Result<String, Box<dyn Error>> {
@@ -120,17 +122,21 @@ impl AdbStream {
         }
     }
 
-    fn read_okay(&mut self) -> Result<(), Box<dyn Error>> {
+    fn read_okay(&mut self) -> AdbResult<()> {
         let mut response = [0u8; 4];
         self.stream.read_exact(&mut response)?;
-        println!("Response in read_okay: {:?}", response);
-        // Check if the response is "OKAY" or [8, 0, 0, 0]
-        if &response != b"OKAY"
-            && response != [8, 0, 0, 0]
-            && response != [9, 0, 0, 0]
-            && response != [0, 0, 0, 0]
-            && response != [3, 0, 0, 0]
-        {
+        debug!("Response in read_okay: {:?}", response);
+        
+        // Define valid responses
+        const VALID_RESPONSES: &[&[u8]] = &[
+            RESPONSE_OKAY,
+            &[8, 0, 0, 0],
+            &[9, 0, 0, 0],
+            &[0, 0, 0, 0],
+            &[3, 0, 0, 0],
+        ];
+
+        if !VALID_RESPONSES.contains(&&response[..]) {
             return Err("Expected OKAY response".into());
         }
         Ok(())
@@ -138,6 +144,12 @@ impl AdbStream {
 
     fn write_all(&mut self, buf: &[u8]) -> Result<(), Box<dyn Error>> {
         self.stream.write_all(buf)?;
+        Ok(())
+    }
+
+    fn write_length_prefixed(&mut self, data: &[u8]) -> AdbResult<()> {
+        self.write_all(&(data.len() as u32).to_le_bytes())?;
+        self.write_all(data)?;
         Ok(())
     }
 }
@@ -421,8 +433,7 @@ pub async fn push(
     // Send SEND command with path and mode
     debug!("Sending SEND command...");
     adb.write_all(b"SEND")?;
-    adb.write_all(&(path_header.len() as u32).to_le_bytes())?;
-    adb.write_all(path_header.as_bytes())?;
+    adb.write_length_prefixed(path_header.as_bytes())?;
 
     // Read and send file data in chunks
     debug!("Starting file transfer...");
