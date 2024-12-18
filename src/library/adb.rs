@@ -1,6 +1,5 @@
 use indicatif::ProgressBar;
 use log::*;
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::error::Error;
 use std::fs;
