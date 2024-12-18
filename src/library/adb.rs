@@ -99,13 +99,12 @@ impl AdbStream {
     fn read_okay(&mut self) -> Result<(), Box<dyn Error>> {
         let mut response = [0u8; 4];
         self.stream.read_exact(&mut response)?;
-        println!("Response in read_okay: {:?}", response);
+        debug!("Response in read_okay: {:?}", response);
         // Check if the response is "OKAY" or [8, 0, 0, 0]
         if &response != b"OKAY"
-            && (response.len() != 4)
-            && (response[1] != 0)
-            && (response[2] != 0)
-            && (response[3] != 0)
+            && response != [8, 0, 0, 0]
+            && response != [9, 0, 0, 0]
+            && response != [0, 0, 0, 0]
         {
             return Err("Expected OKAY response".into());
         }
@@ -354,13 +353,37 @@ pub async fn push(
     // Send sync command
     debug!("Sending sync: command");
     adb.send_command("sync:")?;
-
-    // jeffjose | Dec 17, 2024
-    // It is unclear why we need this specific combination of read_okay and read_response
-    // But this is the only one that worked
     adb.read_okay()?;
     adb.read_response()?;
     adb.read_okay()?;
+
+    // Send STA2 command to check destination
+    println!("Checking destination path...");
+    adb.write_all(b"STA2")?;
+    let path_bytes = dst_path.to_string_lossy();
+    let path_bytes = path_bytes.as_bytes();
+    adb.write_all(&(path_bytes.len() as u32).to_le_bytes())?;
+    adb.write_all(path_bytes)?;
+
+    // Read STA2 response
+    let mut response = [0u8; 4];
+    if let Ok(_) = adb.stream.read_exact(&mut response) {
+        if &response == b"STA2" {
+            let mut stat_bytes = [0u8; 16];
+            adb.stream.read_exact(&mut stat_bytes)?;
+            let mode = u32::from_le_bytes(stat_bytes[0..4].try_into()?);
+            let size = u64::from_le_bytes(stat_bytes[4..12].try_into()?);
+            let error = u32::from_le_bytes(stat_bytes[12..16].try_into()?);
+
+            if error == 0 {
+                println!("Destination path exists:");
+                println!("  Type: {}", if mode & 0o040000 != 0 { "directory" } else { "file" });
+                println!("  Size: {} bytes", size);
+            } else {
+                println!("Destination path does not exist");
+            }
+        }
+    }
 
     // Get the filename from src_path
     let filename = src_path
@@ -556,6 +579,9 @@ pub async fn pull(
     src_path: &PathBuf,
     dst_path: &PathBuf,
 ) -> Result<(), Box<dyn Error>> {
+    println!("\n=== Starting Pull Operation ===");
+    println!("Source: {:?}", src_path);
+    println!("Destination: {:?}", dst_path);
     debug!("Starting pull operation:");
     debug!("Source path: {:?}", src_path);
     debug!("Destination path: {:?}", dst_path);
@@ -587,11 +613,13 @@ pub async fn pull(
     let mut adb = AdbStream::new(host, port)?;
 
     // Send device selection command
+    println!("\n[1/4] Connecting to device...");
     debug!("Sending host_command: {}", host_command);
     adb.send_command(&host_command)?;
     adb.read_okay()?;
 
     // Send sync command
+    println!("[2/4] Initializing sync...");
     debug!("Sending sync: command");
     adb.send_command("sync:")?;
     adb.read_okay()?;
@@ -599,6 +627,7 @@ pub async fn pull(
     adb.read_okay()?;
 
     // Send RECV command with path
+    println!("[3/4] Starting file transfer...");
     debug!("Sending RECV command...");
     adb.write_all(b"RECV")?;
     let path_bytes = src_path.to_string_lossy();
@@ -608,11 +637,13 @@ pub async fn pull(
 
     // Create destination directory if it doesn't exist
     if let Some(parent) = full_dst_path.parent() {
+        println!("Creating directory: {:?}", parent);
         debug!("Creating destination directory: {:?}", parent);
         fs::create_dir_all(parent)?;
     }
 
     // Open destination file
+    println!("[4/4] Creating file: {:?}", full_dst_path);
     let mut file = File::create(&full_dst_path)?;
     let mut total_bytes = 0;
 
@@ -627,6 +658,7 @@ pub async fn pull(
     let transfer_start = std::time::Instant::now();
     let mut chunk_start;
 
+    println!("\nTransferring data...");
     loop {
         // Read data header
         let mut response = [0u8; 4];
@@ -657,6 +689,7 @@ pub async fn pull(
                 pb.set_position(total_bytes as u64);
             }
             b"DONE" => {
+                println!("\nTransfer complete!");
                 break;
             }
             _ => return Err("Unexpected response during file transfer".into()),
@@ -675,6 +708,10 @@ pub async fn pull(
         avg_speed
     ));
 
+    println!("\n=== Pull Operation Completed Successfully ===");
+    println!("Total bytes: {}", total_bytes);
+    println!("Duration: {:.2}s", total_duration.as_secs_f64());
+    println!("Average speed: {:.2} MB/s", avg_speed);
     debug!("Pull operation completed successfully!");
     Ok(())
 }
