@@ -84,30 +84,41 @@ impl AdbStream {
 
     fn read_response(&mut self) -> Result<String, Box<dyn Error>> {
         let mut buffer = [0; BUFFER_SIZE];
-        println!("Waiting for response...");
+        let mut response = Vec::new();
+        debug!("Waiting for response...");
 
-        match self.stream.read(&mut buffer) {
-            Ok(0) => {
-                println!("Server closed the connection");
-                Ok(String::new())
-            }
-            Ok(bytes_read) => self.process_response(&buffer[..bytes_read]),
-            Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {
-                println!("Would block");
-                Ok(String::new())
-            }
-            Err(e) => {
-                println!("Error reading from socket: {}", e);
-                Err(e.into())
+        loop {
+            match self.stream.read(&mut buffer) {
+                Ok(0) => {
+                    debug!("Server closed the connection");
+                    break;
+                }
+                Ok(bytes_read) => {
+                    response.extend_from_slice(&buffer[..bytes_read]);
+                    // If we read less than buffer size, we're probably done
+                    if bytes_read < BUFFER_SIZE {
+                        break;
+                    }
+                }
+                Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                    debug!("Would block");
+                    break;
+                }
+                Err(e) => {
+                    debug!("Error reading from socket: {}", e);
+                    return Err(e.into());
+                }
             }
         }
+
+        self.process_response(&response)
     }
 
     fn process_response(&self, data: &[u8]) -> Result<String, Box<dyn Error>> {
-        println!("Raw bytes: {:?}", data);
+        debug!("Raw bytes length: {}", data.len());
         match str::from_utf8(data) {
             Ok(s) => {
-                println!("UTF-8 response: {:?}", s);
+                debug!("UTF-8 response length: {}", s.len());
                 Ok(s.to_string())
             }
             Err(_) => {
@@ -115,7 +126,7 @@ impl AdbStream {
                     .iter()
                     .map(|b| format!("{:02x}", b))
                     .collect::<String>();
-                println!("Binary response (hex): {}", hex);
+                debug!("Binary response (hex) length: {}", hex.len());
                 Ok(hex)
             }
         }
