@@ -17,17 +17,10 @@ pub struct DeviceConfig {
 }
 
 impl Config {
-    pub fn load() -> Self {
-        let config_path = dirs::home_dir()
-            .map(|mut path| {
-                path.push(".aimconfig");
-                path
-            })
-            .unwrap_or_else(|| PathBuf::from(".aimconfig"));
-
+    pub fn load_from_path(config_path: &PathBuf) -> Self {
         debug!("Loading config from: {:?}", config_path);
 
-        match std::fs::read_to_string(&config_path) {
+        match std::fs::read_to_string(config_path) {
             Ok(contents) => {
                 debug!("Config contents:\n{}", contents);
                 let mut config = Config::default();
@@ -76,6 +69,17 @@ impl Config {
                 Config::default()
             }
         }
+    }
+
+    pub fn load() -> Self {
+        let config_path = dirs::home_dir()
+            .map(|mut path| {
+                path.push(".aimconfig");
+                path
+            })
+            .unwrap_or_else(|| PathBuf::from(".aimconfig"));
+
+        Self::load_from_path(&config_path)
     }
 
     pub fn resolve_alias(&self, cmd: &str) -> String {

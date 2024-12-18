@@ -5,3 +5,6 @@ pub mod error;
 pub mod library;
 pub mod subcommands;
 pub mod types;
+
+#[cfg(test)]
+mod config_test;
