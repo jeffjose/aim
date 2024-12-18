@@ -432,7 +432,7 @@ pub async fn push(
 
     // Send SEND command with path and mode
     debug!("Sending SEND command...");
-    adb.write_all(b"SEND")?;
+    adb.write_all(SYNC_DATA)?;
     adb.write_length_prefixed(path_header.as_bytes())?;
 
     // Read and send file data in chunks
@@ -486,7 +486,7 @@ pub async fn push(
 
     // Send DONE command with timestamp
     debug!("Sending DONE command...");
-    adb.write_all(b"DONE")?;
+    adb.write_all(SYNC_DONE)?;
     let timestamp = fs::metadata(src_path)?
         .modified()?
         .duration_since(std::time::UNIX_EPOCH)?
@@ -524,7 +524,7 @@ pub fn start_adb_server(port: &str) -> Result<(), Box<dyn Error>> {
         Ok(_) => {
             debug!("ADB server process spawned successfully");
             // Give the server a moment to initialize
-            std::thread::sleep(std::time::Duration::from_secs(1));
+            std::thread::sleep(SERVER_START_DELAY);
             Ok(())
         }
         Err(e) => {
