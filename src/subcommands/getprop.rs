@@ -1,41 +1,56 @@
-use crate::cli::OutputType;
-use crate::library::adb;
-use crate::types::DeviceDetails;
+use crate::{cli::OutputType, library::adb, types::DeviceDetails};
 use comfy_table::Table;
+use log::debug;
+use serde_json::json;
+use std::collections::HashMap;
 
 pub async fn run(
     host: &str,
     port: &str,
-    propname: &str,
-    target_device: Option<&DeviceDetails>,
-    output_type: OutputType,
+    propnames: &[String],
+    device: Option<&DeviceDetails>,
+    output: OutputType,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let adb_id = target_device.map(|d| d.adb_id.as_str());
-    let result = adb::getprop_async(host, port, propname, adb_id).await?;
+    let adb_id = device.map(|d| d.adb_id.as_str());
+    let results = adb::getprops_parallel(host, port, propnames, adb_id).await;
 
-    match output_type {
-        OutputType::Json => display_json(propname, &result),
-        OutputType::Table => display_table(target_device, propname, &result),
-        OutputType::Plain => println!("{}", result.trim()),
+    match output {
+        OutputType::Plain => {
+            // For single property, just print value
+            if propnames.len() == 1 {
+                if let Some(value) = results.get(&propnames[0]) {
+                    println!("{}", value.trim());
+                }
+            } else {
+                // For multiple properties, print property=value format
+                for propname in propnames {
+                    if let Some(value) = results.get(propname) {
+                        println!("{}={}", propname, value.trim());
+                    }
+                }
+            }
+        }
+        OutputType::Json => {
+            let json = json!({
+                "device": device.map(|d| &d.adb_id),
+                "properties": results
+            });
+            println!("{}", serde_json::to_string_pretty(&json)?);
+        }
+        OutputType::Table => {
+            let mut table = Table::new();
+            table.set_header(vec!["Property", "Value"]);
+            table.load_preset(comfy_table::presets::NOTHING);
+
+            for propname in propnames {
+                if let Some(value) = results.get(propname) {
+                    table.add_row(vec![propname, value.trim()]);
+                }
+            }
+
+            println!("{table}");
+        }
     }
 
     Ok(())
-}
-
-fn display_json(propname: &str, value: &str) {
-    let json = serde_json::json!({
-        propname: value.trim()
-    });
-    println!("{}", serde_json::to_string_pretty(&json).unwrap());
-}
-
-#[allow(unused_variables)]
-fn display_table(device: Option<&DeviceDetails>, propname: &str, value: &str) {
-    let mut table = Table::new();
-    table.set_header(vec!["PROPERTY", "VALUE"]);
-    table.load_preset(comfy_table::presets::NOTHING);
-
-    table.add_row(vec![propname, value.trim()]);
-
-    println!("{table}");
 }

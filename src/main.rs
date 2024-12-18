@@ -90,7 +90,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     }
                 }
                 Commands::Getprop {
-                    propname,
+                    propnames,
                     device_id,
                     output,
                 } => {
@@ -99,25 +99,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     if let Err(e) = subcommands::getprop::run(
                         &cli.host,
                         &cli.port,
-                        &propname,
+                        &propnames,
                         Some(target_device),
                         output,
                     )
                     .await
-                    {
-                        error!("{}", e);
-                        std::process::exit(1);
-                    }
-                }
-                Commands::Getprops {
-                    propnames,
-                    device_id,
-                } => {
-                    let target_device = device_info::find_target_device(&devices, device_id.as_ref())?;
-
-                    if let Err(e) =
-                        subcommands::getprops::run(&cli.host, &cli.port, &propnames, Some(target_device))
-                            .await
                     {
                         error!("{}", e);
                         std::process::exit(1);

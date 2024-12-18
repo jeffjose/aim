@@ -49,24 +49,17 @@ pub enum Commands {
         device_id: Option<String>,
     },
 
-    /// Gets a specific property from a device
+    /// Gets properties from a device
     Getprop {
-        /// Name of the property to get
-        propname: String,
-        /// Optional device ID (can be partial)
-        device_id: Option<String>,
-        /// Output format (table, json, plain)
-        #[arg(short = 'o', long, default_value = "plain")]
-        output: OutputType,
-    },
-
-    /// Gets multiple properties from a device
-    Getprops {
         /// Names of properties to get
+        #[arg(required = true)]
         propnames: Vec<String>,
         /// Optional device ID (can be partial)
         #[arg(last = true)]
         device_id: Option<String>,
+        /// Output format (table, json, plain)
+        #[arg(short = 'o', long, default_value = "plain")]
+        output: OutputType,
     },
 
     /// Rename a device
