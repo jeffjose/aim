@@ -82,7 +82,7 @@ impl AdbStream {
             }
             Ok(bytes_read) => {
                 let response = str::from_utf8(&buffer[..bytes_read])?.to_string();
-                debug!("Raw response: {:?}", response);
+                println!("Raw response: {:?}", response);
                 Ok(response)
             }
             Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {
@@ -99,12 +99,13 @@ impl AdbStream {
     fn read_okay(&mut self) -> Result<(), Box<dyn Error>> {
         let mut response = [0u8; 4];
         self.stream.read_exact(&mut response)?;
-        debug!("Response in read_okay: {:?}", response);
+        println!("Response in read_okay: {:?}", response);
         // Check if the response is "OKAY" or [8, 0, 0, 0]
         if &response != b"OKAY"
             && response != [8, 0, 0, 0]
             && response != [9, 0, 0, 0]
             && response != [0, 0, 0, 0]
+            && response != [3, 0, 0, 0]
         {
             return Err("Expected OKAY response".into());
         }
@@ -359,11 +360,10 @@ pub async fn push(
 
     // Send STA2 command to check destination
     println!("Checking destination path...");
+    let dst_path_str = dst_path.to_string_lossy();
     adb.write_all(b"STA2")?;
-    let path_bytes = dst_path.to_string_lossy();
-    let path_bytes = path_bytes.as_bytes();
-    adb.write_all(&(path_bytes.len() as u32).to_le_bytes())?;
-    adb.write_all(path_bytes)?;
+    adb.write_all(&(dst_path_str.len() as u32).to_le_bytes())?;
+    adb.write_all(dst_path_str.as_bytes())?;
 
     // Read STA2 response
     let mut response = [0u8; 4];
@@ -377,7 +377,14 @@ pub async fn push(
 
             if error == 0 {
                 println!("Destination path exists:");
-                println!("  Type: {}", if mode & 0o040000 != 0 { "directory" } else { "file" });
+                println!(
+                    "  Type: {}",
+                    if mode & 0o040000 != 0 {
+                        "directory"
+                    } else {
+                        "file"
+                    }
+                );
                 println!("  Size: {} bytes", size);
             } else {
                 println!("Destination path does not exist");
