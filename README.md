@@ -31,6 +31,23 @@ Get a property from a device:
 aim getprop ro.product.model
 ```
 
+## Supported ADB Commands
+
+The following ADB commands are supported by `aim`:
+
+- [x] `devices` - List connected devices
+- [ ] `shell` - Run shell commands on device
+- [ ] `install` - Install an APK
+- [ ] `uninstall` - Remove an app
+- [.] `push` - Copy files to device
+- [.] `pull` - Copy files from device
+- [ ] `logcat` - View device logs
+- [.] `getprop` - Get device properties
+- [ ] `reboot` - Restart device
+- [ ] `backup` - Backup device data (planned)
+- [ ] `restore` - Restore device backup (planned)
+- [ ] `sideload` - Install OTA update (planned)
+
 ## Configuration
 
 Create `~/.aimconfig` (or `%APPDATA%\aim\config.toml` on Windows):
