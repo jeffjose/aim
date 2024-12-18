@@ -11,11 +11,9 @@ use std::path::PathBuf;
 use std::process::Command;
 use std::str;
 use std::sync::Arc;
-use std::thread;
 use tokio::task::JoinHandle;
 use serde::{Deserialize, Serialize};
 
-use crate::types::DeviceDetails;
 
 const SYNC_DATA: &[u8] = b"SEND";
 const SYNC_DONE: &[u8] = b"DONE";
@@ -54,7 +52,7 @@ impl AdbStream {
         debug!("Resolved address: {:?}", address);
 
         debug!("Establishing connection...");
-        let mut stream = TcpStream::connect(address)?;
+        let stream = TcpStream::connect(address)?;
         debug!("Connection established");
 
         stream.set_read_timeout(Some(std::time::Duration::from_secs(2)))?;
@@ -463,7 +461,7 @@ pub async fn push(
 
     // Calculate total transfer statistics
     let total_duration = transfer_start.elapsed();
-    let avg_speed = (total_bytes as f64 / total_duration.as_secs_f64() / 1024.0 / 1024.0); // MB/s
+    let avg_speed = total_bytes as f64 / total_duration.as_secs_f64() / 1024.0 / 1024.0; // MB/s
 
     // Finish progress bar with final statistics
     pb.finish_with_message(format!(
