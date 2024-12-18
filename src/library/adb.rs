@@ -124,8 +124,8 @@ impl AdbStream {
     fn read_okay(&mut self) -> AdbResult<()> {
         let mut response = [0u8; 4];
         self.stream.read_exact(&mut response)?;
-        debug!("Response in read_okay: {:?}", response);
-        
+        println!("Response in read_okay: {:?}", response);
+
         // Define valid responses
         const VALID_RESPONSES: &[&[u8]] = &[
             RESPONSE_OKAY,
@@ -133,6 +133,7 @@ impl AdbStream {
             &[9, 0, 0, 0],
             &[0, 0, 0, 0],
             &[3, 0, 0, 0],
+            &[1, 0, 0, 0],
         ];
 
         if !VALID_RESPONSES.contains(&&response[..]) {

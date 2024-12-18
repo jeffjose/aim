@@ -6,6 +6,8 @@ mod library;
 mod subcommands;
 mod types;
 
+use std::path::PathBuf;
+
 use clap::Parser;
 use cli::{Cli, Commands};
 use device::device_info;
@@ -134,8 +136,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 Commands::Copy { src, dst } => {
                     subcommands::copy::run(
                         subcommands::copy::CopyArgs {
-                            src: src.into(),
-                            dst: dst.into(),
+                            src: src.into_iter().map(PathBuf::from).collect(),
+                            dst: PathBuf::from(dst),
                         },
                         &devices,
                         &cli.host,

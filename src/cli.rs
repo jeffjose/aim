@@ -79,9 +79,10 @@ pub enum Commands {
 
     /// Copy files to/from device
     Copy {
-        /// Source in format device_id:path
-        src: String,
-        /// Destionation in format device_id:path
+        /// Source paths in format device_id:path
+        #[arg(required = true)]
+        src: Vec<String>,
+        /// Destination in format device_id:path
         dst: String,
     },
 
