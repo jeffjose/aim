@@ -1,17 +1,21 @@
 use super::protocol::format_command;
+use byteorder::{LittleEndian, ReadBytesExt};
+use chrono::{DateTime, Utc};
 use indicatif::ProgressBar;
 use log::*;
 use std::collections::HashMap;
 use std::error::Error;
+use std::fmt::{self, Display};
 use std::fs;
 use std::fs::File;
-use std::io::{Read, Write};
+use std::io::{Cursor, Read, Write};
 use std::net::{TcpStream, ToSocketAddrs};
 use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
 use std::process::Command;
 use std::str;
 use std::sync::Arc;
+use std::time::UNIX_EPOCH;
 use tokio::task::JoinHandle;
 
 const SYNC_DATA: &[u8] = b"SEND";
@@ -432,7 +436,7 @@ pub async fn push(
     adb.read_response()?;
     adb.read_okay()?;
 
-    // Send STA2 command to check destination
+    // Send STA2 command and parse response
     println!("Checking destination path...");
     let dst_path_str = dst_path.to_string_lossy();
     let dst_path_bytes = dst_path_str.as_bytes();
@@ -441,7 +445,16 @@ pub async fn push(
     command.extend_from_slice(&(dst_path_bytes.len() as u32).to_le_bytes());
     command.extend_from_slice(dst_path_bytes);
     adb.write_all(&command)?;
-    adb.read_response()?;
+
+    // Read and parse STA2 response
+    let mut response_buf = [0u8; 72]; // STA2 response is 72 bytes
+    adb.stream.read_exact(&mut response_buf)?;
+
+    let stat_response = AdbStatResponse::from_bytes(&response_buf)?;
+    debug!("STA2 response: {:?}", stat_response);
+
+    // Check if destination is a directory
+    let is_directory = (stat_response.file_perm >> 12) & 0xF == 4;
 
     // Get the filename from src_path
     let filename = src_path
@@ -450,12 +463,7 @@ pub async fn push(
         .to_string_lossy();
 
     // Construct the full destination path
-    let full_dst_path = if dst_path.to_string_lossy().ends_with('/')
-        || fs::metadata(src_path)?.is_file() && !dst_path.file_name().is_some()
-    {
-        // Append filename if:
-        // - dst_path ends with '/' (it's explicitly a directory)
-        // - OR src_path is a file AND dst_path doesn't have a filename component
+    let full_dst_path = if is_directory || dst_path.to_string_lossy().ends_with('/') {
         dst_path.join(&*filename)
     } else {
         dst_path.clone()
