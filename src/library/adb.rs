@@ -136,7 +136,7 @@ impl AdbStream {
     fn read_okay(&mut self) -> AdbResult<()> {
         let mut response = [0u8; 4];
         self.stream.read_exact(&mut response)?;
-        println!("Response in read_okay: {:?}", response);
+        debug!("Response in read_okay: {:?}", response);
 
         // Define valid responses
         const VALID_RESPONSES: &[&[u8]] = &[
@@ -243,10 +243,7 @@ fn clean_str(input: &str) -> String {
 fn remove_unnecessary_unicode(input: &str) -> String {
     let input = input.strip_prefix("OKAY").unwrap_or(input);
 
-    println!("1. input = {:?}", input);
     let input = input.get(4..).unwrap_or("");
-
-    println!("2. input = {:?}", input);
 
     clean_str(input)
 }
@@ -271,7 +268,7 @@ fn remove_unnecessary_unicode(input: &str) -> String {
 // }
 
 pub fn format_responses(responses: &[String]) -> String {
-    println!("before formatting responses = {:?}", responses);
+    debug!("before formatting responses = {:?}", responses);
     let outgoing_responses = responses
         .iter()
         .map(|r| r.trim())
@@ -279,7 +276,7 @@ pub fn format_responses(responses: &[String]) -> String {
         .collect::<Vec<&str>>()
         .join("\n");
 
-    println!("after formatting responses = {:?}", outgoing_responses);
+    debug!("after formatting responses = {:?}", outgoing_responses);
 
     outgoing_responses
 }
@@ -636,9 +633,9 @@ pub async fn pull(
     src_path: &PathBuf,
     dst_path: &PathBuf,
 ) -> Result<(), Box<dyn Error>> {
-    println!("\n=== Starting Pull Operation ===");
-    println!("Source: {:?}", src_path);
-    println!("Destination: {:?}", dst_path);
+    debug!("\n=== Starting Pull Operation ===");
+    debug!("Source: {:?}", src_path);
+    debug!("Destination: {:?}", dst_path);
     debug!("Starting pull operation:");
     debug!("Source path: {:?}", src_path);
     debug!("Destination path: {:?}", dst_path);

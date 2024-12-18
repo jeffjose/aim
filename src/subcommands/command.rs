@@ -118,10 +118,7 @@ async fn run_on_filtered_devices(
 
             if all_filters_match {
                 matched = true;
-                println!(
-                    "Running command on device {} ({}):",
-                    device.adb_id, device.device_name
-                );
+                println!("Running command on device {} ({}):", device.adb_id, device.device_name);
                 if let Err(e) = run_on_device(host, port, command, &device).await {
                     eprintln!("Error on device {}: {}", device.adb_id, e);
                 }

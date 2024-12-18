@@ -68,7 +68,7 @@ pub async fn get_devices(host: &str, port: &str) -> Vec<DeviceDetails> {
         }
     }
 
-    println!("{:?}", devices);
+    debug!("{:?}", devices);
     devices
 }
 
