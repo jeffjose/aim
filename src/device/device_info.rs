@@ -87,7 +87,7 @@ struct DeviceCapture<'a> {
     transport_id: &'a str,
 }
 
-fn extract_device_info(input: String) -> Value {
+pub fn extract_device_info(input: String) -> Value {
     let mut devices: Vec<Value> = Vec::new();
 
     for line in input.lines() {
