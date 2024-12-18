@@ -79,10 +79,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     subcommands::ls::run(&devices, cli.output).await;
                 }
                 Commands::Command { command, device_id } => {
-                    let target_device = device_info::find_target_device(&devices, device_id.as_ref())?;
+                    let target_device =
+                        device_info::find_target_device(&devices, device_id.as_ref())?;
 
-                    if let Err(e) =
-                        subcommands::command::run(&cli.host, &cli.port, &command, Some(target_device)).await
+                    if let Err(e) = subcommands::command::run(
+                        &cli.host,
+                        &cli.port,
+                        &command,
+                        Some(target_device),
+                    )
+                    .await
                     {
                         error!("{}", e);
 
@@ -94,7 +100,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     device_id,
                     output,
                 } => {
-                    let target_device = device_info::find_target_device(&devices, device_id.as_ref())?;
+                    let target_device =
+                        device_info::find_target_device(&devices, device_id.as_ref())?;
 
                     if let Err(e) = subcommands::getprop::run(
                         &cli.host,
@@ -113,7 +120,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     device_id,
                     new_name,
                 } => {
-                    let target_device = device_info::find_target_device(&devices, Some(&device_id))?;
+                    let target_device =
+                        device_info::find_target_device(&devices, Some(&device_id))?;
                     if let Err(e) = subcommands::rename::run(target_device, &new_name).await {
                         error!("Failed to rename device: {}", e);
                         std::process::exit(1);
