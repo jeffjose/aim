@@ -7,22 +7,50 @@ pub async fn run(
     port: &str,
     command: &str,
     device: Option<&DeviceDetails>,
-    filter: Option<&str>,
+    filters: Option<&[String]>,
 ) -> Result<(), Box<dyn Error>> {
-    match (device, filter) {
+    match (device, filters) {
         (Some(d), None) => {
             // Single device specified, no filter
             run_on_device(host, port, command, d).await
         }
-        (None, Some(filter)) => {
-            // No device specified but filter present - run on all matching devices
-            run_on_filtered_devices(host, port, command, filter).await
+        (Some(d), Some(f)) if !f.is_empty() => {
+            // Single device specified with filters - verify device matches filters
+            let host_command = format!("host:tport:serial:{}", d.adb_id);
+            let getprop_command = "shell:getprop";
+            let messages = vec![host_command.as_str(), getprop_command];
+
+            if let Ok(output) = adb::send(host, port, messages) {
+                let props_output = output.into_iter().next().unwrap_or_default();
+                let device_props: Vec<(&str, &str)> = props_output
+                    .lines()
+                    .filter_map(parse_getprop_line)
+                    .collect();
+
+                let parsed_filters: Vec<(&str, &str)> = f
+                    .iter()
+                    .map(|f| parse_filter(f))
+                    .collect::<Result<Vec<_>, _>>()?;
+
+                if parsed_filters.iter().all(|(filter_key, filter_value)| {
+                    device_props.iter().any(|(prop_key, prop_value)| {
+                        prop_key == filter_key && prop_value.trim() == filter_value.trim()
+                    })
+                }) {
+                    run_on_device(host, port, command, d).await
+                } else {
+                    Err("Specified device does not match all filters".into())
+                }
+            } else {
+                Err("Failed to get device properties".into())
+            }
         }
-        (Some(_), Some(_)) => {
-            Err("Cannot specify both device ID and filter".into())
+        (None, Some(filters)) if !filters.is_empty() => {
+            // No device specified but filters present - run on all matching devices
+            run_on_filtered_devices(host, port, command, filters).await
         }
-        (None, None) => {
-            // No device or filter specified - check number of devices
+        (_, _) => {
+            // No device or empty filters specified - check number of devices
             let devices = crate::device::device_info::get_devices(host, port).await;
             match devices.len() {
                 0 => Err("No devices found".into()),
@@ -30,7 +58,9 @@ pub async fn run(
                     debug!("Running command on single available device");
                     run_on_device(host, port, command, &devices[0]).await
                 }
-                _ => Err("Multiple devices found. Please specify a device ID or use --filter".into())
+                _ => {
+                    Err("Multiple devices found. Please specify a device ID or use --filter".into())
+                }
             }
         }
     }
@@ -51,11 +81,14 @@ async fn run_on_filtered_devices(
     host: &str,
     port: &str,
     command: &str,
-    filter: &str,
+    filters: &[String],
 ) -> Result<(), Box<dyn Error>> {
-    // Parse filter in format key=value
-    let (key, value) = parse_filter(filter)?;
-    
+    // Parse all filters
+    let parsed_filters: Vec<(&str, &str)> = filters
+        .iter()
+        .map(|f| parse_filter(f))
+        .collect::<Result<Vec<_>, _>>()?;
+
     // Get all devices
     let devices = crate::device::device_info::get_devices(host, port).await;
     let mut matched = false;
@@ -66,27 +99,41 @@ async fn run_on_filtered_devices(
         let host_command = format!("host:tport:serial:{}", device.adb_id);
         let getprop_command = "shell:getprop";
         let messages = vec![host_command.as_str(), getprop_command];
-        
+
         if let Ok(output) = adb::send(host, port, messages) {
             let props_output = output.into_iter().next().unwrap_or_default();
-            
-            // Parse properties and check for match
-            for line in props_output.lines() {
-                if let Some((prop_key, prop_value)) = parse_getprop_line(line) {
-                    if prop_key == key && prop_value.trim() == value.trim() {
-                        matched = true;
-                        println!("Running command on device {} ({}):", device.adb_id, device.device_name);
-                        if let Err(e) = run_on_device(host, port, command, &device).await {
-                            eprintln!("Error on device {}: {}", device.adb_id, e);
-                        }
-                    }
+
+            // Parse all properties once
+            let device_props: Vec<(&str, &str)> = props_output
+                .lines()
+                .filter_map(parse_getprop_line)
+                .collect();
+
+            // Check if all filters match
+            let all_filters_match = parsed_filters.iter().all(|(filter_key, filter_value)| {
+                device_props.iter().any(|(prop_key, prop_value)| {
+                    prop_key == filter_key && prop_value.trim() == filter_value.trim()
+                })
+            });
+
+            if all_filters_match {
+                matched = true;
+                println!(
+                    "Running command on device {} ({}):",
+                    device.adb_id, device.device_name
+                );
+                if let Err(e) = run_on_device(host, port, command, &device).await {
+                    eprintln!("Error on device {}: {}", device.adb_id, e);
                 }
             }
         }
     }
 
     if !matched {
-        println!("No devices matched the filter {}={}", key, value);
+        println!("No devices matched all filters:");
+        for (key, value) in parsed_filters {
+            println!("  {}={}", key, value);
+        }
     }
 
     Ok(())

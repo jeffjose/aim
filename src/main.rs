@@ -78,7 +78,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 Commands::Ls => {
                     subcommands::ls::run(&devices, cli.output).await;
                 }
-                Commands::Command { command, device_id, filter } => {
+                Commands::Command { command, device_id, filters } => {
                     let target_device = if let Some(ref id) = device_id {
                         Some(device_info::find_target_device(&devices, Some(id))?)
                     } else {
@@ -90,7 +90,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         &cli.port,
                         &command,
                         target_device,
-                        filter.as_deref(),
+                        if filters.is_empty() { None } else { Some(&filters) },
                     )
                     .await
                     {
