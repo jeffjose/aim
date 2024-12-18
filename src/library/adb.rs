@@ -1,5 +1,6 @@
 use indicatif::ProgressBar;
 use log::*;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::error::Error;
 use std::fs;
@@ -12,8 +13,6 @@ use std::process::Command;
 use std::str;
 use std::sync::Arc;
 use tokio::task::JoinHandle;
-use serde::{Deserialize, Serialize};
-
 
 const SYNC_DATA: &[u8] = b"SEND";
 const SYNC_DONE: &[u8] = b"DONE";
@@ -360,19 +359,25 @@ pub async fn push(
     // Send STA2 command to check destination
     println!("Checking destination path...");
     let dst_path_str = dst_path.to_string_lossy();
-    adb.write_all(b"STA2")?;
-    adb.write_all(&(dst_path_str.len() as u32).to_le_bytes())?;
-    adb.write_all(dst_path_str.as_bytes())?;
+    let dst_path_bytes = dst_path_str.as_bytes();
+    let mut command = Vec::with_capacity(4 + 4 + dst_path_bytes.len());
+    command.extend_from_slice(b"STA2");
+    command.extend_from_slice(&(dst_path_bytes.len() as u32).to_le_bytes());
+    command.extend_from_slice(dst_path_bytes);
+    adb.write_all(&command)?;
 
     // Read STA2 response
     let mut response = [0u8; 4];
     if let Ok(_) = adb.stream.read_exact(&mut response) {
+        println!("STA2 response: {:?} {}", response, &response == b"STA2");
         if &response == b"STA2" {
             let mut stat_bytes = [0u8; 16];
             adb.stream.read_exact(&mut stat_bytes)?;
-            
+
             let stat: Stat2Response = bincode::deserialize(&stat_bytes)?;
-            
+
+            println!("Stat2Response: {:?}", stat);
+
             if stat.error == 0 {
                 println!("Destination path exists:");
                 println!(
