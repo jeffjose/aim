@@ -112,6 +112,7 @@ impl AdbStream {
             }
         }
 
+        println!("Response: {:?}", response);
         self.process_response(&response)
     }
 
@@ -146,10 +147,11 @@ impl AdbStream {
             &[0, 0, 0, 0],
             &[3, 0, 0, 0],
             &[1, 0, 0, 0],
+            &[2, 0, 0, 0],
         ];
 
         if !VALID_RESPONSES.contains(&&response[..]) {
-            return Err("Expected OKAY response".into());
+            return Err(format!("Expected OKAY response.  Got {:?}", response).into());
         }
         Ok(())
     }
@@ -769,4 +771,73 @@ pub async fn pull(
     println!("Average speed: {:.2} MB/s", avg_speed);
     debug!("Pull operation completed successfully!");
     Ok(())
+}
+
+#[derive(Debug, PartialEq)]
+pub struct AdbStatResponse {
+    /// File permissions
+    pub file_perm: u32,
+    /// unknown field
+    pub unknown: u32,
+    /// File modification time
+    pub mod_time: u32,
+}
+
+impl AdbStatResponse {
+    pub fn from_bytes(value: &[u8; 72]) -> Result<Self, std::io::Error> {
+        let mut cursor = Cursor::new(value);
+
+        // Skip header "STA2" and padding
+        cursor.set_position(8);
+
+        let file_perm = cursor.read_u32::<LittleEndian>()?;
+
+        //Skip the 4 bytes representing the unknown field
+        cursor.set_position(16);
+
+        let unknown = cursor.read_u32::<LittleEndian>()?;
+
+        // Skip padding
+        cursor.set_position(20);
+
+        let mod_time = cursor.read_u32::<LittleEndian>()?;
+
+        Ok(Self {
+            file_perm,
+            unknown,
+            mod_time,
+        })
+    }
+}
+
+impl Display for AdbStatResponse {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let d = UNIX_EPOCH + std::time::Duration::from_secs(self.mod_time.into());
+        // Create DateTime from SystemTime
+        let datetime = DateTime::<Utc>::from(d);
+
+        // Extract file type from file_perm
+        let file_type = match (self.file_perm >> 12) & 0xF {
+            0 => "No Type",
+            1 => "Named Pipe (FIFO)",
+            2 => "Character Device",
+            4 => "Directory",
+            6 => "Block Device",
+            _ => "Unknown",
+        };
+
+        // Extract owner permissions
+        let owner_perm = (self.file_perm >> 6) & 0x7;
+
+        writeln!(f, "File permissions: {}", self.file_perm)?;
+        writeln!(f, "File Type: {}", file_type)?;
+        writeln!(f, "Owner Permissions: {}", owner_perm)?;
+        writeln!(f, "unknown: {}", self.unknown)?;
+        write!(
+            f,
+            "Modification time: {}",
+            datetime.format("%Y-%m-%d %H:%M:%S.%f %Z")
+        )?;
+        Ok(())
+    }
 }
