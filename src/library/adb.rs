@@ -71,11 +71,11 @@ impl AdbStream {
 
     fn read_response(&mut self) -> Result<String, Box<dyn Error>> {
         let mut buffer = [0; 1024];
-        debug!("Waiting for response...");
+        println!("Waiting for response...");
 
         match self.stream.read(&mut buffer) {
             Ok(0) => {
-                debug!("Server closed the connection");
+                println!("Server closed the connection");
                 Ok(String::new())
             }
             Ok(bytes_read) => {
@@ -84,11 +84,11 @@ impl AdbStream {
                 Ok(response)
             }
             Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {
-                debug!("Would block");
+                println!("Would block");
                 Ok(String::new())
             }
             Err(e) => {
-                debug!("Error reading from socket: {}", e);
+                println!("Error reading from socket: {}", e);
                 Err(e.into())
             }
         }
@@ -372,13 +372,14 @@ pub async fn push(
         println!("STA2 response: {:?} {}", response, &response == b"STA2");
         if &response == b"STA2" {
             let mut stat_bytes = [0u8; 16];
-            adb.stream.read_exact(&mut stat_bytes)?;
+            //adb.stream.read_exact(&mut stat_bytes)?;
+            adb.read_response()?;
 
             let stat: Stat2Response = bincode::deserialize(&stat_bytes)?;
 
             println!("Stat2Response: {:?}", stat);
 
-            if stat.error == 0 {
+            if stat.error != 0 {
                 println!("Destination path exists:");
                 println!(
                     "  Type: {}",
