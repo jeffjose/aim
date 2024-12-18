@@ -79,9 +79,22 @@ impl AdbStream {
                 Ok(String::new())
             }
             Ok(bytes_read) => {
-                let response = str::from_utf8(&buffer[..bytes_read])?.to_string();
-                println!("Raw response: {:?}", response);
-                Ok(response)
+                println!("Raw bytes: {:?}", &buffer[..bytes_read]);
+                match str::from_utf8(&buffer[..bytes_read]) {
+                    Ok(s) => {
+                        println!("UTF-8 response: {:?}", s);
+                        Ok(s.to_string())
+                    }
+                    Err(_) => {
+                        // Handle binary data by returning a hex representation
+                        let hex = buffer[..bytes_read]
+                            .iter()
+                            .map(|b| format!("{:02x}", b))
+                            .collect::<String>();
+                        println!("Binary response (hex): {}", hex);
+                        Ok(hex)
+                    }
+                }
             }
             Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {
                 println!("Would block");
