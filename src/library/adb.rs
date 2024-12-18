@@ -13,6 +13,7 @@ use std::str;
 use std::sync::Arc;
 use std::thread;
 use tokio::task::JoinHandle;
+use serde::{Deserialize, Serialize};
 
 use crate::types::DeviceDetails;
 
@@ -371,21 +372,20 @@ pub async fn push(
         if &response == b"STA2" {
             let mut stat_bytes = [0u8; 16];
             adb.stream.read_exact(&mut stat_bytes)?;
-            let mode = u32::from_le_bytes(stat_bytes[0..4].try_into()?);
-            let size = u64::from_le_bytes(stat_bytes[4..12].try_into()?);
-            let error = u32::from_le_bytes(stat_bytes[12..16].try_into()?);
-
-            if error == 0 {
+            
+            let stat: Stat2Response = bincode::deserialize(&stat_bytes)?;
+            
+            if stat.error == 0 {
                 println!("Destination path exists:");
                 println!(
                     "  Type: {}",
-                    if mode & 0o040000 != 0 {
+                    if stat.mode & 0o040000 != 0 {
                         "directory"
                     } else {
                         "file"
                     }
                 );
-                println!("  Size: {} bytes", size);
+                println!("  Size: {} bytes", stat.size);
             } else {
                 println!("Destination path does not exist");
             }
@@ -721,4 +721,11 @@ pub async fn pull(
     println!("Average speed: {:.2} MB/s", avg_speed);
     debug!("Pull operation completed successfully!");
     Ok(())
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct Stat2Response {
+    mode: u32,
+    size: u64,
+    error: u32,
 }
