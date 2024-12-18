@@ -60,7 +60,7 @@ pub async fn run(
     Ok(())
 }
 
-fn parse_device_path(
+pub fn parse_device_path(
     path: &PathBuf,
 ) -> Result<(Option<String>, PathBuf), Box<dyn std::error::Error>> {
     let path_str = path.to_string_lossy();
