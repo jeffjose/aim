@@ -12,6 +12,7 @@ use std::process::Command;
 use std::str;
 use std::sync::Arc;
 use tokio::task::JoinHandle;
+use super::protocol::format_command;
 
 const SYNC_DATA: &[u8] = b"SEND";
 const SYNC_DONE: &[u8] = b"DONE";
@@ -274,15 +275,14 @@ pub async fn run_shell_command_async(
     adb_id: Option<&str>,
 ) -> Result<String, Box<dyn Error>> {
     let host_command = match adb_id {
-        Some(id) => format!("host:tport:serial:{}", id),
-        None => "host:tport:any".to_string(),
+        Some(id) => format_command("SELECT_DEVICE", &[id]),
+        None => format_command("ANY_DEVICE", &[]),
     };
 
-    let formatted_command = format!("shell,v2,TERM=xterm-256color,raw:{}", command);
+    let formatted_command = format_command("SHELL_V2", &[command]);
+    let messages = vec![host_command.as_str(), formatted_command.as_str()];
 
-    let messages: Vec<&str> = vec![host_command.as_str(), formatted_command.as_str()];
-
-    match send(&host, &port, messages) {
+    match send(host, port, messages) {
         Ok(responses) => {
             debug!("{:?}", responses);
             Ok(format_responses(&responses))
@@ -293,6 +293,7 @@ pub async fn run_shell_command_async(
         }
     }
 }
+
 #[allow(dead_code)]
 pub async fn run_command_async(
     host: &str,
@@ -301,13 +302,13 @@ pub async fn run_command_async(
     adb_id: Option<&str>,
 ) -> Result<String, Box<dyn Error>> {
     let host_command = match adb_id {
-        Some(id) => format!("host:tport:serial:{}", id),
-        None => "host:tport:any".to_string(),
+        Some(id) => format_command("SELECT_DEVICE", &[id]),
+        None => format_command("ANY_DEVICE", &[]),
     };
 
     let messages: Vec<&str> = vec![host_command.as_str(), command];
 
-    match send(&host, &port, messages) {
+    match send(host, port, messages) {
         Ok(responses) => {
             debug!("{:?}", responses);
             Ok(format_responses(&responses))
@@ -325,8 +326,18 @@ pub async fn getprop_async(
     propname: &str,
     adb_id: Option<&str>,
 ) -> Result<String, Box<dyn Error>> {
-    let command = format!("getprop {}", propname);
-    run_shell_command_async(host, port, command.as_str(), adb_id).await
+    let host_command = match adb_id {
+        Some(id) => format_command("SELECT_DEVICE", &[id]),
+        None => format_command("ANY_DEVICE", &[]),
+    };
+
+    let getprop_command = format_command("GETPROP_SINGLE", &[propname]);
+    let messages = vec![host_command.as_str(), getprop_command.as_str()];
+
+    match send(host, port, messages) {
+        Ok(responses) => Ok(format_responses(&responses)),
+        Err(e) => Err(e),
+    }
 }
 
 pub async fn getprops_parallel(

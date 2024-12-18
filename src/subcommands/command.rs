@@ -1,3 +1,4 @@
+use crate::library::protocol::format_command;
 use crate::{library::adb, types::DeviceDetails};
 use log::debug;
 use std::error::Error;
@@ -16,9 +17,9 @@ pub async fn run(
         }
         (Some(d), Some(f)) if !f.is_empty() => {
             // Single device specified with filters - verify device matches filters
-            let host_command = format!("host:tport:serial:{}", d.adb_id);
-            let getprop_command = "shell:getprop";
-            let messages = vec![host_command.as_str(), getprop_command];
+            let host_command = format_command("SELECT_DEVICE", &[&d.adb_id]);
+            let getprop_command = format_command("GETPROP", &[]);
+            let messages = vec![host_command.as_str(), &getprop_command];
 
             if let Ok(output) = adb::send(host, port, messages) {
                 let props_output = output.into_iter().next().unwrap_or_default();
@@ -95,10 +96,9 @@ async fn run_on_filtered_devices(
 
     // Check each device's properties
     for device in devices {
-        // Get all properties for the device
-        let host_command = format!("host:tport:serial:{}", device.adb_id);
-        let getprop_command = "shell:getprop";
-        let messages = vec![host_command.as_str(), getprop_command];
+        let host_command = format_command("SELECT_DEVICE", &[&device.adb_id]);
+        let getprop_command = format_command("GETPROP", &[]);
+        let messages = vec![host_command.as_str(), &getprop_command];
 
         if let Ok(output) = adb::send(host, port, messages) {
             let props_output = output.into_iter().next().unwrap_or_default();
