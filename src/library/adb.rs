@@ -235,6 +235,7 @@ fn remove_literal_002b(input: &str) -> String {
 
 fn clean_str(input: &str) -> String {
     input
+        .replace("OKAY", "")
         .chars()
         .filter(|&c| c != '\u{0}' && (c.is_ascii_graphic() || c.is_whitespace()))
         .collect()
