@@ -16,6 +16,10 @@ use tokio::task::JoinHandle;
 
 const SYNC_DATA: &[u8] = b"SEND";
 const SYNC_DONE: &[u8] = b"DONE";
+const BUFFER_SIZE: usize = 1024;
+const CHUNK_SIZE: usize = 64 * 1024; // 64KB chunks for file transfers
+const SERVER_START_DELAY: std::time::Duration = std::time::Duration::from_secs(1);
+const DEFAULT_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(2);
 
 struct AdbStream {
     stream: TcpStream,
@@ -25,16 +29,24 @@ impl AdbStream {
     fn new(host: &str, port: &str) -> Result<Self, Box<dyn Error>> {
         debug!("=== Creating new ADB stream ===");
 
-        // Check if server is running, if not start it
+        Self::ensure_server_running(host, port)?;
+        let stream = Self::establish_connection(host, port)?;
+
+        Ok(Self { stream })
+    }
+
+    fn ensure_server_running(host: &str, port: &str) -> Result<(), Box<dyn Error>> {
         if !check_server_running(host, port) {
             start_adb_server(port)?;
 
-            // Verify server started successfully
             if !check_server_running(host, port) {
                 return Err("Failed to start ADB server".into());
             }
         }
+        Ok(())
+    }
 
+    fn establish_connection(host: &str, port: &str) -> Result<TcpStream, Box<dyn Error>> {
         let server_address = format!(
             "{}:{}",
             if host == "localhost" {
@@ -54,11 +66,11 @@ impl AdbStream {
         let stream = TcpStream::connect(address)?;
         debug!("Connection established");
 
-        stream.set_read_timeout(Some(std::time::Duration::from_secs(2)))?;
-        stream.set_write_timeout(Some(std::time::Duration::from_secs(2)))?;
+        stream.set_read_timeout(Some(DEFAULT_TIMEOUT))?;
+        stream.set_write_timeout(Some(DEFAULT_TIMEOUT))?;
         debug!("Timeouts set");
 
-        Ok(Self { stream })
+        Ok(stream)
     }
 
     fn send_command(&mut self, command: &str) -> Result<(), Box<dyn Error>> {
@@ -70,7 +82,7 @@ impl AdbStream {
     }
 
     fn read_response(&mut self) -> Result<String, Box<dyn Error>> {
-        let mut buffer = [0; 1024];
+        let mut buffer = [0; BUFFER_SIZE];
         println!("Waiting for response...");
 
         match self.stream.read(&mut buffer) {
@@ -78,30 +90,7 @@ impl AdbStream {
                 println!("Server closed the connection");
                 Ok(String::new())
             }
-            Ok(bytes_read) => {
-                println!("Raw bytes: {:?}", &buffer[..bytes_read]);
-                match str::from_utf8(&buffer[..bytes_read]) {
-                    Ok(s) => {
-                        println!("UTF-8 response: {:?}", s);
-                        Ok(s.to_string())
-                    }
-                    Err(_) => {
-                        // Deserialize the binary data directly
-                        let deserialized: Result<Vec<u8>, _> = bincode::deserialize(&buffer[..bytes_read]);
-                        if let Ok(data) = deserialized {
-                            println!("Deserialized binary response: {:?}", data);
-                        }
-                        
-                        // Return hex representation for compatibility
-                        let hex = buffer[..bytes_read]
-                            .iter()
-                            .map(|b| format!("{:02x}", b))
-                            .collect::<String>();
-                        println!("Binary response (hex): {}", hex);
-                        Ok(hex)
-                    }
-                }
-            }
+            Ok(bytes_read) => self.process_response(&buffer[..bytes_read]),
             Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {
                 println!("Would block");
                 Ok(String::new())
@@ -109,6 +98,24 @@ impl AdbStream {
             Err(e) => {
                 println!("Error reading from socket: {}", e);
                 Err(e.into())
+            }
+        }
+    }
+
+    fn process_response(&self, data: &[u8]) -> Result<String, Box<dyn Error>> {
+        println!("Raw bytes: {:?}", data);
+        match str::from_utf8(data) {
+            Ok(s) => {
+                println!("UTF-8 response: {:?}", s);
+                Ok(s.to_string())
+            }
+            Err(_) => {
+                let hex = data
+                    .iter()
+                    .map(|b| format!("{:02x}", b))
+                    .collect::<String>();
+                println!("Binary response (hex): {}", hex);
+                Ok(hex)
             }
         }
     }
@@ -386,7 +393,6 @@ pub async fn push(
     adb.write_all(&command)?;
     adb.read_response()?;
 
-
     // Get the filename from src_path
     let filename = src_path
         .file_name()
@@ -422,7 +428,7 @@ pub async fn push(
     debug!("Starting file transfer...");
     let mut file = File::open(src_path)?;
     let file_size = fs::metadata(src_path)?.len();
-    let mut buffer = [0u8; 64 * 1024]; // 64KB chunks
+    let mut buffer = [0u8; CHUNK_SIZE]; // 64KB chunks
     let mut total_bytes = 0;
 
     // Setup progress bar
