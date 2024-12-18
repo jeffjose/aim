@@ -293,7 +293,7 @@ pub async fn run_shell_command_async(
         }
     }
 }
-
+#[allow(dead_code)]
 pub async fn run_command_async(
     host: &str,
     port: &str,

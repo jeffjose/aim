@@ -47,6 +47,9 @@ pub enum Commands {
         command: String,
         /// Optional device ID (can be partial)
         device_id: Option<String>,
+        /// Filter devices by property (format: key=value)
+        #[arg(short = 'f', long = "filter")]
+        filter: Option<String>,
     },
 
     /// Gets properties from a device

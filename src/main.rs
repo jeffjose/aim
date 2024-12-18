@@ -78,20 +78,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 Commands::Ls => {
                     subcommands::ls::run(&devices, cli.output).await;
                 }
-                Commands::Command { command, device_id } => {
-                    let target_device =
-                        device_info::find_target_device(&devices, device_id.as_ref())?;
+                Commands::Command { command, device_id, filter } => {
+                    let target_device = if let Some(ref id) = device_id {
+                        Some(device_info::find_target_device(&devices, Some(id))?)
+                    } else {
+                        None
+                    };
 
                     if let Err(e) = subcommands::command::run(
                         &cli.host,
                         &cli.port,
                         &command,
-                        Some(target_device),
+                        target_device,
+                        filter.as_deref(),
                     )
                     .await
                     {
                         error!("{}", e);
-
                         std::process::exit(1);
                     }
                 }
