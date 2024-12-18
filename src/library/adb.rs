@@ -21,7 +21,7 @@ use tokio::task::JoinHandle;
 const SYNC_DATA: &[u8] = b"SEND";
 const SYNC_DONE: &[u8] = b"DONE";
 const BUFFER_SIZE: usize = 1024;
-const CHUNK_SIZE: usize = 64 * 1024; // 64KB chunks for file transfers
+const CHUNK_SIZE: usize = 64 * 1024;
 const SERVER_START_DELAY: std::time::Duration = std::time::Duration::from_secs(1);
 const DEFAULT_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(2);
 const RESPONSE_OKAY: &[u8] = b"OKAY";
@@ -254,25 +254,6 @@ fn remove_unnecessary_unicode(input: &str) -> String {
 
     clean_str(input)
 }
-
-// pub fn run_command(host: &str, port: &str, command: &str, adb_id: Option<&str>) -> String {
-//     let host_command = match adb_id {
-//         Some(id) => format!("host:tport:serial:{}", id),
-//         None => "host:tport:any".to_string(),
-//     };
-
-//     let formatted_command = format!("shell,v2,TERM=xterm-256color,raw:{}", command);
-
-//     let messages: Vec<&str> = vec![host_command.as_str(), formatted_command.as_str()];
-
-//     match send_and_receive(&host, &port, messages) {
-//         Ok(responses) => format_responses(&responses),
-//         Err(e) => {
-//             eprintln!("Error: {}", e);
-//             String::new()
-//         }
-//     }
-// }
 
 pub fn format_responses(responses: &[String]) -> String {
     debug!("before formatting responses = {:?}", responses);
