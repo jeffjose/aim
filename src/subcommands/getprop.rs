@@ -12,7 +12,7 @@ pub async fn run(
     output: OutputType,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let adb_id = device.map(|d| d.adb_id.as_str());
-    
+
     let results = if propnames.is_empty() {
         // If no properties specified, get all properties
         debug!("No properties specified, getting all properties");
@@ -20,15 +20,15 @@ pub async fn run(
             Some(id) => format!("host:tport:serial:{}", id),
             None => "host:tport:any".to_string(),
         };
-        
+
         let command = "shell:getprop";
         let messages = vec![host_command.as_str(), command];
-        
-        let output = adb::send(host, port, messages)?
+
+        let output = adb::send(host, port, messages, false)?
             .into_iter()
             .next()
             .unwrap_or_default();
-        
+
         // Parse the output into a HashMap
         let mut props = HashMap::new();
         for line in output.lines() {
@@ -52,7 +52,7 @@ pub async fn run(
                 // For multiple or all properties, print property=value format
                 let mut sorted_props: Vec<_> = results.iter().collect();
                 sorted_props.sort_by(|a, b| a.0.cmp(b.0));
-                
+
                 for (propname, value) in sorted_props {
                     println!("{}={}", propname, value.trim());
                 }

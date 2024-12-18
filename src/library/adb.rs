@@ -1,3 +1,4 @@
+use super::protocol::format_command;
 use indicatif::ProgressBar;
 use log::*;
 use std::collections::HashMap;
@@ -12,7 +13,6 @@ use std::process::Command;
 use std::str;
 use std::sync::Arc;
 use tokio::task::JoinHandle;
-use super::protocol::format_command;
 
 const SYNC_DATA: &[u8] = b"SEND";
 const SYNC_DONE: &[u8] = b"DONE";
@@ -166,7 +166,12 @@ impl AdbStream {
     }
 }
 
-pub fn send(host: &str, port: &str, messages: Vec<&str>) -> Result<Vec<String>, Box<dyn Error>> {
+pub fn send(
+    host: &str,
+    port: &str,
+    messages: Vec<&str>,
+    no_clean_response: bool,
+) -> Result<Vec<String>, Box<dyn Error>> {
     debug!("=== Starting send operation ===");
     debug!("Messages to send: {:?}", messages);
 
@@ -185,7 +190,11 @@ pub fn send(host: &str, port: &str, messages: Vec<&str>) -> Result<Vec<String>, 
                 continue;
             }
             if response != "OKAY" {
-                responses.push(clean_str(&response));
+                responses.push(if no_clean_response {
+                    clean_str(response.as_str())
+                } else {
+                    remove_unnecessary_unicode(&response)
+                });
             }
             if response == "OKAY" {
                 // lets check if there's more response
@@ -194,7 +203,11 @@ pub fn send(host: &str, port: &str, messages: Vec<&str>) -> Result<Vec<String>, 
                     break;
                 }
                 debug!("!! Got more response: {:?}", response);
-                responses.push(clean_str(&response));
+                responses.push(if no_clean_response {
+                    clean_str(response.as_str())
+                } else {
+                    remove_unnecessary_unicode(&response)
+                });
             }
             debug!("Got response: {:?}", response);
             break;
@@ -220,19 +233,22 @@ fn remove_literal_002b(input: &str) -> String {
     input.replace("002b", "")
 }
 
-fn clean_str(s: &str) -> String {
-    remove_unnecessary_unicode(s)
+fn clean_str(input: &str) -> String {
+    input
+        .chars()
+        .filter(|&c| c != '\u{0}' && (c.is_ascii_graphic() || c.is_whitespace()))
+        .collect()
 }
 
 fn remove_unnecessary_unicode(input: &str) -> String {
     let input = input.strip_prefix("OKAY").unwrap_or(input);
 
+    println!("1. input = {:?}", input);
     let input = input.get(4..).unwrap_or("");
 
-    input
-        .chars()
-        .filter(|&c| c != '\u{0}' && (c.is_ascii_graphic() || c.is_whitespace()))
-        .collect()
+    println!("2. input = {:?}", input);
+
+    clean_str(input)
 }
 
 // pub fn run_command(host: &str, port: &str, command: &str, adb_id: Option<&str>) -> String {
@@ -255,7 +271,7 @@ fn remove_unnecessary_unicode(input: &str) -> String {
 // }
 
 pub fn format_responses(responses: &[String]) -> String {
-    debug!("incoming responses = {:?}", responses);
+    println!("before formatting responses = {:?}", responses);
     let outgoing_responses = responses
         .iter()
         .map(|r| r.trim())
@@ -263,7 +279,7 @@ pub fn format_responses(responses: &[String]) -> String {
         .collect::<Vec<&str>>()
         .join("\n");
 
-    debug!("outgoing responses = {:?}", outgoing_responses);
+    println!("after formatting responses = {:?}", outgoing_responses);
 
     outgoing_responses
 }
@@ -282,7 +298,7 @@ pub async fn run_shell_command_async(
     let formatted_command = format_command("SHELL_V2", &[command]);
     let messages = vec![host_command.as_str(), formatted_command.as_str()];
 
-    match send(host, port, messages) {
+    match send(host, port, messages, false) {
         Ok(responses) => {
             debug!("{:?}", responses);
             Ok(format_responses(&responses))
@@ -308,7 +324,7 @@ pub async fn run_command_async(
 
     let messages: Vec<&str> = vec![host_command.as_str(), command];
 
-    match send(host, port, messages) {
+    match send(host, port, messages, false) {
         Ok(responses) => {
             debug!("{:?}", responses);
             Ok(format_responses(&responses))
@@ -334,7 +350,7 @@ pub async fn getprop_async(
     let getprop_command = format_command("GETPROP_SINGLE", &[propname]);
     let messages = vec![host_command.as_str(), getprop_command.as_str()];
 
-    match send(host, port, messages) {
+    match send(host, port, messages, true) {
         Ok(responses) => Ok(format_responses(&responses)),
         Err(e) => Err(e),
     }
@@ -597,7 +613,7 @@ fn check_server_running(host: &str, port: &str) -> bool {
 
 pub fn kill_server(host: &str, port: &str) -> Result<(), Box<dyn Error>> {
     debug!("Sending kill command to ADB server...");
-    match send(host, port, vec!["host:kill"]) {
+    match send(host, port, vec!["host:kill"], false) {
         Ok(_) => {
             debug!("Kill command sent successfully");
             Ok(())

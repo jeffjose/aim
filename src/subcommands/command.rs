@@ -21,7 +21,7 @@ pub async fn run(
             let getprop_command = format_command("GETPROP", &[]);
             let messages = vec![host_command.as_str(), &getprop_command];
 
-            if let Ok(output) = adb::send(host, port, messages) {
+            if let Ok(output) = adb::send(host, port, messages, false) {
                 let props_output = output.into_iter().next().unwrap_or_default();
                 let device_props: Vec<(&str, &str)> = props_output
                     .lines()
@@ -100,7 +100,7 @@ async fn run_on_filtered_devices(
         let getprop_command = format_command("GETPROP", &[]);
         let messages = vec![host_command.as_str(), &getprop_command];
 
-        if let Ok(output) = adb::send(host, port, messages) {
+        if let Ok(output) = adb::send(host, port, messages, false) {
             let props_output = output.into_iter().next().unwrap_or_default();
 
             // Parse all properties once
