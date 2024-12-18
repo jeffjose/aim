@@ -86,7 +86,13 @@ impl AdbStream {
                         Ok(s.to_string())
                     }
                     Err(_) => {
-                        // Handle binary data by returning a hex representation
+                        // Deserialize the binary data directly
+                        let deserialized: Result<Vec<u8>, _> = bincode::deserialize(&buffer[..bytes_read]);
+                        if let Ok(data) = deserialized {
+                            println!("Deserialized binary response: {:?}", data);
+                        }
+                        
+                        // Return hex representation for compatibility
                         let hex = buffer[..bytes_read]
                             .iter()
                             .map(|b| format!("{:02x}", b))
@@ -378,36 +384,8 @@ pub async fn push(
     command.extend_from_slice(&(dst_path_bytes.len() as u32).to_le_bytes());
     command.extend_from_slice(dst_path_bytes);
     adb.write_all(&command)?;
+    adb.read_response()?;
 
-    // Read STA2 response
-    let mut response = [0u8; 4];
-    if let Ok(_) = adb.stream.read_exact(&mut response) {
-        println!("STA2 response: {:?} {}", response, &response == b"STA2");
-        if &response == b"STA2" {
-            let mut stat_bytes = [0u8; 16];
-            //adb.stream.read_exact(&mut stat_bytes)?;
-            adb.read_response()?;
-
-            let stat: Stat2Response = bincode::deserialize(&stat_bytes)?;
-
-            println!("Stat2Response: {:?}", stat);
-
-            if stat.error != 0 {
-                println!("Destination path exists:");
-                println!(
-                    "  Type: {}",
-                    if stat.mode & 0o040000 != 0 {
-                        "directory"
-                    } else {
-                        "file"
-                    }
-                );
-                println!("  Size: {} bytes", stat.size);
-            } else {
-                println!("Destination path does not exist");
-            }
-        }
-    }
 
     // Get the filename from src_path
     let filename = src_path
@@ -738,11 +716,4 @@ pub async fn pull(
     println!("Average speed: {:.2} MB/s", avg_speed);
     debug!("Pull operation completed successfully!");
     Ok(())
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct Stat2Response {
-    mode: u32,
-    size: u64,
-    error: u32,
 }
