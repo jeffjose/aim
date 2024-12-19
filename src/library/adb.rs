@@ -432,11 +432,14 @@ pub async fn push(
     adb.stream.read_exact(&mut response_buf)?;
 
     println!("{:?}", response_buf);
-    let stat_response = AdbStatResponse::from_bytes(&response_buf)?;
-    println!("STA2 response: {:?}", stat_response);
+    let stat_response = StatResponse::parse(&response_buf)?;
+    println!(
+        "STA2 response: {:?} {:?}",
+        stat_response,
+        stat_response.get_file_type()
+    );
 
-    // Check if destination is a directory
-    let is_directory = (stat_response.file_perm >> 12) & 0xF == 4;
+    let is_directory = stat_response.get_file_type() == FileType::Directory;
 
     // Get the filename from src_path
     let filename = src_path
@@ -763,82 +766,53 @@ pub async fn pull(
     Ok(())
 }
 
-#[derive(Debug, PartialEq)]
-pub struct AdbStatResponse {
-    /// File permissions
-    pub file_perm: u32,
-    // File type
-    pub file_type: &'static str,
-    /// unknown field
-    pub unknown: u32,
-    /// File modification time
-    pub mod_time: u32,
+/*
+parse [83, 84, 65, 50, 0, 0, 0, 0, 143, 0, 0, 0, 0, 0, 0, 0, 145, 188, 0, 0, 0, 0, 0, 0, 248, 69, 0, 0, 2, 0, 0, 0, 33, 40, 0, 0, 255, 3, 0, 0, 124, 13, 0, 0, 0, 0, 0, 0, 185, 83, 99, 103, 0, 0, 0, 0, 185, 83, 99, 103, 0, 0, 0, 0, 185, 83, 99, 103, 0, 0, 0, 0] using this structure
+
+
+
+
+
+// https://github.com/python/cpython/blob/4e581d64b8aff3e2eda99b12f080c877bb78dfca/Lib/stat.py#L36
+
+export const LinuxFileType = {
+
+Directory: 0o04,
+
+File: 0o10,
+
+Link: 0o12,
+
+} as const;
+
+
+
+export type LinuxFileType = (typeof LinuxFileType)[keyof typeof LinuxFileType];
+
+
+
+export interface AdbSyncStat {
+
+mode: number;
+
+size: bigint;
+
+mtime: bigint;
+
+get type(): LinuxFileType;
+
+get permission(): number;
+
+
+
+uid?: number;
+
+gid?: number;
+
+atime?: bigint;
+
+ctime?: bigint;
+
 }
 
-impl AdbStatResponse {
-    pub fn from_bytes(value: &[u8; 72]) -> Result<Self, std::io::Error> {
-        let mut cursor = Cursor::new(value);
-
-        // Skip header "STA2" and padding
-        cursor.set_position(8);
-
-        let file_perm = cursor.read_u32::<LittleEndian>()?;
-
-        // Extract file type
-        let file_type = Self::get_file_type(file_perm);
-
-        //Skip the 4 bytes representing the unknown field
-        cursor.set_position(16);
-
-        let unknown = cursor.read_u32::<LittleEndian>()?;
-
-        // Skip padding
-        cursor.set_position(20);
-
-        let mod_time = cursor.read_u32::<LittleEndian>()?;
-
-        Ok(Self {
-            file_perm,
-            file_type,
-            unknown,
-            mod_time,
-        })
-    }
-        fn get_file_type(file_perm: u32) -> &'static str {
-        match (file_perm >> 12) & 0xF {
-            0 => "No Type",
-            1 => "Named Pipe (FIFO)",
-            2 => "Character Device",
-            4 => "Directory",
-            6 => "Block Device",
-            _ => "Unknown",
-        }
-    }
-}
-
-
-impl Display for AdbStatResponse {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let d = UNIX_EPOCH + std::time::Duration::from_secs(self.mod_time.into());
-        // Create DateTime from SystemTime
-        let datetime = DateTime::<Utc>::from(d);
-
-        // Extract owner permissions
-        let owner_perm = (self.file_perm >> 6) & 0x7;
-
-        writeln!(f, "File permissions: {}", self.file_perm)?;
-        writeln!(f, "File Type: {}", self.file_type)?;
-        writeln!(f, "Owner Permissions: {}", owner_perm)?;
-        writeln!(f, "unknown: {}", self.unknown)?;
-        write!(
-            f,
-            "Modification time: {}",
-            datetime.format("%Y-%m-%d %H:%M:%S.%f %Z")
-        )?;
-        Ok(())
-    }
-}
-
-
-// foo    - [83, 84, 65, 50, 0, 0, 0, 0, 143, 0, 0, 0, 0, 0, 0, 0, 253, 79, 1, 0, 0, 0, 0, 0, 176, 129, 0, 0, 1, 0, 0, 0, 33, 40, 0, 0, 255, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 184, 34, 99, 103, 0, 0, 0, 0, 184, 34, 99, 103, 0, 0, 0, 0, 228, 37, 99, 103, 0, 0, 0, 0]
-// sdcard - [83, 84, 65, 50, 0, 0, 0, 0, 143, 0, 0, 0, 0, 0, 0, 0, 239, 31, 0, 0, 0, 0, 0, 0, 248, 69, 0, 0, 18, 0, 0, 0, 255, 3, 0, 0, 255, 3, 0, 0, 124, 13, 0, 0, 0, 0, 0, 0, 252, 81, 85, 103, 0, 0, 0, 0, 206, 42, 99, 103, 0, 0, 0, 0, 206, 42, 99, 103, 0, 0, 0, 0]
+*/
