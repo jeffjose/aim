@@ -432,17 +432,13 @@ pub async fn push(
     adb.stream.read_exact(&mut response_buf)?;
 
     println!("{:?}", response_buf);
-    let stat_response = match StatResponse::from_bytes(&response_buf[..]) {
-        Ok(response) => response,
-        Err(e) => return Err(Err(e.into())),
-    };
+    let stat_response = StatResponse::from_bytes(&response_buf[..]);
     println!(
         "STA2 response: {:?} {:?}",
-        stat_response,
-        stat_response.get_file_type()
+        stat_response, stat_response.file_type()
     );
 
-    let is_directory = matches!(stat_response.get_file_type(), FileType::Directory);
+    let is_directory = matches!(stat_response.file_type(), FileType::Directory);
 
     // Get the filename from src_path
     let filename = src_path
