@@ -774,19 +774,35 @@ pub enum FileType {
 }
 
 impl FileType {
-    // Add constants for the full mode bits
-    const S_IFDIR: u32 = 0o040000; // directory
-    const S_IFREG: u32 = 0o100000; // regular file
-    const S_IFLNK: u32 = 0o120000; // symbolic link
-    const S_IFMT: u32 = 0o170000;  // bit mask for the file type bit field
+    // Android/ADB file type bits (based on stat.h)
+    const S_IFMT: u32  = 0o0_170_000;  // bit mask for the file type bit fields
+    const S_IFSOCK: u32 = 0o0_140_000;  // socket
+    const S_IFLNK: u32  = 0o0_120_000;  // symbolic link
+    const S_IFREG: u32  = 0o0_100_000;  // regular file
+    const S_IFBLK: u32  = 0o0_060_000;  // block device
+    const S_IFDIR: u32  = 0o0_040_000;  // directory
+    const S_IFCHR: u32  = 0o0_020_000;  // character device
+    const S_IFIFO: u32  = 0o0_010_000;  // FIFO
 
     pub fn from_mode(mode: u32) -> Self {
+        debug!("Raw mode: {:o} ({:#x})", mode, mode);
+        // Shift the mode right by 12 bits to align with file type bits
         let file_type = mode & Self::S_IFMT;
+        debug!("Masked file type: {:o} ({:#x})", file_type, file_type);
+        
         match file_type {
-            Self::S_IFDIR => FileType::Directory,
-            Self::S_IFLNK => FileType::Link,
-            Self::S_IFREG => FileType::File,
-            _ => FileType::File, // Default to file for unknown types
+            Self::S_IFDIR => {
+                debug!("Matched directory type");
+                FileType::Directory
+            },
+            Self::S_IFLNK => {
+                debug!("Matched link type");
+                FileType::Link
+            },
+            Self::S_IFREG | _ => {
+                debug!("Matched regular file type or unknown");
+                FileType::File
+            },
         }
     }
 }
@@ -805,10 +821,10 @@ pub struct StatResponse {
 impl StatResponse {
     pub fn parse(data: &[u8]) -> Result<Self, Box<dyn Error>> {
         let mut cursor = Cursor::new(data);
-        
+
         // Skip "STA2" magic (4 bytes)
         cursor.set_position(4);
-        
+
         // Read all fields in little-endian order
         let mode = cursor.read_u32::<LittleEndian>()?;
         let size = cursor.read_u64::<LittleEndian>()?;
@@ -835,5 +851,52 @@ impl StatResponse {
 
     pub fn get_permission(&self) -> u32 {
         self.mode & 0o777
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_directory_stat_response() {
+        let dir1 = [83, 84, 65, 50, 0, 0, 0, 0, 143, 0, 0, 0, 0, 0, 0, 0, 108, 124, 1, 0, 0, 0, 0, 0, 248, 69, 0, 0, 5, 0, 0, 0, 33, 40, 0, 0, 255, 3, 0, 0, 124, 13, 0, 0, 0, 0, 0, 0, 102, 27, 98, 103, 0, 0, 0, 0, 25, 102, 99, 103, 0, 0, 0, 0, 25, 102, 99, 103, 0, 0, 0, 0];
+        let stat1 = StatResponse::parse(&dir1).unwrap();
+        
+        // Print the raw mode value for debugging
+        println!("Mode value: {:o} ({:#x})", stat1.mode, stat1.mode);
+        println!("File type bits: {:o} ({:#x})", stat1.mode & 0o170000, stat1.mode & 0o170000);
+        
+        assert!(matches!(stat1.get_file_type(), FileType::Directory), 
+            "Directory not recognized: mode={:o}, file type bits={:o}", 
+            stat1.mode, 
+            stat1.mode & 0o170000
+        );
+    }
+
+    #[test]
+    fn test_regular_file_stat_response() {
+        let file = [83, 84, 65, 50, 0, 0, 0, 0, 143, 0, 0, 0, 0, 0, 0, 0, 97, 113, 1, 0, 0, 0, 0, 0, 176, 129, 0, 0, 1, 0, 0, 0, 33, 40, 0, 0, 255, 3, 0, 0, 196, 19, 54, 6, 0, 0, 0, 0, 97, 17, 99, 103, 0, 0, 0, 0, 97, 17, 99, 103, 0, 0, 0, 0, 28, 102, 99, 103, 0, 0, 0, 0];
+        let stat = StatResponse::parse(&file).unwrap();
+        assert!(matches!(stat.get_file_type(), FileType::File), "Regular file not recognized");
+    }
+
+    #[test]
+    fn test_nonexistent_file_stat_response() {
+        let non_existent = [83, 84, 65, 50, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+        let stat = StatResponse::parse(&non_existent).unwrap();
+        assert!(matches!(stat.get_file_type(), FileType::File), "Non-existent file should default to File type");
+    }
+
+    #[test]
+    fn test_stat_response_fields() {
+        // Using the regular file case to test field parsing
+        let file = [83, 84, 65, 50, 0, 0, 0, 0, 143, 0, 0, 0, 0, 0, 0, 0, 97, 113, 1, 0, 0, 0, 0, 0, 176, 129, 0, 0, 1, 0, 0, 0, 33, 40, 0, 0, 255, 3, 0, 0, 196, 19, 54, 6, 0, 0, 0, 0, 97, 17, 99, 103, 0, 0, 0, 0, 97, 17, 99, 103, 0, 0, 0, 0, 28, 102, 99, 103, 0, 0, 0, 0];
+        let stat = StatResponse::parse(&file).unwrap();
+        
+        assert_eq!(stat.mode & 0o777, 0o143, "File permissions not correctly parsed");
+        assert_eq!(stat.size, 113_097, "File size not correctly parsed");
+        assert_eq!(stat.uid, 1, "UID not correctly parsed");
+        assert_eq!(stat.gid, 2, "GID not correctly parsed");
     }
 }
