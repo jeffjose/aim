@@ -930,6 +930,31 @@ mod tests {
         assert_eq!(stat.uid, 1, "UID not correctly parsed");
         assert_eq!(stat.gid, 2, "GID not correctly parsed");
     }
+
+    #[test]
+    fn test_another_directory_stat_response() {
+        let dir = [
+            83, 84, 65, 50, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        ];
+        let stat = StatResponse::parse(&dir).unwrap();
+
+        // Print debug info
+        println!("Mode value: {:o} ({:#x})", stat.mode, stat.mode);
+        println!(
+            "File type bits: {:o} ({:#x})",
+            stat.mode & 0o170000,
+            stat.mode & 0o170000
+        );
+
+        assert!(
+            matches!(stat.get_file_type(), FileType::Directory),
+            "Directory not recognized: mode={:o}, file type bits={:o}",
+            stat.mode,
+            stat.mode & 0o170000
+        );
+    }
 }
 
 /*
