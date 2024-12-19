@@ -1,22 +1,19 @@
 use super::protocol::format_command;
-use byteorder::{LittleEndian, ReadBytesExt};
-use chrono::{DateTime, Utc};
 use indicatif::ProgressBar;
 use log::*;
 use std::collections::HashMap;
 use std::convert::TryInto;
 use std::error::Error;
-use std::fmt::{self, Display};
+use std::fmt::{self, };
 use std::fs;
 use std::fs::File;
-use std::io::{Cursor, Read, Write};
+use std::io::{ Read, Write};
 use std::net::{TcpStream, ToSocketAddrs};
 use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
 use std::process::Command;
 use std::str;
 use std::sync::Arc;
-use std::time::UNIX_EPOCH;
 use tokio::task::JoinHandle;
 
 const SYNC_DATA: &[u8] = b"SEND";
@@ -26,6 +23,14 @@ const CHUNK_SIZE: usize = 64 * 1024;
 const SERVER_START_DELAY: std::time::Duration = std::time::Duration::from_secs(1);
 const DEFAULT_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(2);
 const RESPONSE_OKAY: &[u8] = b"OKAY";
+const S_IFMT: u16 = 0o170000; // bit mask for the file type bit field
+const S_IFSOCK: u16 = 0o140000; // socket
+const S_IFLNK: u16 = 0o120000; // symbolic link
+const S_IFREG: u16 = 0o100000; // regular file
+const S_IFBLK: u16 = 0o060000; // block device
+const S_IFDIR: u16 = 0o040000; // directory
+const S_IFCHR: u16 = 0o020000; // character device
+const S_IFIFO: u16 = 0o010000; // FIFO
 
 type AdbResult<T> = Result<T, Box<dyn Error>>;
 
@@ -772,6 +777,12 @@ pub async fn pull(
 #[derive(Debug)]
 pub struct AdbLstatResponse {
     magic: [u8; 4],
+    metadata: FileMetadata,
+    timestamps: FileTimestamps,
+}
+
+#[derive(Debug)]
+struct FileMetadata {
     unknown1: u32,
     dev_major: u16,
     dev_minor: u16,
@@ -785,12 +796,19 @@ pub struct AdbLstatResponse {
     gid: u32,
     size: u32,
     unknown5: u32,
-    atime_sec: u32,
-    atime_nsec: u32,
-    mtime_sec: u32,
-    mtime_nsec: u32,
-    ctime_sec: u32,
-    ctime_nsec: u32,
+}
+
+#[derive(Debug)]
+struct FileTimestamps {
+    atime: FileTimestamp,
+    mtime: FileTimestamp,
+    ctime: FileTimestamp,
+}
+
+#[derive(Debug)]
+struct FileTimestamp {
+    seconds: u32,
+    nanoseconds: u32,
 }
 
 impl AdbLstatResponse {
@@ -803,8 +821,7 @@ impl AdbLstatResponse {
             return Err("Invalid magic number");
         }
 
-        Ok(AdbLstatResponse {
-            magic: bytes[0..4].try_into().unwrap(),
+        let metadata = FileMetadata {
             unknown1: u32::from_le_bytes(bytes[4..8].try_into().unwrap()),
             dev_major: u16::from_le_bytes(bytes[8..10].try_into().unwrap()),
             dev_minor: u16::from_le_bytes(bytes[10..12].try_into().unwrap()),
@@ -818,87 +835,75 @@ impl AdbLstatResponse {
             gid: u32::from_le_bytes(bytes[36..40].try_into().unwrap()),
             size: u32::from_le_bytes(bytes[40..44].try_into().unwrap()),
             unknown5: u32::from_le_bytes(bytes[44..48].try_into().unwrap()),
-            atime_sec: u32::from_le_bytes(bytes[48..52].try_into().unwrap()),
-            atime_nsec: u32::from_le_bytes(bytes[52..56].try_into().unwrap()),
-            mtime_sec: u32::from_le_bytes(bytes[56..60].try_into().unwrap()),
-            mtime_nsec: u32::from_le_bytes(bytes[60..64].try_into().unwrap()),
-            ctime_sec: u32::from_le_bytes(bytes[64..68].try_into().unwrap()),
-            ctime_nsec: u32::from_le_bytes(bytes[68..72].try_into().unwrap()),
+        };
+
+        let timestamps = FileTimestamps {
+            atime: FileTimestamp {
+                seconds: u32::from_le_bytes(bytes[48..52].try_into().unwrap()),
+                nanoseconds: u32::from_le_bytes(bytes[52..56].try_into().unwrap()),
+            },
+            mtime: FileTimestamp {
+                seconds: u32::from_le_bytes(bytes[56..60].try_into().unwrap()),
+                nanoseconds: u32::from_le_bytes(bytes[60..64].try_into().unwrap()),
+            },
+            ctime: FileTimestamp {
+                seconds: u32::from_le_bytes(bytes[64..68].try_into().unwrap()),
+                nanoseconds: u32::from_le_bytes(bytes[68..72].try_into().unwrap()),
+            },
+        };
+
+        Ok(Self {
+            magic: bytes[0..4].try_into().unwrap(),
+            metadata,
+            timestamps,
         })
     }
 
+    // Accessor methods
     pub fn magic(&self) -> &[u8; 4] {
         &self.magic
     }
-
-    pub fn unknown1(&self) -> u32 {
-        self.unknown1
-    }
-
-    pub fn dev_major(&self) -> u16 {
-        self.dev_major
-    }
-    pub fn dev_minor(&self) -> u16 {
-        self.dev_minor
-    }
-
     pub fn device_id(&self) -> u32 {
-        ((self.dev_major as u32) << 8) | (self.dev_minor as u32)
+        ((self.metadata.dev_major as u32) << 8) | (self.metadata.dev_minor as u32)
     }
-    pub fn unknown2(&self) -> u32 {
-        self.unknown2
-    }
-
-    pub fn inode(&self) -> u32 {
-        self.inode
-    }
-    pub fn unknown3(&self) -> u32 {
-        self.unknown3
-    }
-
     pub fn mode(&self) -> u16 {
-        self.mode
+        self.metadata.mode
     }
-    pub fn unknown4(&self) -> u16 {
-        self.unknown4
+    pub fn size(&self) -> u32 {
+        self.metadata.size
     }
 
-    // Helper function to get file type from mode
     pub fn file_type(&self) -> &'static str {
-        match self.mode & 0o170000 {
-            0o010000 => "Named pipe (fifo)",
-            0o020000 => "Character device",
-            0o040000 => "Directory",
-            0o060000 => "Block device",
-            0o100000 => "Regular file",
-            0o120000 => "Symbolic link",
-            0o140000 => "Socket",
+        match self.metadata.mode & S_IFMT {
+            S_IFIFO => "Named pipe (fifo)",
+            S_IFCHR => "Character device",
+            S_IFDIR => "Directory",
+            S_IFBLK => "Block device",
+            S_IFREG => "Regular file",
+            S_IFLNK => "Symbolic link",
+            S_IFSOCK => "Socket",
             _ => "Unknown",
         }
     }
 
-    // Helper function to get file permissions from mode
     pub fn permissions_string(&self) -> String {
-        let owner = Self::permission_triplet_string(self.mode >> 6);
-        let group = Self::permission_triplet_string(self.mode >> 3);
-        let others = Self::permission_triplet_string(self.mode);
+        let mode = self.metadata.mode;
+        let owner = Self::permission_triplet_string(mode >> 6);
+        let group = Self::permission_triplet_string(mode >> 3);
+        let others = Self::permission_triplet_string(mode);
 
-        let mut perm_str = String::with_capacity(10);
-        perm_str.push_str(match self.mode & 0o170000 {
-            0o010000 => "p",
-            0o020000 => "c",
-            0o040000 => "d",
-            0o060000 => "b",
-            0o100000 => "-",
-            0o120000 => "l",
-            0o140000 => "s",
+        let file_type = match mode & S_IFMT {
+            S_IFIFO => "p",
+            S_IFCHR => "c",
+            S_IFDIR => "d",
+            S_IFBLK => "b",
+            S_IFREG => "-",
+            S_IFLNK => "l",
+            S_IFSOCK => "s",
             _ => "?",
-        });
-        perm_str.push_str(&owner);
-        perm_str.push_str(&group);
-        perm_str.push_str(&others);
+        };
 
-        perm_str
+        format!("{}{}{}{}", file_type, owner, group, others)
     }
 
     fn permission_triplet_string(mode: u16) -> String {
@@ -914,52 +919,9 @@ impl AdbLstatResponse {
             (1, 0o2000) => 's',
             (0, 0o1000) => 'T',
             (1, 0o1000) => 't',
-            _ => '?', // Should not happen
+            _ => '?',
         });
         triplet
-    }
-
-    pub fn nlink(&self) -> u32 {
-        self.nlink
-    }
-
-    pub fn uid(&self) -> u32 {
-        self.uid
-    }
-
-    pub fn gid(&self) -> u32 {
-        self.gid
-    }
-
-    pub fn size(&self) -> u32 {
-        self.size
-    }
-    pub fn unknown5(&self) -> u32 {
-        self.unknown5
-    }
-
-    pub fn atime_sec(&self) -> u32 {
-        self.atime_sec
-    }
-
-    pub fn atime_nsec(&self) -> u32 {
-        self.atime_nsec
-    }
-
-    pub fn mtime_sec(&self) -> u32 {
-        self.mtime_sec
-    }
-
-    pub fn mtime_nsec(&self) -> u32 {
-        self.mtime_nsec
-    }
-
-    pub fn ctime_sec(&self) -> u32 {
-        self.ctime_sec
-    }
-
-    pub fn ctime_nsec(&self) -> u32 {
-        self.ctime_nsec
     }
 }
 
@@ -968,54 +930,26 @@ impl fmt::Display for AdbLstatResponse {
         write!(
             f,
             "AdbLstatResponse {{\n\
-             \tmagic: {:?}, \n\
-             \tunknown1: {:?}, \n\
-             \tdev_major: {}, \n\
-             \tdev_minor: {}, \n\
-             \tdevice_id: {}, \n\
-             \tunknown2: {:?}, \n\
-             \tinode: {}, \n\
-             \tunknown3: {:?}, \n\
-             \tmode: {:o} ({}), \n\
-             \tunknown4: {:?}, \n\
-             \tfile_type: {}, \n\
-             \tpermissions: {}, \n\
-             \tnlink: {}, \n\
-             \tuid: {}, \n\
-             \tgid: {}, \n\
-             \tsize: {}, \n\
-             \tunknown5: {:?}, \n\
-             \tatime_sec: {}, \n\
-             \tatime_nsec: {}, \n\
-             \tmtime_sec: {}, \n\
-             \tmtime_nsec: {}, \n\
-             \tctime_sec: {}, \n\
-             \tctime_nsec: {}\n\
+             \tmagic: {:?}\n\
+             \tdevice_id: {}\n\
+             \tfile_type: {}\n\
+             \tpermissions: {}\n\
+             \tsize: {}\n\
+             \tatime: {}.{:09}\n\
+             \tmtime: {}.{:09}\n\
+             \tctime: {}.{:09}\n\
              }}",
             self.magic(),
-            self.unknown1(),
-            self.dev_major(),
-            self.dev_minor(),
             self.device_id(),
-            self.unknown2(),
-            self.inode(),
-            self.unknown3(),
-            self.mode(),
-            self.mode(),
-            self.unknown4(),
             self.file_type(),
             self.permissions_string(),
-            self.nlink(),
-            self.uid(),
-            self.gid(),
             self.size(),
-            self.unknown5(),
-            self.atime_sec(),
-            self.atime_nsec(),
-            self.mtime_sec(),
-            self.mtime_nsec(),
-            self.ctime_sec(),
-            self.ctime_nsec()
+            self.timestamps.atime.seconds,
+            self.timestamps.atime.nanoseconds,
+            self.timestamps.mtime.seconds,
+            self.timestamps.mtime.nanoseconds,
+            self.timestamps.ctime.seconds,
+            self.timestamps.ctime.nanoseconds,
         )
     }
 }
