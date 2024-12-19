@@ -244,3 +244,126 @@ fn test_find_target_device_with_device_name() {
     assert!(result.is_ok());
     assert_eq!(result.unwrap().adb_id, "0123456789ABCDEF");
 }
+
+#[cfg(test)]
+mod tests {
+    use clap::Parser;
+    use crate::cli::{Cli, Commands, OutputType};
+    use crate::types::DeviceDetails;
+
+    fn create_test_devices() -> Vec<DeviceDetails> {
+        vec![
+            {
+                let mut device = DeviceDetails::new("device1".to_string(), "device".to_string());
+                device.device_name = "pixel".to_string();
+                device.device_id = "PIXEL123".to_string();
+                device.device_id_short = "123".to_string();
+                device
+            },
+            {
+                let mut device = DeviceDetails::new("device2".to_string(), "device".to_string());
+                device.device_name = "samsung".to_string();
+                device.device_id = "SAMSUNG456".to_string();
+                device.device_id_short = "456".to_string();
+                device
+            },
+        ]
+    }
+
+    fn parse_getprop(args: &[&str]) -> Commands {
+        let mut all_args = vec!["aim"];
+        all_args.extend(args);
+        
+        let cli = Cli::parse_from(all_args);
+        cli.command()
+    }
+
+    #[test]
+    fn test_getprop_no_args() {
+        let devices = create_test_devices();
+        
+        // Single device - should work
+        let _single_devices = vec![devices[0].clone()];
+        if let Commands::Getprop { propnames, device_id, output } = parse_getprop(&["getprop"]) {
+            assert!(propnames.is_empty());
+            assert!(device_id.is_none());
+            assert!(matches!(output, OutputType::Plain));
+        } else {
+            panic!("Expected Getprop command");
+        }
+    }
+
+    #[test]
+    fn test_getprop_single_device() {
+        let devices = create_test_devices();
+        let _single_devices = vec![devices[0].clone()];
+
+        // Test property names only
+        if let Commands::Getprop { propnames, device_id, .. } =
+            parse_getprop(&["getprop", "prop1,prop2"]) {
+            assert_eq!(propnames, "prop1,prop2");
+            assert!(device_id.is_none());
+        }
+
+        // Test device ID only - should get all properties
+        if let Commands::Getprop { propnames, device_id, .. } =
+            parse_getprop(&["getprop", "123"]) {
+            assert_eq!(propnames, "123");
+            assert!(device_id.is_none());
+        }
+    }
+
+    #[test]
+    fn test_getprop_multiple_devices() {
+        let devices = create_test_devices();
+
+        // Test properties and device ID
+        if let Commands::Getprop { propnames, device_id, .. } =
+            parse_getprop(&["getprop", "prop1,prop2", "123"]) {
+            assert_eq!(propnames, "prop1,prop2");
+            assert_eq!(device_id, Some("123".to_string()));
+        }
+
+        // Test empty properties with device ID
+        if let Commands::Getprop { propnames, device_id, .. } =
+            parse_getprop(&["getprop", "", "123"]) {
+            assert!(propnames.is_empty());
+            assert_eq!(device_id, Some("123".to_string()));
+        }
+    }
+
+    #[test]
+    fn test_getprop_device_matching() {
+        let devices = create_test_devices();
+
+        // Test partial device ID matches
+        let cases = vec![
+            ("123", "device1"),
+            ("PIXEL", "device1"),
+            ("pixel", "device1"),
+            ("456", "device2"),
+            ("SAMSUNG", "device2"),
+            ("samsung", "device2"),
+        ];
+        for (input, expected) in cases {
+            if let Ok(device) = super::find_target_device(&devices, Some(&input.to_string())) {
+                assert_eq!(device.adb_id, expected);
+            } else {
+                panic!("Failed to match device ID: {}", input);
+            }
+        }
+    }
+
+    #[test]
+    #[should_panic(expected = "DeviceIdRequired")]
+    fn test_getprop_multiple_devices_no_id() {
+        let devices = create_test_devices();
+        
+        // Should fail when multiple devices and no ID provided
+        if let Commands::Getprop { propnames, device_id, .. } =
+            parse_getprop(&["getprop", "prop1,prop2"]) {
+            let _ = super::find_target_device(&devices, device_id.as_ref())
+                .expect("Should fail with DeviceIdRequired");
+        }
+    }
+}

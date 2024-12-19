@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use log::info;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize, Deserialize, Default)]
+#[derive(Debug, Serialize, Deserialize, Default, Clone)]
 pub struct DeviceDetails {
     // Basic device identifiers
     pub adb_id: String,
