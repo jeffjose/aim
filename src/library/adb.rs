@@ -703,7 +703,10 @@ pub async fn pull(
         command.extend_from_slice(src_path_bytes);
         adb.write_all(&command)?;
 
-        // Read directory entries
+        // Create destination directory
+        fs::create_dir_all(&dst_path)?;
+
+        // Read directory entries and pull each file
         loop {
             let mut response = [0u8; 4];
             if adb.stream.read_exact(&mut response).is_err() {
@@ -720,22 +723,79 @@ pub async fn pull(
                     // Parse the entry data
                     let entry_stat = AdbLstatResponse::from_bytes(&entry_data)?;
 
-                    // Read name length
+                    // Read name length and name
                     let mut name_len_bytes = [0u8; 4];
                     adb.stream.read_exact(&mut name_len_bytes)?;
                     let name_len = u32::from_le_bytes(name_len_bytes) as usize;
-
-                    // Read name
                     let mut name_bytes = vec![0u8; name_len];
                     adb.stream.read_exact(&mut name_bytes)?;
                     let name = String::from_utf8_lossy(&name_bytes);
 
-                    debug!("Directory entry details:");
-                    debug!("  Name: {}", name);
-                    debug!("  Type: {}", entry_stat.file_type());
-                    debug!("  Size: {} bytes", entry_stat.size());
-                    debug!("  Permissions: {}", entry_stat.permissions_string());
-                    debug!("  Device ID: {}", entry_stat.device_id());
+                    // Construct source and destination paths
+                    let entry_src_path = src_path.join(&*name);
+                    let entry_dst_path = dst_path.join(&*name);
+
+                    // Send RCV2 command for this entry
+                    let entry_path_str = entry_src_path.to_string_lossy();
+                    let entry_path_bytes = entry_path_str.as_bytes();
+                    let mut rcv_command = Vec::with_capacity(4 + 4 + entry_path_bytes.len() + 8);
+                    rcv_command.extend_from_slice(b"RCV2");
+                    rcv_command.extend_from_slice(&(entry_path_bytes.len() as u32).to_le_bytes());
+                    rcv_command.extend_from_slice(entry_path_bytes);
+                    rcv_command.extend_from_slice(b"RCV2");
+                    rcv_command.extend_from_slice(&[0, 0, 0, 0]);
+                    adb.write_all(&rcv_command)?;
+
+                    // Create parent directory if needed
+                    if let Some(parent) = entry_dst_path.parent() {
+                        fs::create_dir_all(parent)?;
+                    }
+
+                    // Pull the file
+                    let mut file = File::create(&entry_dst_path)?;
+                    let mut total_bytes = 0;
+                    let file_size = entry_stat.size() as u64;
+
+                    // Setup progress bar
+                    let pb = ProgressBar::new(file_size);
+                    pb.set_style(indicatif::ProgressStyle::default_bar()
+                        .template("{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({bytes_per_sec}) ({eta})")
+                        .unwrap()
+                        .progress_chars("#>-"));
+
+                    let transfer_start = std::time::Instant::now();
+                    let mut chunk_start;
+
+                    // Transfer data
+                    loop {
+                        let mut data_response = [0u8; 4];
+                        if adb.stream.read_exact(&mut data_response).is_err() {
+                            break;
+                        }
+
+                        match &data_response {
+                            b"DATA" => {
+                                let mut len_bytes = [0u8; 4];
+                                adb.stream.read_exact(&mut len_bytes)?;
+                                let len = u32::from_le_bytes(len_bytes) as usize;
+
+                                chunk_start = std::time::Instant::now();
+                                let mut buffer = vec![0u8; len];
+                                adb.stream.read_exact(&mut buffer)?;
+                                file.write_all(&buffer)?;
+                                total_bytes += len;
+
+                                let chunk_duration = chunk_start.elapsed();
+                                let chunk_speed = len as f64 / chunk_duration.as_secs_f64() / 1024.0 / 1024.0;
+                                pb.set_message(format!("{:.2} MB/s", chunk_speed));
+                                pb.set_position(total_bytes as u64);
+                            }
+                            b"DONE" => break,
+                            _ => return Err("Unexpected response during file transfer".into()),
+                        }
+                    }
+
+                    pb.finish();
                 }
                 b"DONE" => {
                     debug!("Directory listing complete");
@@ -750,7 +810,8 @@ pub async fn pull(
             }
         }
 
-        return Err("Pulling directories is not yet implemented".into());
+        println!("\n=== Pull Operation Completed Successfully ===");
+        return Ok(());
     }
 
     // Send RCV2 command with path
