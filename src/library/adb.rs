@@ -122,7 +122,7 @@ impl AdbStream {
             }
         }
 
-        println!("Response: {:?}", response);
+        info!("Response: {:?}", response);
         self.process_response(&response)
     }
 
