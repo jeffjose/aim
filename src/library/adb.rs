@@ -812,29 +812,20 @@ impl AdbSyncStatResponse {
     }
 
     pub fn from_buffer(path: &str, buffer: &[u8]) -> Result<Self, &'static str> {
-        println!("Parsing buffer: {:?}", buffer.len());
+        debug!("Parsing buffer: {:?}", buffer.len());
         if buffer.len() < 20 {
             return Err("Buffer too short for STAT structure");
         }
 
-        let mode = (buffer[8] as u32)
-            | ((buffer[9] as u32) << 8)
-            | ((buffer[10] as u32) << 16)
-            | ((buffer[11] as u32) << 24);
-        let size = (buffer[12] as u64)
-            | ((buffer[13] as u64) << 8)
-            | ((buffer[14] as u64) << 16)
-            | ((buffer[15] as u64) << 24);
-        let mtime = (buffer[16] as u64)
-            | ((buffer[17] as u64) << 8)
-            | ((buffer[18] as u64) << 16)
-            | ((buffer[19] as u64) << 24);
-        let error = (buffer[4] as u32)
-            | ((buffer[5] as u32) << 8)
-            | ((buffer[6] as u32) << 16)
-            | ((buffer[7] as u32) << 24);
+        let mut cursor = Cursor::new(buffer);
+        
+        // Skip first 4 bytes (response identifier)
+        cursor.set_position(4);
 
-        let is_stat2 = buffer[3] == 50;
+        let error = cursor.read_u32::<LittleEndian>().unwrap_or(0);
+        let mode = cursor.read_u32::<LittleEndian>().unwrap_or(0);
+        let size = cursor.read_u32::<LittleEndian>().unwrap_or(0) as u64;
+        let mtime = cursor.read_u32::<LittleEndian>().unwrap_or(0) as u64;
 
         let mut stat_response = AdbSyncStatResponse {
             path: path.to_string(),
@@ -858,94 +849,18 @@ impl AdbSyncStatResponse {
             gen: None,
         };
 
-        if is_stat2 {
-            if buffer.len() < 80 {
-                return Err("Buffer too short for STAT2 structure");
-            }
-            stat_response.ctime = Some(
-                (buffer[20] as u64)
-                    | ((buffer[21] as u64) << 8)
-                    | ((buffer[22] as u64) << 16)
-                    | ((buffer[23] as u64) << 24),
-            );
-            stat_response.atime = Some(
-                (buffer[24] as u64)
-                    | ((buffer[25] as u64) << 8)
-                    | ((buffer[26] as u64) << 16)
-                    | ((buffer[27] as u64) << 24),
-            );
-            stat_response.gid = Some(
-                (buffer[28] as u32)
-                    | ((buffer[29] as u32) << 8)
-                    | ((buffer[30] as u32) << 16)
-                    | ((buffer[31] as u32) << 24),
-            );
-            stat_response.uid = Some(
-                (buffer[32] as u32)
-                    | ((buffer[33] as u32) << 8)
-                    | ((buffer[34] as u32) << 16)
-                    | ((buffer[35] as u32) << 24),
-            );
-            stat_response.dev = Some(
-                (buffer[36] as u64)
-                    | ((buffer[37] as u64) << 8)
-                    | ((buffer[38] as u64) << 16)
-                    | ((buffer[39] as u64) << 24),
-            );
-            stat_response.ino = Some(
-                (buffer[40] as u64)
-                    | ((buffer[41] as u64) << 8)
-                    | ((buffer[42] as u64) << 16)
-                    | ((buffer[43] as u64) << 24),
-            );
-            stat_response.nlink = Some(
-                (buffer[48] as u32)
-                    | ((buffer[49] as u32) << 8)
-                    | ((buffer[50] as u32) << 16)
-                    | ((buffer[51] as u32) << 24),
-            );
-            stat_response.rdev = Some(
-                (buffer[52] as u64)
-                    | ((buffer[53] as u64) << 8)
-                    | ((buffer[54] as u64) << 16)
-                    | ((buffer[55] as u64) << 24),
-            );
-            stat_response.csize = Some(
-                (buffer[56] as u64)
-                    | ((buffer[57] as u64) << 8)
-                    | ((buffer[58] as u64) << 16)
-                    | ((buffer[59] as u64) << 24),
-            );
-            stat_response.blksize = Some(
-                (buffer[60] as u64)
-                    | ((buffer[61] as u64) << 8)
-                    | ((buffer[62] as u64) << 16)
-                    | ((buffer[63] as u64) << 24),
-            );
-            stat_response.blocks = Some(
-                (buffer[64] as u64)
-                    | ((buffer[65] as u64) << 8)
-                    | ((buffer[66] as u64) << 16)
-                    | ((buffer[67] as u64) << 24),
-            );
-            stat_response.bshift = Some(
-                (buffer[68] as u32)
-                    | ((buffer[69] as u32) << 8)
-                    | ((buffer[70] as u32) << 16)
-                    | ((buffer[71] as u32) << 24),
-            );
-            stat_response.flags = Some(
-                (buffer[72] as u32)
-                    | ((buffer[73] as u32) << 8)
-                    | ((buffer[74] as u32) << 16)
-                    | ((buffer[75] as u32) << 24),
-            );
-            stat_response.gen = Some(
-                (buffer[76] as u32)
-                    | ((buffer[77] as u32) << 8)
-                    | ((buffer[78] as u32) << 16)
-                    | ((buffer[79] as u32) << 24),
-            );
+        // Check if this is a STAT2 response (72 bytes)
+        if buffer.len() >= 72 && buffer[3] == 50 {
+            stat_response.ctime = Some(cursor.read_u32::<LittleEndian>().unwrap_or(0) as u64);
+            stat_response.atime = Some(cursor.read_u32::<LittleEndian>().unwrap_or(0) as u64);
+            stat_response.gid = Some(cursor.read_u32::<LittleEndian>().unwrap_or(0));
+            stat_response.uid = Some(cursor.read_u32::<LittleEndian>().unwrap_or(0));
+            stat_response.dev = Some(cursor.read_u64::<LittleEndian>().unwrap_or(0));
+            stat_response.ino = Some(cursor.read_u64::<LittleEndian>().unwrap_or(0));
+            stat_response.nlink = Some(cursor.read_u32::<LittleEndian>().unwrap_or(0));
+            stat_response.rdev = Some(cursor.read_u64::<LittleEndian>().unwrap_or(0));
+            stat_response.blksize = Some(cursor.read_u32::<LittleEndian>().unwrap_or(0) as u64);
+            stat_response.blocks = Some(cursor.read_u64::<LittleEndian>().unwrap_or(0));
         }
 
         Ok(stat_response)
@@ -1013,136 +928,4 @@ impl fmt::Display for AdbSyncStatResponse {
 
         Ok(())
     }
-}
-
-fn parse_stat(path: &str, data: &[u8]) -> AdbSyncStatResponse {
-    let mode = (data[8] as u32)
-        | ((data[9] as u32) << 8)
-        | ((data[10] as u32) << 16)
-        | ((data[11] as u32) << 24);
-    let size = (data[12] as u64)
-        | ((data[13] as u64) << 8)
-        | ((data[14] as u64) << 16)
-        | ((data[15] as u64) << 24);
-    let mtime = (data[16] as u64)
-        | ((data[17] as u64) << 8)
-        | ((data[18] as u64) << 16)
-        | ((data[19] as u64) << 24);
-    let error = (data[4] as u32)
-        | ((data[5] as u32) << 8)
-        | ((data[6] as u32) << 16)
-        | ((data[7] as u32) << 24);
-
-    let is_stat2 = data[3] == 50;
-
-    let mut stat_response = AdbSyncStatResponse {
-        path: path.to_string(),
-        mode,
-        size,
-        mtime,
-        error: if error == 0 { None } else { Some(error) },
-        ctime: None,
-        atime: None,
-        gid: None,
-        uid: None,
-        dev: None,
-        ino: None,
-        nlink: None,
-        rdev: None,
-        csize: None,
-        blksize: None,
-        blocks: None,
-        bshift: None,
-        flags: None,
-        gen: None,
-    };
-
-    if is_stat2 {
-        stat_response.ctime = Some(
-            (data[20] as u64)
-                | ((data[21] as u64) << 8)
-                | ((data[22] as u64) << 16)
-                | ((data[23] as u64) << 24),
-        );
-        stat_response.atime = Some(
-            (data[24] as u64)
-                | ((data[25] as u64) << 8)
-                | ((data[26] as u64) << 16)
-                | ((data[27] as u64) << 24),
-        );
-        stat_response.gid = Some(
-            (data[28] as u32)
-                | ((data[29] as u32) << 8)
-                | ((data[30] as u32) << 16)
-                | ((data[31] as u32) << 24),
-        );
-        stat_response.uid = Some(
-            (data[32] as u32)
-                | ((data[33] as u32) << 8)
-                | ((data[34] as u32) << 16)
-                | ((data[35] as u32) << 24),
-        );
-        stat_response.dev = Some(
-            (data[36] as u64)
-                | ((data[37] as u64) << 8)
-                | ((data[38] as u64) << 16)
-                | ((data[39] as u64) << 24),
-        );
-        stat_response.ino = Some(
-            (data[40] as u64)
-                | ((data[41] as u64) << 8)
-                | ((data[42] as u64) << 16)
-                | ((data[43] as u64) << 24),
-        );
-        stat_response.nlink = Some(
-            (data[48] as u32)
-                | ((data[49] as u32) << 8)
-                | ((data[50] as u32) << 16)
-                | ((data[51] as u32) << 24),
-        );
-        stat_response.rdev = Some(
-            (data[52] as u64)
-                | ((data[53] as u64) << 8)
-                | ((data[54] as u64) << 16)
-                | ((data[55] as u64) << 24),
-        );
-        stat_response.csize = Some(
-            (data[56] as u64)
-                | ((data[57] as u64) << 8)
-                | ((data[58] as u64) << 16)
-                | ((data[59] as u64) << 24),
-        );
-        stat_response.blksize = Some(
-            (data[60] as u64)
-                | ((data[61] as u64) << 8)
-                | ((data[62] as u64) << 16)
-                | ((data[63] as u64) << 24),
-        );
-        stat_response.blocks = Some(
-            (data[64] as u64)
-                | ((data[65] as u64) << 8)
-                | ((data[66] as u64) << 16)
-                | ((data[67] as u64) << 24),
-        );
-        stat_response.bshift = Some(
-            (data[68] as u32)
-                | ((data[69] as u32) << 8)
-                | ((data[70] as u32) << 16)
-                | ((data[71] as u32) << 24),
-        );
-        stat_response.flags = Some(
-            (data[72] as u32)
-                | ((data[73] as u32) << 8)
-                | ((data[74] as u32) << 16)
-                | ((data[75] as u32) << 24),
-        );
-        stat_response.gen = Some(
-            (data[76] as u32)
-                | ((data[77] as u32) << 8)
-                | ((data[78] as u32) << 16)
-                | ((data[79] as u32) << 24),
-        );
-    }
-
-    stat_response
 }
