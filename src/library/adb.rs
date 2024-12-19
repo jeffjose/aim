@@ -504,42 +504,37 @@ pub async fn push(
     adb.read_response()?;
     adb.read_okay()?;
 
-    // Check destination path
-    println!("Checking destination path... {:?}", dst_path);
-    let lstat_response = adb.stat(dst_path)?;
-    let file_type = lstat_response.file_type();
-    println!("File type: {}", file_type);
-
-    // Error if trying to push multiple files to a single file
-    if has_multiple_sources && file_type == "Regular file" {
-        return Err(format!(
-            "Destination exists and is a file. {}",
-            dst_path.to_string_lossy()
-        )
-        .into());
-    }
-
-    // Determine if destination is a directory
-    let is_directory = file_type == "Directory"
-        || dst_path.to_string_lossy().ends_with('/')
-        || (file_type == "Unknown" && has_multiple_sources);
-    println!("Is directory: {}", is_directory);
-
-    // Get source filename and construct destination path
-    let filename = src_path
-        .file_name()
-        .ok_or("Source path must have a filename")?
-        .to_string_lossy();
-
-    let full_dst_path = if is_directory {
-        dst_path.join(&*filename)
+    // If source is a directory, collect all files first
+    let files_to_transfer = if src_path.is_dir() {
+        let mut files = Vec::new();
+        let src_base = src_path.parent().unwrap_or(src_path);
+        for entry in walkdir::WalkDir::new(src_path) {
+            let entry = entry?;
+            if entry.file_type().is_file() {
+                files.push((
+                    entry.path().to_path_buf(),
+                    dst_path.join(entry.path().strip_prefix(src_base)?),
+                ));
+            }
+        }
+        files
     } else {
-        dst_path.clone()
+        vec![(src_path.clone(), dst_path.clone())]
     };
 
-    // Get permissions and transfer file
-    let perms = get_permissions(src_path)?;
-    adb.transfer_file(src_path, &full_dst_path.to_string_lossy(), perms)?;
+    // Transfer each file
+    for (src_file, dst_file) in files_to_transfer {
+        // Create parent directories if needed
+        if let Some(parent) = dst_file.parent() {
+            let mkdir_cmd = format!("shell:mkdir -p '{}'", parent.to_string_lossy());
+            adb.send_command(&mkdir_cmd)?;
+            adb.read_okay()?;
+        }
+
+        // Get permissions and transfer file
+        let perms = get_permissions(&src_file)?;
+        adb.transfer_file(&src_file, &dst_file.to_string_lossy(), perms)?;
+    }
 
     Ok(())
 }
