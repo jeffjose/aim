@@ -704,17 +704,99 @@ pub async fn pull(
     adb.read_response()?;
     adb.read_okay()?;
 
+    // Send LST2 command to get file size
+    println!("Checking source file size...");
+    let src_path_str = src_path.to_string_lossy();
+    let src_path_bytes = src_path_str.as_bytes();
+    let mut command = Vec::with_capacity(4 + 4 + src_path_bytes.len());
+    command.extend_from_slice(b"LST2");
+    command.extend_from_slice(&(src_path_bytes.len() as u32).to_le_bytes());
+    command.extend_from_slice(src_path_bytes);
+    adb.write_all(&command)?;
+
+    // Read and parse LST2 response
+    let mut response_buf = [0u8; 72];
+    adb.stream.read_exact(&mut response_buf)?;
+    let lstat_response = AdbLstatResponse::from_bytes(&response_buf)?;
+    let file_size = lstat_response.size() as u64;
+    println!("File size: {} bytes", file_size);
+
+    // If source is a directory, list its contents with LIS2
+    if lstat_response.file_type() == "Directory" {
+        println!("Source is a directory, listing contents...");
+        let mut command = Vec::with_capacity(4 + 4 + src_path_bytes.len());
+        command.extend_from_slice(b"LIS2");
+        command.extend_from_slice(&(src_path_bytes.len() as u32).to_le_bytes());
+        command.extend_from_slice(src_path_bytes);
+        adb.write_all(&command)?;
+
+        // Read directory entries
+        loop {
+            let mut response = [0u8; 4];
+            if adb.stream.read_exact(&mut response).is_err() {
+                break;
+            }
+
+            match &response {
+                b"DNT2" => {
+                    // Read metadata (same format as LST2)
+                    let mut entry_data = [0u8; 72]; // Same size as LST2
+                    adb.stream.read_exact(&mut entry_data)?;
+                    println!("Entry data: {:?}", entry_data);
+
+                    // Parse the entry data
+                    let entry_stat = AdbLstatResponse::from_bytes(&entry_data)?;
+
+                    // Read name length
+                    let mut name_len_bytes = [0u8; 4];
+                    adb.stream.read_exact(&mut name_len_bytes)?;
+                    let name_len = u32::from_le_bytes(name_len_bytes) as usize;
+                    println!("Name length: {}", name_len);
+
+                    // Read name
+                    let mut name_bytes = vec![0u8; name_len];
+                    adb.stream.read_exact(&mut name_bytes)?;
+                    let name = String::from_utf8_lossy(&name_bytes);
+                    println!("Entry: {} ({}, {} bytes)", 
+                        name,
+                        entry_stat.file_type(),
+                        entry_stat.size()
+                    );
+
+                    // Log detailed entry information at debug level
+                    debug!("Directory entry details:");
+                    debug!("  Name: {}", name);
+                    debug!("  Type: {}", entry_stat.file_type());
+                    debug!("  Size: {} bytes", entry_stat.size());
+                    debug!("  Permissions: {}", entry_stat.permissions_string());
+                    debug!("  Device ID: {}", entry_stat.device_id());
+                }
+                b"DONE" => {
+                    debug!("Directory listing complete");
+                    break;
+                }
+                _ => {
+                    return Err(format!(
+                        "Unexpected response during directory listing: {:?}",
+                        response
+                    )
+                    .into())
+                }
+            }
+        }
+
+        return Err("Pulling directories is not yet implemented".into());
+    }
+
     // Send RCV2 command with path
     println!("[3/4] Starting file transfer...");
     debug!("Sending RCV2 command...");
-    let path_bytes = src_path.to_string_lossy();
-    let path_bytes = path_bytes.as_bytes();
-    let mut command = Vec::with_capacity(4 + 4 + path_bytes.len() + 8);
+    let mut command = Vec::with_capacity(4 + 4 + src_path_bytes.len() + 8);
     command.extend_from_slice(b"RCV2");
-    command.extend_from_slice(&(path_bytes.len() as u32).to_le_bytes());
-    command.extend_from_slice(path_bytes);
+    command.extend_from_slice(&(src_path_bytes.len() as u32).to_le_bytes());
+    command.extend_from_slice(src_path_bytes);
     command.extend_from_slice(b"RCV2");
-    command.extend_from_slice(&[0, 0, 0, 0]); // Add null bytes
+    command.extend_from_slice(&[0, 0, 0, 0]);
     adb.write_all(&command)?;
 
     // Create destination directory if it doesn't exist
@@ -729,13 +811,12 @@ pub async fn pull(
     let mut file = File::create(&full_dst_path)?;
     let mut total_bytes = 0;
 
-    // Setup progress bar (we don't know total size yet)
-    let pb = ProgressBar::new_spinner();
-    pb.set_style(
-        indicatif::ProgressStyle::default_spinner()
-            .template("{spinner:.green} [{elapsed_precise}] {bytes} ({bytes_per_sec})")
-            .unwrap(),
-    );
+    // Setup progress bar with known file size
+    let pb = ProgressBar::new(file_size);
+    pb.set_style(indicatif::ProgressStyle::default_bar()
+        .template("{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({bytes_per_sec}) ({eta})")
+        .unwrap()
+        .progress_chars("#>-"));
 
     let transfer_start = std::time::Instant::now();
     let mut chunk_start;
@@ -766,12 +847,11 @@ pub async fn pull(
                 let chunk_duration = chunk_start.elapsed();
                 let chunk_speed = len as f64 / chunk_duration.as_secs_f64() / 1024.0 / 1024.0; // MB/s
 
-                // Update progress
+                // Update progress bar with transfer speed
                 pb.set_message(format!("{:.2} MB/s", chunk_speed));
                 pb.set_position(total_bytes as u64);
             }
             b"DONE" => {
-                println!("\nTransfer complete!");
                 break;
             }
             _ => return Err("Unexpected response during file transfer".into()),
@@ -784,16 +864,12 @@ pub async fn pull(
 
     // Finish progress bar with final statistics
     pb.finish_with_message(format!(
-        "Transfer completed: {} bytes in {:.2}s at {:.2} MB/s average",
-        total_bytes,
+        "Transfer completed in {:.2}s at {:.2} MB/s average",
         total_duration.as_secs_f64(),
         avg_speed
     ));
 
     println!("\n=== Pull Operation Completed Successfully ===");
-    println!("Total bytes: {}", total_bytes);
-    println!("Duration: {:.2}s", total_duration.as_secs_f64());
-    println!("Average speed: {:.2} MB/s", avg_speed);
     debug!("Pull operation completed successfully!");
     Ok(())
 }
@@ -841,7 +917,7 @@ impl AdbLstatResponse {
             return Err("Invalid byte array length");
         }
 
-        if &bytes[0..4] != b"LST2" {
+        if &bytes[0..4] != b"LST2" || &bytes[0..4] != b"DNT2" {
             return Err("Invalid magic number");
         }
 
