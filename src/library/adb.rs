@@ -4,10 +4,10 @@ use log::*;
 use std::collections::HashMap;
 use std::convert::TryInto;
 use std::error::Error;
-use std::fmt::{self, };
+use std::fmt::{self};
 use std::fs;
 use std::fs::File;
-use std::io::{ Read, Write};
+use std::io::{Read, Write};
 use std::net::{TcpStream, ToSocketAddrs};
 use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
@@ -428,7 +428,7 @@ pub async fn push(
     adb.read_okay()?;
 
     // Send STA2 command and parse response
-    println!("Checking destination path...");
+    println!("Checking destination path... {:?}", dst_path);
     let dst_path_str = dst_path.to_string_lossy();
     let dst_path_bytes = dst_path_str.as_bytes();
     let mut command = Vec::with_capacity(4 + 4 + dst_path_bytes.len());
