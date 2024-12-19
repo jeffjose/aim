@@ -630,9 +630,9 @@ pub async fn pull(
     src_path: &PathBuf,
     dst_path: &PathBuf,
 ) -> Result<(), Box<dyn Error>> {
-    debug!("\n=== Starting Pull Operation ===");
-    debug!("Source: {:?}", src_path);
-    debug!("Destination: {:?}", dst_path);
+    println!("\n=== Starting Pull Operation ===");
+    println!("Source: {:?}", src_path);
+    println!("Destination: {:?}", dst_path);
     debug!("Starting pull operation:");
     debug!("Source path: {:?}", src_path);
     debug!("Destination path: {:?}", dst_path);
@@ -642,24 +642,25 @@ pub async fn pull(
         .file_name()
         .ok_or("Source path must have a filename")?
         .to_string_lossy();
+    println!("Filename: {}", filename);
 
     // Construct the full destination path
     let full_dst_path = if dst_path.to_string_lossy().ends_with('/') || dst_path.is_dir() {
-        // Append filename if:
-        // - dst_path ends with '/' (it's explicitly a directory)
-        // - OR dst_path is an existing directory
+        println!("Destination is a directory, appending filename");
         dst_path.join(&*filename)
     } else {
         dst_path.clone()
     };
 
     debug!("Full destination path: {:?}", full_dst_path);
+    println!("Full destination path: {:?}", full_dst_path);
 
     let host_command = match adb_id {
         Some(id) => format!("host:tport:serial:{}", id),
         None => "host:tport:any".to_string(),
     };
     debug!("Using host command: {}", host_command);
+    println!("Using device: {}", host_command);
 
     let mut adb = AdbStream::new(host, port)?;
 
@@ -678,7 +679,7 @@ pub async fn pull(
     adb.read_okay()?;
 
     // Send LST2 command to get file size
-    println!("Checking source file size...");
+    println!("[3/4] Checking source path...");
     let src_path_str = src_path.to_string_lossy();
     let src_path_bytes = src_path_str.as_bytes();
     let mut command = Vec::with_capacity(4 + 4 + src_path_bytes.len());
@@ -692,11 +693,13 @@ pub async fn pull(
     adb.stream.read_exact(&mut response_buf)?;
     let lstat_response = AdbLstatResponse::from_bytes(&response_buf)?;
     let file_size = lstat_response.size() as u64;
-    println!("File size: {} bytes", file_size);
+    println!("Source type: {}", lstat_response.file_type());
+    println!("Source size: {} bytes", file_size);
 
     // If source is a directory, list its contents with LIS2
     if lstat_response.file_type() == "Directory" {
-        println!("Source is a directory, listing contents...");
+        println!("\n=== Pulling Directory ===");
+        println!("Listing directory contents...");
         let mut command = Vec::with_capacity(4 + 4 + src_path_bytes.len());
         command.extend_from_slice(b"LIS2");
         command.extend_from_slice(&(src_path_bytes.len() as u32).to_le_bytes());
@@ -815,7 +818,7 @@ pub async fn pull(
     }
 
     // Send RCV2 command with path
-    println!("[3/4] Starting file transfer...");
+    println!("\n[4/4] Starting file transfer...");
     debug!("Sending RCV2 command...");
     let mut command = Vec::with_capacity(4 + 4 + src_path_bytes.len() + 8);
     command.extend_from_slice(b"RCV2");
