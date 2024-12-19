@@ -450,14 +450,23 @@ pub async fn push(
     let file_type = lstat_response.file_type();
     println!("File type: {}", file_type);
 
+    // Error if trying to push multiple files to a single file
+    if has_multiple_sources && file_type == "Regular file" {
+        return Err(format!(
+            "Destination exists and is a file. {}",
+            dst_path.to_string_lossy()
+        )
+        .into());
+    }
+
     // Treat as directory if:
     // 1. It's a directory
     // 2. Path ends with '/'
     // 3. File type is "Unknown" AND there are multiple source files
-    let is_directory = file_type == "Directory" 
+    let is_directory = file_type == "Directory"
         || dst_path.to_string_lossy().ends_with('/')
         || (file_type == "Unknown" && has_multiple_sources);
-    
+
     println!("Is directory: {}", is_directory);
 
     // Get the filename from src_path
@@ -695,14 +704,18 @@ pub async fn pull(
     adb.read_response()?;
     adb.read_okay()?;
 
-    // Send RECV command with path
+    // Send RCV2 command with path
     println!("[3/4] Starting file transfer...");
-    debug!("Sending RECV command...");
-    adb.write_all(b"RECV")?;
+    debug!("Sending RCV2 command...");
     let path_bytes = src_path.to_string_lossy();
     let path_bytes = path_bytes.as_bytes();
-    adb.write_all(&(path_bytes.len() as u32).to_le_bytes())?;
-    adb.write_all(path_bytes)?;
+    let mut command = Vec::with_capacity(4 + 4 + path_bytes.len() + 8);
+    command.extend_from_slice(b"RCV2");
+    command.extend_from_slice(&(path_bytes.len() as u32).to_le_bytes());
+    command.extend_from_slice(path_bytes);
+    command.extend_from_slice(b"RCV2");
+    command.extend_from_slice(&[0, 0, 0, 0]); // Add null bytes
+    adb.write_all(&command)?;
 
     // Create destination directory if it doesn't exist
     if let Some(parent) = full_dst_path.parent() {
