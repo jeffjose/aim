@@ -712,11 +712,11 @@ pub async fn pull(
 
             match &response {
                 b"DNT2" => {
-                    // Read metadata (same format as LST2)
-                    let mut entry_data = [0u8; 72]; // Same size as LST2
-                    adb.stream.read_exact(&mut entry_data)?;
-                    println!("Entry data: {:?}", entry_data);
-
+                    // Read full metadata block (72 bytes)
+                    let mut entry_data = [0u8; 72];
+                    entry_data[0..4].copy_from_slice(b"DNT2");  // Put magic number back
+                    adb.stream.read_exact(&mut entry_data[4..])?;  // Read remaining 68 bytes
+                    
                     // Parse the entry data
                     let entry_stat = AdbLstatResponse::from_bytes(&entry_data)?;
 
@@ -724,20 +724,12 @@ pub async fn pull(
                     let mut name_len_bytes = [0u8; 4];
                     adb.stream.read_exact(&mut name_len_bytes)?;
                     let name_len = u32::from_le_bytes(name_len_bytes) as usize;
-                    println!("Name length: {}", name_len);
 
                     // Read name
                     let mut name_bytes = vec![0u8; name_len];
                     adb.stream.read_exact(&mut name_bytes)?;
                     let name = String::from_utf8_lossy(&name_bytes);
-                    println!(
-                        "Entry: {} ({}, {} bytes)",
-                        name,
-                        entry_stat.file_type(),
-                        entry_stat.size()
-                    );
 
-                    // Log detailed entry information at debug level
                     debug!("Directory entry details:");
                     debug!("  Name: {}", name);
                     debug!("  Type: {}", entry_stat.file_type());
@@ -752,9 +744,8 @@ pub async fn pull(
                 _ => {
                     return Err(format!(
                         "Unexpected response during directory listing: {:?}",
-                        response
-                    )
-                    .into())
+                        String::from_utf8_lossy(&response)
+                    ).into())
                 }
             }
         }
