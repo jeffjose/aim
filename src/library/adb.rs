@@ -4,6 +4,7 @@ use chrono::{DateTime, Utc};
 use indicatif::ProgressBar;
 use log::*;
 use std::collections::HashMap;
+use std::convert::TryInto;
 use std::error::Error;
 use std::fmt::{self, Display};
 use std::fs;
@@ -426,7 +427,7 @@ pub async fn push(
     let dst_path_str = dst_path.to_string_lossy();
     let dst_path_bytes = dst_path_str.as_bytes();
     let mut command = Vec::with_capacity(4 + 4 + dst_path_bytes.len());
-    command.extend_from_slice(b"STA2");
+    command.extend_from_slice(b"LST2");
     command.extend_from_slice(&(dst_path_bytes.len() as u32).to_le_bytes());
     command.extend_from_slice(dst_path_bytes);
     adb.write_all(&command)?;
@@ -436,15 +437,12 @@ pub async fn push(
     adb.stream.read_exact(&mut response_buf)?;
 
     println!("{:?}", response_buf);
-    let stat_response =
-        AdbSyncStatResponse::from_buffer(&dst_path.to_string_lossy(), &response_buf)?;
-    println!(
-        "STA2 response: {:?} {:?}",
-        stat_response,
-        stat_response.get_type()
-    );
+    let lstat_response = AdbLstatResponse::from_bytes(&response_buf)?;
+    println!("LST2 response: {:?}", lstat_response);
 
-    let is_directory = matches!(stat_response.get_type(), LinuxFileType::Directory);
+    let is_directory = lstat_response.file_type() == "Directory";
+    println!("Is directory: {}", is_directory);
+    println!("File type: {}", lstat_response.file_type());
 
     // Get the filename from src_path
     let filename = src_path
@@ -772,164 +770,252 @@ pub async fn pull(
 }
 
 #[derive(Debug)]
-pub enum LinuxFileType {
-    Directory,
-    File,
-    Link,
+pub struct AdbLstatResponse {
+    magic: [u8; 4],
+    unknown1: u32,
+    dev_major: u16,
+    dev_minor: u16,
+    unknown2: u32,
+    inode: u32,
+    unknown3: u32,
+    mode: u16,
+    unknown4: u16,
+    nlink: u32,
+    uid: u32,
+    gid: u32,
+    size: u32,
+    unknown5: u32,
+    atime_sec: u32,
+    atime_nsec: u32,
+    mtime_sec: u32,
+    mtime_nsec: u32,
+    ctime_sec: u32,
+    ctime_nsec: u32,
 }
 
-#[derive(Debug)]
-pub struct AdbSyncStatResponse {
-    pub path: String,
-    pub error: Option<u32>,
-    pub mode: u32,
-    pub size: u64,
-    pub mtime: u64,
-    pub ctime: Option<u64>,
-    pub atime: Option<u64>,
-    pub gid: Option<u32>,
-    pub uid: Option<u32>,
-    pub dev: Option<u64>,
-    pub ino: Option<u64>,
-    pub nlink: Option<u32>,
-    pub rdev: Option<u64>,
-    pub csize: Option<u64>,
-    pub blksize: Option<u64>,
-    pub blocks: Option<u64>,
-    pub bshift: Option<u32>,
-    pub flags: Option<u32>,
-    pub gen: Option<u32>,
-}
+impl AdbLstatResponse {
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, &'static str> {
+        if bytes.len() != 72 {
+            return Err("Invalid byte array length");
+        }
 
-impl AdbSyncStatResponse {
-    pub fn get_type(&self) -> LinuxFileType {
-        match (self.mode >> 12) & 0o17 {
-            0o04 => LinuxFileType::Directory,
-            0o10 => LinuxFileType::File,
-            0o12 => LinuxFileType::Link,
-            _ => LinuxFileType::File, // Default to File if unknown
+        if &bytes[0..4] != b"LST2" {
+            return Err("Invalid magic number");
+        }
+
+        Ok(AdbLstatResponse {
+            magic: bytes[0..4].try_into().unwrap(),
+            unknown1: u32::from_le_bytes(bytes[4..8].try_into().unwrap()),
+            dev_major: u16::from_le_bytes(bytes[8..10].try_into().unwrap()),
+            dev_minor: u16::from_le_bytes(bytes[10..12].try_into().unwrap()),
+            unknown2: u32::from_le_bytes(bytes[12..16].try_into().unwrap()),
+            inode: u32::from_le_bytes(bytes[16..20].try_into().unwrap()),
+            unknown3: u32::from_le_bytes(bytes[20..24].try_into().unwrap()),
+            mode: u16::from_le_bytes(bytes[24..26].try_into().unwrap()),
+            unknown4: u16::from_le_bytes(bytes[26..28].try_into().unwrap()),
+            nlink: u32::from_le_bytes(bytes[28..32].try_into().unwrap()),
+            uid: u32::from_le_bytes(bytes[32..36].try_into().unwrap()),
+            gid: u32::from_le_bytes(bytes[36..40].try_into().unwrap()),
+            size: u32::from_le_bytes(bytes[40..44].try_into().unwrap()),
+            unknown5: u32::from_le_bytes(bytes[44..48].try_into().unwrap()),
+            atime_sec: u32::from_le_bytes(bytes[48..52].try_into().unwrap()),
+            atime_nsec: u32::from_le_bytes(bytes[52..56].try_into().unwrap()),
+            mtime_sec: u32::from_le_bytes(bytes[56..60].try_into().unwrap()),
+            mtime_nsec: u32::from_le_bytes(bytes[60..64].try_into().unwrap()),
+            ctime_sec: u32::from_le_bytes(bytes[64..68].try_into().unwrap()),
+            ctime_nsec: u32::from_le_bytes(bytes[68..72].try_into().unwrap()),
+        })
+    }
+
+    pub fn magic(&self) -> &[u8; 4] {
+        &self.magic
+    }
+
+    pub fn unknown1(&self) -> u32 {
+        self.unknown1
+    }
+
+    pub fn dev_major(&self) -> u16 {
+        self.dev_major
+    }
+    pub fn dev_minor(&self) -> u16 {
+        self.dev_minor
+    }
+
+    pub fn device_id(&self) -> u32 {
+        ((self.dev_major as u32) << 8) | (self.dev_minor as u32)
+    }
+    pub fn unknown2(&self) -> u32 {
+        self.unknown2
+    }
+
+    pub fn inode(&self) -> u32 {
+        self.inode
+    }
+    pub fn unknown3(&self) -> u32 {
+        self.unknown3
+    }
+
+    pub fn mode(&self) -> u16 {
+        self.mode
+    }
+    pub fn unknown4(&self) -> u16 {
+        self.unknown4
+    }
+
+    // Helper function to get file type from mode
+    pub fn file_type(&self) -> &'static str {
+        match self.mode & 0o170000 {
+            0o010000 => "Named pipe (fifo)",
+            0o020000 => "Character device",
+            0o040000 => "Directory",
+            0o060000 => "Block device",
+            0o100000 => "Regular file",
+            0o120000 => "Symbolic link",
+            0o140000 => "Socket",
+            _ => "Unknown",
         }
     }
 
-    pub fn get_permission(&self) -> u32 {
-        self.mode & 0o777
+    // Helper function to get file permissions from mode
+    pub fn permissions_string(&self) -> String {
+        let owner = Self::permission_triplet_string(self.mode >> 6);
+        let group = Self::permission_triplet_string(self.mode >> 3);
+        let others = Self::permission_triplet_string(self.mode);
+
+        let mut perm_str = String::with_capacity(10);
+        perm_str.push_str(match self.mode & 0o170000 {
+            0o010000 => "p",
+            0o020000 => "c",
+            0o040000 => "d",
+            0o060000 => "b",
+            0o100000 => "-",
+            0o120000 => "l",
+            0o140000 => "s",
+            _ => "?",
+        });
+        perm_str.push_str(&owner);
+        perm_str.push_str(&group);
+        perm_str.push_str(&others);
+
+        perm_str
     }
 
-    pub fn from_buffer(path: &str, buffer: &[u8]) -> Result<Self, &'static str> {
-        debug!("Parsing buffer: {:?}", buffer.len());
-        if buffer.len() < 20 {
-            return Err("Buffer too short for STAT structure");
-        }
+    fn permission_triplet_string(mode: u16) -> String {
+        let mut triplet = String::with_capacity(3);
+        triplet.push(if (mode & 4) != 0 { 'r' } else { '-' });
+        triplet.push(if (mode & 2) != 0 { 'w' } else { '-' });
+        triplet.push(match (mode & 1, mode & 0o7000) {
+            (0, 0) => '-',
+            (1, 0) => 'x',
+            (0, 0o4000) => 'S',
+            (1, 0o4000) => 's',
+            (0, 0o2000) => 'S',
+            (1, 0o2000) => 's',
+            (0, 0o1000) => 'T',
+            (1, 0o1000) => 't',
+            _ => '?', // Should not happen
+        });
+        triplet
+    }
 
-        let mut cursor = Cursor::new(buffer);
-        
-        // Skip first 4 bytes (response identifier)
-        cursor.set_position(4);
+    pub fn nlink(&self) -> u32 {
+        self.nlink
+    }
 
-        let error = cursor.read_u32::<LittleEndian>().unwrap_or(0);
-        let mode = cursor.read_u32::<LittleEndian>().unwrap_or(0);
-        let size = cursor.read_u32::<LittleEndian>().unwrap_or(0) as u64;
-        let mtime = cursor.read_u32::<LittleEndian>().unwrap_or(0) as u64;
+    pub fn uid(&self) -> u32 {
+        self.uid
+    }
 
-        let mut stat_response = AdbSyncStatResponse {
-            path: path.to_string(),
-            mode,
-            size,
-            mtime,
-            error: if error == 0 { None } else { Some(error) },
-            ctime: None,
-            atime: None,
-            gid: None,
-            uid: None,
-            dev: None,
-            ino: None,
-            nlink: None,
-            rdev: None,
-            csize: None,
-            blksize: None,
-            blocks: None,
-            bshift: None,
-            flags: None,
-            gen: None,
-        };
+    pub fn gid(&self) -> u32 {
+        self.gid
+    }
 
-        // Check if this is a STAT2 response (72 bytes)
-        if buffer.len() >= 72 && buffer[3] == 50 {
-            stat_response.ctime = Some(cursor.read_u32::<LittleEndian>().unwrap_or(0) as u64);
-            stat_response.atime = Some(cursor.read_u32::<LittleEndian>().unwrap_or(0) as u64);
-            stat_response.gid = Some(cursor.read_u32::<LittleEndian>().unwrap_or(0));
-            stat_response.uid = Some(cursor.read_u32::<LittleEndian>().unwrap_or(0));
-            stat_response.dev = Some(cursor.read_u64::<LittleEndian>().unwrap_or(0));
-            stat_response.ino = Some(cursor.read_u64::<LittleEndian>().unwrap_or(0));
-            stat_response.nlink = Some(cursor.read_u32::<LittleEndian>().unwrap_or(0));
-            stat_response.rdev = Some(cursor.read_u64::<LittleEndian>().unwrap_or(0));
-            stat_response.blksize = Some(cursor.read_u32::<LittleEndian>().unwrap_or(0) as u64);
-            stat_response.blocks = Some(cursor.read_u64::<LittleEndian>().unwrap_or(0));
-        }
+    pub fn size(&self) -> u32 {
+        self.size
+    }
+    pub fn unknown5(&self) -> u32 {
+        self.unknown5
+    }
 
-        Ok(stat_response)
+    pub fn atime_sec(&self) -> u32 {
+        self.atime_sec
+    }
+
+    pub fn atime_nsec(&self) -> u32 {
+        self.atime_nsec
+    }
+
+    pub fn mtime_sec(&self) -> u32 {
+        self.mtime_sec
+    }
+
+    pub fn mtime_nsec(&self) -> u32 {
+        self.mtime_nsec
+    }
+
+    pub fn ctime_sec(&self) -> u32 {
+        self.ctime_sec
+    }
+
+    pub fn ctime_nsec(&self) -> u32 {
+        self.ctime_nsec
     }
 }
 
-impl fmt::Display for AdbSyncStatResponse {
+impl fmt::Display for AdbLstatResponse {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "Path: {}\nMode: {:o}\nSize: {}\nMtime: {}\nType: {:?}\nPermission: {:o}",
-            self.path,
-            self.mode,
-            self.size,
-            self.mtime,
-            self.get_type(),
-            self.get_permission()
-        )?;
-
-        if let Some(error) = self.error {
-            write!(f, "\nError: {}", error)?;
-        }
-        if let Some(ctime) = self.ctime {
-            write!(f, "\nCtime: {}", ctime)?;
-        }
-        if let Some(atime) = self.atime {
-            write!(f, "\nAtime: {}", atime)?;
-        }
-        if let Some(gid) = self.gid {
-            write!(f, "\nGid: {}", gid)?;
-        }
-        if let Some(uid) = self.uid {
-            write!(f, "\nUid: {}", uid)?;
-        }
-        if let Some(dev) = self.dev {
-            write!(f, "\nDev: {}", dev)?;
-        }
-        if let Some(ino) = self.ino {
-            write!(f, "\nIno: {}", ino)?;
-        }
-        if let Some(nlink) = self.nlink {
-            write!(f, "\nNlink: {}", nlink)?;
-        }
-        if let Some(rdev) = self.rdev {
-            write!(f, "\nRdev: {}", rdev)?;
-        }
-        if let Some(csize) = self.csize {
-            write!(f, "\nCsize: {}", csize)?;
-        }
-        if let Some(blksize) = self.blksize {
-            write!(f, "\nBlksize: {}", blksize)?;
-        }
-        if let Some(blocks) = self.blocks {
-            write!(f, "\nBlocks: {}", blocks)?;
-        }
-        if let Some(bshift) = self.bshift {
-            write!(f, "\nBshift: {}", bshift)?;
-        }
-        if let Some(flags) = self.flags {
-            write!(f, "\nFlags: {}", flags)?;
-        }
-        if let Some(gen) = self.gen {
-            write!(f, "\nGen: {}", gen)?;
-        }
-
-        Ok(())
+            "AdbLstatResponse {{\n\
+             \tmagic: {:?}, \n\
+             \tunknown1: {:?}, \n\
+             \tdev_major: {}, \n\
+             \tdev_minor: {}, \n\
+             \tdevice_id: {}, \n\
+             \tunknown2: {:?}, \n\
+             \tinode: {}, \n\
+             \tunknown3: {:?}, \n\
+             \tmode: {:o} ({}), \n\
+             \tunknown4: {:?}, \n\
+             \tfile_type: {}, \n\
+             \tpermissions: {}, \n\
+             \tnlink: {}, \n\
+             \tuid: {}, \n\
+             \tgid: {}, \n\
+             \tsize: {}, \n\
+             \tunknown5: {:?}, \n\
+             \tatime_sec: {}, \n\
+             \tatime_nsec: {}, \n\
+             \tmtime_sec: {}, \n\
+             \tmtime_nsec: {}, \n\
+             \tctime_sec: {}, \n\
+             \tctime_nsec: {}\n\
+             }}",
+            self.magic(),
+            self.unknown1(),
+            self.dev_major(),
+            self.dev_minor(),
+            self.device_id(),
+            self.unknown2(),
+            self.inode(),
+            self.unknown3(),
+            self.mode(),
+            self.mode(),
+            self.unknown4(),
+            self.file_type(),
+            self.permissions_string(),
+            self.nlink(),
+            self.uid(),
+            self.gid(),
+            self.size(),
+            self.unknown5(),
+            self.atime_sec(),
+            self.atime_nsec(),
+            self.mtime_sec(),
+            self.mtime_nsec(),
+            self.ctime_sec(),
+            self.ctime_nsec()
+        )
     }
 }
