@@ -52,15 +52,16 @@ pub enum Commands {
         filters: Vec<String>,
     },
 
-    /// Gets properties from a device
+    /// Get device properties
     Getprop {
-        /// Names of properties to get (empty for all properties)
-        propnames: Vec<String>,
-        /// Optional device ID (can be partial)
-        #[arg(last = true)]
+        /// Comma-separated list of property names to query. If empty, all properties will be shown
+        #[arg(default_value = "")]
+        propnames: String,
+
+        /// Device ID (required if multiple devices are connected)
         device_id: Option<String>,
-        /// Output format (table, json, plain)
-        #[arg(short = 'o', long, default_value = "plain")]
+
+        #[arg(short, long, value_enum, default_value_t = OutputType::Plain)]
         output: OutputType,
     },
 

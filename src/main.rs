@@ -103,13 +103,44 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     device_id,
                     output,
                 } => {
-                    let target_device =
-                        device_info::find_target_device(&devices, device_id.as_ref())?;
+                    let props_vec = if propnames.is_empty() {
+                        Vec::new()
+                    } else {
+                        propnames.split(',')
+                            .map(|s| s.trim().to_string())
+                            .filter(|s| !s.is_empty())
+                            .collect()
+                    };
+
+                    // Handle single argument case - try device ID first if only one arg provided
+                    let (props, target_device) = if device_id.is_none() && !propnames.is_empty() {
+                        // Try to match the propnames as a device ID first
+                        if let Ok(matched_device) = device_info::find_target_device(&devices, Some(&propnames)) {
+                            // If it matches a device, use it as the target and get all properties
+                            (&[][..], matched_device)
+                        } else if devices.len() == 1 {
+                            // If no device match and only one device, treat as property names
+                            (&props_vec[..], devices.first().unwrap())
+                        } else {
+                            // Multiple devices but no valid device ID
+                            return Err(error::AdbError::DeviceIdRequired.into());
+                        }
+                    } else if let Some(device_id) = device_id {
+                        // Two arguments provided - second is device ID
+                        let target_device = device_info::find_target_device(&devices, Some(&device_id))?;
+                        (&props_vec[..], target_device)
+                    } else {
+                        // No arguments or empty propnames - must have single device
+                        if devices.len() > 1 {
+                            return Err(error::AdbError::DeviceIdRequired.into());
+                        }
+                        (&[][..], devices.first().unwrap())
+                    };
 
                     if let Err(e) = subcommands::getprop::run(
                         &cli.host,
                         &cli.port,
-                        &propnames,
+                        props,
                         Some(target_device),
                         output,
                     )
