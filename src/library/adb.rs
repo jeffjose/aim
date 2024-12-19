@@ -243,6 +243,12 @@ impl AdbStream {
             pb.set_position(total_bytes as u64);
         }
 
+        // Send DONE command with file modification time
+        debug!("Sending DONE command...");
+        self.write_all(SYNC_DONE)?;
+        let mtime = fs::metadata(src_path)?.modified()?.duration_since(std::time::UNIX_EPOCH)?.as_secs() as u32;
+        self.write_all(&mtime.to_le_bytes())?;
+
         // Show final statistics
         let total_duration = transfer_start.elapsed();
         let avg_speed = total_bytes as f64 / total_duration.as_secs_f64() / 1024.0 / 1024.0;
