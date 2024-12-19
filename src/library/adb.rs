@@ -792,15 +792,29 @@ impl FileType {
 
         match file_type {
             Self::S_IFDIR => {
-                debug!("Matched directory type");
+                debug!("Matched directory type (S_IFDIR)");
                 FileType::Directory
             }
             Self::S_IFLNK => {
-                debug!("Matched link type");
+                debug!("Matched link type (S_IFLNK)");
                 FileType::Link
             }
-            Self::S_IFREG | _ => {
-                debug!("Matched regular file type or unknown");
+            Self::S_IFREG => {
+                debug!("Matched regular file type (S_IFREG)");
+                FileType::File
+            }
+            0 => {
+                // Check if the mode indicates a directory (specific to your case)
+                if mode == 0o40002 {
+                    debug!("Matched directory type (mode == 0o40002)");
+                    FileType::Directory
+                } else {
+                    debug!("Defaulting to file type for mode 0");
+                    FileType::File
+                }
+            }
+            _ => {
+                debug!("Matched unknown file type, defaulting to file");
                 FileType::File
             }
         }
