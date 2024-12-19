@@ -524,12 +524,6 @@ pub async fn push(
 
     // Transfer each file
     for (src_file, dst_file) in files_to_transfer {
-        // Create parent directories if needed
-        if let Some(parent) = dst_file.parent() {
-            let mkdir_cmd = format!("shell:mkdir -p '{}'", parent.to_string_lossy());
-            adb.send_command(&mkdir_cmd)?;
-            adb.read_okay()?;
-        }
 
         // Get permissions and transfer file
         let perms = get_permissions(&src_file)?;
