@@ -14,6 +14,7 @@ pub async fn run(
     port: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let (dst_device_id, dst_path) = parse_device_path(&args.dst)?;
+    let has_multiple_sources = args.src.len() > 1;
 
     let dst_device = if let Some(id) = dst_device_id {
         Some(device_info::find_target_device(devices, Some(&id))?)
@@ -24,7 +25,6 @@ pub async fn run(
     for src_path in args.src.iter() {
         let (src_device_id, src_path) = parse_device_path(src_path)?;
 
-        // Use the centralized device matching logic
         let src_device = if let Some(id) = src_device_id {
             Some(device_info::find_target_device(devices, Some(&id))?)
         } else {
@@ -52,7 +52,7 @@ pub async fn run(
             (None, Some(device)) => {
                 debug!("Copying from local to device {}", device.adb_id);
                 let adb_id = Some(device.adb_id.as_str());
-                adb::push(host, port, adb_id, &src_path, &dst_path).await?;
+                adb::push(host, port, adb_id, &src_path, &dst_path, has_multiple_sources).await?;
             }
         }
     }

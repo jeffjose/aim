@@ -402,10 +402,12 @@ pub async fn push(
     adb_id: Option<&str>,
     src_path: &PathBuf,
     dst_path: &PathBuf,
+    has_multiple_sources: bool,
 ) -> Result<(), Box<dyn Error>> {
     debug!("Starting push operation:");
     debug!("Source path: {:?}", src_path);
     debug!("Destination path: {:?}", dst_path);
+    debug!("Has multiple sources: {}", has_multiple_sources);
 
     let host_command = match adb_id {
         Some(id) => format!("host:tport:serial:{}", id),
@@ -445,9 +447,18 @@ pub async fn push(
     let lstat_response = AdbLstatResponse::from_bytes(&response_buf)?;
     println!("LST2 response: {:?}", lstat_response);
 
-    let is_directory = lstat_response.file_type() == "Directory";
+    let file_type = lstat_response.file_type();
+    println!("File type: {}", file_type);
+
+    // Treat as directory if:
+    // 1. It's a directory
+    // 2. Path ends with '/'
+    // 3. File type is "Unknown" AND there are multiple source files
+    let is_directory = file_type == "Directory" 
+        || dst_path.to_string_lossy().ends_with('/')
+        || (file_type == "Unknown" && has_multiple_sources);
+    
     println!("Is directory: {}", is_directory);
-    println!("File type: {}", lstat_response.file_type());
 
     // Get the filename from src_path
     let filename = src_path
@@ -456,7 +467,7 @@ pub async fn push(
         .to_string_lossy();
 
     // Construct the full destination path
-    let full_dst_path = if is_directory || dst_path.to_string_lossy().ends_with('/') {
+    let full_dst_path = if is_directory {
         dst_path.join(&*filename)
     } else {
         dst_path.clone()
