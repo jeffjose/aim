@@ -180,6 +180,80 @@ impl AdbStream {
         self.write_all(data)?;
         Ok(())
     }
+
+    fn stat(&mut self, path: &PathBuf) -> Result<AdbLstatResponse, Box<dyn Error>> {
+        let path_str = path.to_string_lossy();
+        let path_bytes = path_str.as_bytes();
+        let mut command = Vec::with_capacity(4 + 4 + path_bytes.len());
+        command.extend_from_slice(b"LST2");
+        command.extend_from_slice(&(path_bytes.len() as u32).to_le_bytes());
+        command.extend_from_slice(path_bytes);
+        self.write_all(&command)?;
+
+        let mut response_buf = [0u8; 72];
+        self.stream.read_exact(&mut response_buf)?;
+        AdbLstatResponse::from_bytes(&response_buf)
+            .map_err(|e| e.into())
+    }
+
+    fn transfer_file(
+        &mut self,
+        src_path: &PathBuf,
+        dst_path: &str,
+        perms: u32,
+    ) -> Result<(), Box<dyn Error>> {
+        // Send SEND command with path and mode
+        debug!("Sending SEND command...");
+        self.write_all(SYNC_DATA)?;
+        let path_header = format!("{},{}", dst_path, perms);
+        self.write_length_prefixed(path_header.as_bytes())?;
+
+        // Open and get file info
+        let mut file = File::open(src_path)?;
+        let file_size = fs::metadata(src_path)?.len();
+        let mut buffer = [0u8; CHUNK_SIZE];
+        let mut total_bytes = 0;
+
+        // Setup progress bar
+        let pb = ProgressBar::new(file_size);
+        pb.set_style(indicatif::ProgressStyle::default_bar()
+            .template("{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({bytes_per_sec}) ({eta})")
+            .unwrap()
+            .progress_chars("#>-"));
+
+        let transfer_start = std::time::Instant::now();
+        let mut chunk_start;
+
+        // Transfer file data
+        loop {
+            chunk_start = std::time::Instant::now();
+            let bytes_read = file.read(&mut buffer)?;
+            if bytes_read == 0 {
+                break;
+            }
+            total_bytes += bytes_read;
+
+            self.write_all(b"DATA")?;
+            self.write_all(&(bytes_read as u32).to_le_bytes())?;
+            self.write_all(&buffer[..bytes_read])?;
+
+            let chunk_duration = chunk_start.elapsed();
+            let chunk_speed = bytes_read as f64 / chunk_duration.as_secs_f64() / 1024.0 / 1024.0;
+            pb.set_message(format!("{:.2} MB/s", chunk_speed));
+            pb.set_position(total_bytes as u64);
+        }
+
+        // Show final statistics
+        let total_duration = transfer_start.elapsed();
+        let avg_speed = total_bytes as f64 / total_duration.as_secs_f64() / 1024.0 / 1024.0;
+        pb.finish_with_message(format!(
+            "Transfer completed in {:.2}s at {:.2} MB/s average",
+            total_duration.as_secs_f64(),
+            avg_speed
+        ));
+
+        Ok(())
+    }
 }
 
 pub fn send(
@@ -409,44 +483,24 @@ pub async fn push(
     debug!("Destination path: {:?}", dst_path);
     debug!("Has multiple sources: {}", has_multiple_sources);
 
+    // Initialize connection
+    let mut adb = AdbStream::new(host, port)?;
     let host_command = match adb_id {
         Some(id) => format!("host:tport:serial:{}", id),
         None => "host:tport:any".to_string(),
     };
-    debug!("Using host command: {}", host_command);
 
-    let mut adb = AdbStream::new(host, port)?;
-
-    // Send device selection command
-    debug!("Sending host_command: {}", host_command);
+    // Setup connection
     adb.send_command(&host_command)?;
     adb.read_okay()?;
-
-    // Send sync command
-    debug!("Sending sync: command");
     adb.send_command("sync:")?;
     adb.read_okay()?;
     adb.read_response()?;
     adb.read_okay()?;
 
-    // Send STA2 command and parse response
+    // Check destination path
     println!("Checking destination path... {:?}", dst_path);
-    let dst_path_str = dst_path.to_string_lossy();
-    let dst_path_bytes = dst_path_str.as_bytes();
-    let mut command = Vec::with_capacity(4 + 4 + dst_path_bytes.len());
-    command.extend_from_slice(b"LST2");
-    command.extend_from_slice(&(dst_path_bytes.len() as u32).to_le_bytes());
-    command.extend_from_slice(dst_path_bytes);
-    adb.write_all(&command)?;
-
-    // Read and parse STA2 response
-    let mut response_buf = [0u8; 72]; // STA2 response is 72 bytes
-    adb.stream.read_exact(&mut response_buf)?;
-
-    println!("{:?}", response_buf);
-    let lstat_response = AdbLstatResponse::from_bytes(&response_buf)?;
-    println!("LST2 response: {:?}", lstat_response);
-
+    let lstat_response = adb.stat(dst_path)?;
     let file_type = lstat_response.file_type();
     println!("File type: {}", file_type);
 
@@ -459,104 +513,28 @@ pub async fn push(
         .into());
     }
 
-    // Treat as directory if:
-    // 1. It's a directory
-    // 2. Path ends with '/'
-    // 3. File type is "Unknown" AND there are multiple source files
+    // Determine if destination is a directory
     let is_directory = file_type == "Directory"
         || dst_path.to_string_lossy().ends_with('/')
         || (file_type == "Unknown" && has_multiple_sources);
-
     println!("Is directory: {}", is_directory);
 
-    // Get the filename from src_path
+    // Get source filename and construct destination path
     let filename = src_path
         .file_name()
         .ok_or("Source path must have a filename")?
         .to_string_lossy();
 
-    // Construct the full destination path
     let full_dst_path = if is_directory {
         dst_path.join(&*filename)
     } else {
         dst_path.clone()
     };
 
-    debug!("Full destination path: {:?}", full_dst_path);
-
-    // Get file permissions and prepare path header
+    // Get permissions and transfer file
     let perms = get_permissions(src_path)?;
-    let path_header = format!("{},{}", full_dst_path.to_string_lossy(), perms);
-    debug!("Path header: {}", path_header);
+    adb.transfer_file(src_path, &full_dst_path.to_string_lossy(), perms)?;
 
-    // Send SEND command with path and mode
-    debug!("Sending SEND command...");
-    adb.write_all(SYNC_DATA)?;
-    adb.write_length_prefixed(path_header.as_bytes())?;
-
-    // Read and send file data in chunks
-    debug!("Starting file transfer...");
-    let mut file = File::open(src_path)?;
-    let file_size = fs::metadata(src_path)?.len();
-    let mut buffer = [0u8; CHUNK_SIZE]; // 64KB chunks
-    let mut total_bytes = 0;
-
-    // Setup progress bar
-    let pb = ProgressBar::new(file_size);
-    pb.set_style(indicatif::ProgressStyle::default_bar()
-        .template("{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({bytes_per_sec}) ({eta})")
-        .unwrap()
-        .progress_chars("#>-"));
-
-    let transfer_start = std::time::Instant::now();
-    let mut chunk_start;
-
-    loop {
-        chunk_start = std::time::Instant::now();
-        let bytes_read = file.read(&mut buffer)?;
-        if bytes_read == 0 {
-            break;
-        }
-        total_bytes += bytes_read;
-
-        adb.write_all(b"DATA")?;
-        adb.write_all(&(bytes_read as u32).to_le_bytes())?;
-        adb.write_all(&buffer[..bytes_read])?;
-
-        // Calculate chunk transfer speed
-        let chunk_duration = chunk_start.elapsed();
-        let chunk_speed = bytes_read as f64 / chunk_duration.as_secs_f64() / 1024.0 / 1024.0; // MB/s
-
-        // Update progress bar with transfer speed
-        pb.set_message(format!("{:.2} MB/s", chunk_speed));
-        pb.set_position(total_bytes as u64);
-    }
-
-    // Calculate total transfer statistics
-    let total_duration = transfer_start.elapsed();
-    let avg_speed = total_bytes as f64 / total_duration.as_secs_f64() / 1024.0 / 1024.0; // MB/s
-
-    // Finish progress bar with final statistics
-    pb.finish_with_message(format!(
-        "Transfer completed in {:.2}s at {:.2} MB/s average",
-        total_duration.as_secs_f64(),
-        avg_speed
-    ));
-
-    // Send DONE command with timestamp
-    debug!("Sending DONE command...");
-    adb.write_all(SYNC_DONE)?;
-    let timestamp = fs::metadata(src_path)?
-        .modified()?
-        .duration_since(std::time::UNIX_EPOCH)?
-        .as_secs() as u32;
-    adb.write_all(&timestamp.to_le_bytes())?;
-
-    // Check final response
-    debug!("Waiting for final response...");
-    //adb.read_okay()?;
-
-    debug!("Push operation completed successfully!");
     Ok(())
 }
 
