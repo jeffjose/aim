@@ -192,7 +192,8 @@ impl AdbStream {
 
         let mut response_buf = [0u8; 72];
         self.stream.read_exact(&mut response_buf)?;
-        AdbLstatResponse::from_bytes(&response_buf).map_err(|e| e.into())
+        AdbLstatResponse::from_bytes(&response_buf)
+            .map_err(|e| format!("Failed to parse stat response: {}", e).into())
     }
 
     fn transfer_file(
@@ -890,13 +891,17 @@ struct FileTimestamp {
 }
 
 impl AdbLstatResponse {
-    pub fn from_bytes(bytes: &[u8]) -> Result<Self, &'static str> {
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, String> {
         if bytes.len() != 72 {
-            return Err("Invalid byte array length");
+            return Err("Invalid byte array length".to_string());
         }
 
-        if &bytes[0..4] != b"LST2" || &bytes[0..4] != b"DNT2" {
-            return Err(format!("Invalid magic number {:?}", &bytes[0..4]).as_str());
+        let magic = &bytes[0..4];
+        if magic != b"LST2" && magic != b"DNT2" {
+            return Err(format!(
+                "Invalid magic number: {:?} (expected LST2 or DNT2)",
+                String::from_utf8_lossy(magic)
+            ));
         }
 
         let metadata = FileMetadata {
