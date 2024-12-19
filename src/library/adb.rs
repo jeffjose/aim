@@ -192,8 +192,7 @@ impl AdbStream {
 
         let mut response_buf = [0u8; 72];
         self.stream.read_exact(&mut response_buf)?;
-        AdbLstatResponse::from_bytes(&response_buf)
-            .map_err(|e| e.into())
+        AdbLstatResponse::from_bytes(&response_buf).map_err(|e| e.into())
     }
 
     fn transfer_file(
@@ -735,7 +734,8 @@ pub async fn pull(
                     let mut name_bytes = vec![0u8; name_len];
                     adb.stream.read_exact(&mut name_bytes)?;
                     let name = String::from_utf8_lossy(&name_bytes);
-                    println!("Entry: {} ({}, {} bytes)", 
+                    println!(
+                        "Entry: {} ({}, {} bytes)",
                         name,
                         entry_stat.file_type(),
                         entry_stat.size()
@@ -896,7 +896,7 @@ impl AdbLstatResponse {
         }
 
         if &bytes[0..4] != b"LST2" || &bytes[0..4] != b"DNT2" {
-            return Err("Invalid magic number");
+            return Err(format!("Invalid magic number {:?}", &bytes[0..4]).as_str());
         }
 
         let metadata = FileMetadata {
