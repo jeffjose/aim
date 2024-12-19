@@ -439,7 +439,7 @@ pub async fn push(
         stat_response.get_file_type()
     );
 
-    let is_directory = stat_response.get_file_type() == FileType::Directory;
+    let is_directory = matches!(stat_response.get_file_type(), FileType::Directory);
 
     // Get the filename from src_path
     let filename = src_path
@@ -766,53 +766,74 @@ pub async fn pull(
     Ok(())
 }
 
-/*
-parse [83, 84, 65, 50, 0, 0, 0, 0, 143, 0, 0, 0, 0, 0, 0, 0, 145, 188, 0, 0, 0, 0, 0, 0, 248, 69, 0, 0, 2, 0, 0, 0, 33, 40, 0, 0, 255, 3, 0, 0, 124, 13, 0, 0, 0, 0, 0, 0, 185, 83, 99, 103, 0, 0, 0, 0, 185, 83, 99, 103, 0, 0, 0, 0, 185, 83, 99, 103, 0, 0, 0, 0] using this structure
-
-
-
-
-
-// https://github.com/python/cpython/blob/4e581d64b8aff3e2eda99b12f080c877bb78dfca/Lib/stat.py#L36
-
-export const LinuxFileType = {
-
-Directory: 0o04,
-
-File: 0o10,
-
-Link: 0o12,
-
-} as const;
-
-
-
-export type LinuxFileType = (typeof LinuxFileType)[keyof typeof LinuxFileType];
-
-
-
-export interface AdbSyncStat {
-
-mode: number;
-
-size: bigint;
-
-mtime: bigint;
-
-get type(): LinuxFileType;
-
-get permission(): number;
-
-
-
-uid?: number;
-
-gid?: number;
-
-atime?: bigint;
-
-ctime?: bigint;
-
+#[derive(Debug)]
+pub enum FileType {
+    Directory = 0o04,
+    File = 0o10,
+    Link = 0o12,
 }
 
-*/
+impl FileType {
+    // Add constants for the full mode bits
+    const S_IFDIR: u32 = 0o040000; // directory
+    const S_IFREG: u32 = 0o100000; // regular file
+    const S_IFLNK: u32 = 0o120000; // symbolic link
+    const S_IFMT: u32 = 0o170000;  // bit mask for the file type bit field
+
+    pub fn from_mode(mode: u32) -> Self {
+        let file_type = mode & Self::S_IFMT;
+        match file_type {
+            Self::S_IFDIR => FileType::Directory,
+            Self::S_IFLNK => FileType::Link,
+            Self::S_IFREG => FileType::File,
+            _ => FileType::File, // Default to file for unknown types
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct StatResponse {
+    pub mode: u32,
+    pub size: u64,
+    pub mtime: u64,
+    pub uid: u32,
+    pub gid: u32,
+    pub atime: u64,
+    pub ctime: u64,
+}
+
+impl StatResponse {
+    pub fn parse(data: &[u8]) -> Result<Self, Box<dyn Error>> {
+        let mut cursor = Cursor::new(data);
+        
+        // Skip "STA2" magic (4 bytes)
+        cursor.set_position(4);
+        
+        // Read all fields in little-endian order
+        let mode = cursor.read_u32::<LittleEndian>()?;
+        let size = cursor.read_u64::<LittleEndian>()?;
+        let mtime = cursor.read_u64::<LittleEndian>()?;
+        let uid = cursor.read_u32::<LittleEndian>()?;
+        let gid = cursor.read_u32::<LittleEndian>()?;
+        let atime = cursor.read_u64::<LittleEndian>()?;
+        let ctime = cursor.read_u64::<LittleEndian>()?;
+
+        Ok(StatResponse {
+            mode,
+            size,
+            mtime,
+            uid,
+            gid,
+            atime,
+            ctime,
+        })
+    }
+
+    pub fn get_file_type(&self) -> FileType {
+        FileType::from_mode(self.mode)
+    }
+
+    pub fn get_permission(&self) -> u32 {
+        self.mode & 0o777
+    }
+}
