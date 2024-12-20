@@ -129,6 +129,10 @@ pub enum Commands {
         /// Output file location (overrides default location)
         #[arg(short = 'o', long = "output")]
         output: Option<PathBuf>,
+
+        /// Interactive mode - take screenshots with spacebar
+        #[arg(short = 'i', long = "interactive")]
+        interactive: bool,
     },
 }
 
