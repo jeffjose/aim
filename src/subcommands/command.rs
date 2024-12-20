@@ -27,51 +27,42 @@ pub async fn run(
     watch: bool,
     watch_time: Option<u32>,
 ) -> Result<(), Box<dyn Error>> {
+    // Check device requirements
+    let target_device = match device {
+        Some(d) => d,
+        None => {
+            // If no device specified, check number of devices
+            let devices = crate::device::device_info::get_devices(host, port).await;
+            match devices.len() {
+                0 => return Err("No devices found".into()),
+                1 => &devices.into_iter().next().unwrap(),
+                _ => return Err("Multiple devices found. Please specify a device ID".into()),
+            }
+        }
+    };
+
     if !watch {
         // Regular single execution
-        return execute_command(host, port, command, device, filters).await;
+        return execute_command(host, port, command, Some(target_device), filters).await;
     }
 
     // Watch mode
-    let pb = watch_time.map(|t| {
-        let pb = ProgressBar::new(t as u64);
-        pb.set_style(
-            indicatif::ProgressStyle::default_bar()
-                .template(
-                    "{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {pos}/{len}s",
-                )
-                .unwrap()
-                .progress_chars("#>-"),
-        );
-        pb
-    });
+    let mut iteration = 1;
+    println!("Press Ctrl+C to stop\n");
 
-    let mut iteration = 0;
     loop {
-        // Clear screen and move cursor to top
-        stdout().execute(Clear(ClearType::All))?;
-        println!("Watch iteration: {}", iteration);
-        println!("Press Ctrl+C to stop\n");
-
         // Execute command
-        execute_command(host, port, command, device, filters).await?;
+        execute_command(host, port, command, Some(target_device), filters).await?;
 
         // Check if we should continue
         if let Some(time) = watch_time {
             if iteration >= time {
                 break;
             }
-            if let Some(pb) = &pb {
-                pb.inc(1);
-            }
         }
 
         iteration += 1;
         sleep(Duration::from_secs(1)).await;
-    }
-
-    if let Some(pb) = pb {
-        pb.finish_with_message("Watch completed");
     }
 
     Ok(())
