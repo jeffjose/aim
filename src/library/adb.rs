@@ -260,6 +260,73 @@ impl AdbStream {
 
         Ok(())
     }
+
+    fn transfer_data(
+        &mut self,
+        dst_path: &PathBuf,
+        file_size: u64,
+        description: &str,
+    ) -> Result<(), Box<dyn Error>> {
+        // Create parent directory if needed
+        if let Some(parent) = dst_path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+
+        // Open destination file
+        println!("Creating file: {:?}", dst_path);
+        let mut file = File::create(dst_path)?;
+        let mut total_bytes = 0;
+
+        // Setup progress bar
+        let pb = ProgressBar::new(file_size);
+        pb.set_style(indicatif::ProgressStyle::default_bar()
+            .template("{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({bytes_per_sec}) ({eta})")
+            .unwrap()
+            .progress_chars("#>-"));
+
+        let transfer_start = std::time::Instant::now();
+        let mut chunk_start;
+
+        println!("Transferring {}...", description);
+        loop {
+            let mut response = [0u8; 4];
+            if self.stream.read_exact(&mut response).is_err() {
+                break;
+            }
+
+            match &response {
+                b"DATA" => {
+                    let mut len_bytes = [0u8; 4];
+                    self.stream.read_exact(&mut len_bytes)?;
+                    let len = u32::from_le_bytes(len_bytes) as usize;
+
+                    chunk_start = std::time::Instant::now();
+                    let mut buffer = vec![0u8; len];
+                    self.stream.read_exact(&mut buffer)?;
+                    file.write_all(&buffer)?;
+                    total_bytes += len;
+
+                    let chunk_duration = chunk_start.elapsed();
+                    let chunk_speed = len as f64 / chunk_duration.as_secs_f64() / 1024.0 / 1024.0;
+                    pb.set_message(format!("{:.2} MB/s", chunk_speed));
+                    pb.set_position(total_bytes as u64);
+                }
+                b"DONE" => break,
+                _ => return Err("Unexpected response during file transfer".into()),
+            }
+        }
+
+        // Show final statistics
+        let total_duration = transfer_start.elapsed();
+        let avg_speed = total_bytes as f64 / total_duration.as_secs_f64() / 1024.0 / 1024.0;
+        pb.finish_with_message(format!(
+            "Transfer completed in {:.2}s at {:.2} MB/s average",
+            total_duration.as_secs_f64(),
+            avg_speed
+        ));
+
+        Ok(())
+    }
 }
 
 pub fn send(
@@ -754,51 +821,12 @@ pub async fn pull(
                         fs::create_dir_all(parent)?;
                     }
 
-                    // Pull the file
-                    let mut file = File::create(&entry_dst_path)?;
-                    let mut total_bytes = 0;
-                    let file_size = entry_stat.size() as u64;
-
-                    // Setup progress bar
-                    let pb = ProgressBar::new(file_size);
-                    pb.set_style(indicatif::ProgressStyle::default_bar()
-                        .template("{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({bytes_per_sec}) ({eta})")
-                        .unwrap()
-                        .progress_chars("#>-"));
-
-                    let transfer_start = std::time::Instant::now();
-                    let mut chunk_start;
-
-                    // Transfer data
-                    loop {
-                        let mut data_response = [0u8; 4];
-                        if adb.stream.read_exact(&mut data_response).is_err() {
-                            break;
-                        }
-
-                        match &data_response {
-                            b"DATA" => {
-                                let mut len_bytes = [0u8; 4];
-                                adb.stream.read_exact(&mut len_bytes)?;
-                                let len = u32::from_le_bytes(len_bytes) as usize;
-
-                                chunk_start = std::time::Instant::now();
-                                let mut buffer = vec![0u8; len];
-                                adb.stream.read_exact(&mut buffer)?;
-                                file.write_all(&buffer)?;
-                                total_bytes += len;
-
-                                let chunk_duration = chunk_start.elapsed();
-                                let chunk_speed = len as f64 / chunk_duration.as_secs_f64() / 1024.0 / 1024.0;
-                                pb.set_message(format!("{:.2} MB/s", chunk_speed));
-                                pb.set_position(total_bytes as u64);
-                            }
-                            b"DONE" => break,
-                            _ => return Err("Unexpected response during file transfer".into()),
-                        }
-                    }
-
-                    pb.finish();
+                    // Transfer the file using shared function
+                    adb.transfer_data(
+                        &entry_dst_path,
+                        entry_stat.size() as u64,
+                        &format!("file: {}", name),
+                    )?;
                 }
                 b"DONE" => {
                     debug!("Directory listing complete");
@@ -817,9 +845,7 @@ pub async fn pull(
         return Ok(());
     }
 
-    // Send RCV2 command with path
-    println!("\n[4/4] Starting file transfer...");
-    debug!("Sending RCV2 command...");
+    // Send RCV2 command for single file
     let mut command = Vec::with_capacity(4 + 4 + src_path_bytes.len() + 8);
     command.extend_from_slice(b"RCV2");
     command.extend_from_slice(&(src_path_bytes.len() as u32).to_le_bytes());
@@ -828,78 +854,14 @@ pub async fn pull(
     command.extend_from_slice(&[0, 0, 0, 0]);
     adb.write_all(&command)?;
 
-    // Create destination directory if it doesn't exist
-    if let Some(parent) = full_dst_path.parent() {
-        println!("Creating directory: {:?}", parent);
-        debug!("Creating destination directory: {:?}", parent);
-        fs::create_dir_all(parent)?;
-    }
-
-    // Open destination file
-    println!("[4/4] Creating file: {:?}", full_dst_path);
-    let mut file = File::create(&full_dst_path)?;
-    let mut total_bytes = 0;
-
-    // Setup progress bar with known file size
-    let pb = ProgressBar::new(file_size);
-    pb.set_style(indicatif::ProgressStyle::default_bar()
-        .template("{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({bytes_per_sec}) ({eta})")
-        .unwrap()
-        .progress_chars("#>-"));
-
-    let transfer_start = std::time::Instant::now();
-    let mut chunk_start;
-
-    println!("\nTransferring data...");
-    loop {
-        // Read data header
-        let mut response = [0u8; 4];
-        if adb.stream.read_exact(&mut response).is_err() {
-            break;
-        }
-
-        match &response {
-            b"DATA" => {
-                // Read data length
-                let mut len_bytes = [0u8; 4];
-                adb.stream.read_exact(&mut len_bytes)?;
-                let len = u32::from_le_bytes(len_bytes) as usize;
-
-                // Read and write data
-                chunk_start = std::time::Instant::now();
-                let mut buffer = vec![0u8; len];
-                adb.stream.read_exact(&mut buffer)?;
-                file.write_all(&buffer)?;
-                total_bytes += len;
-
-                // Calculate chunk transfer speed
-                let chunk_duration = chunk_start.elapsed();
-                let chunk_speed = len as f64 / chunk_duration.as_secs_f64() / 1024.0 / 1024.0; // MB/s
-
-                // Update progress bar with transfer speed
-                pb.set_message(format!("{:.2} MB/s", chunk_speed));
-                pb.set_position(total_bytes as u64);
-            }
-            b"DONE" => {
-                break;
-            }
-            _ => return Err("Unexpected response during file transfer".into()),
-        }
-    }
-
-    // Calculate total transfer statistics
-    let total_duration = transfer_start.elapsed();
-    let avg_speed = total_bytes as f64 / total_duration.as_secs_f64() / 1024.0 / 1024.0; // MB/s
-
-    // Finish progress bar with final statistics
-    pb.finish_with_message(format!(
-        "Transfer completed in {:.2}s at {:.2} MB/s average",
-        total_duration.as_secs_f64(),
-        avg_speed
-    ));
+    // Transfer the file using shared function
+    adb.transfer_data(
+        &full_dst_path,
+        file_size,
+        "file",
+    )?;
 
     println!("\n=== Pull Operation Completed Successfully ===");
-    debug!("Pull operation completed successfully!");
     Ok(())
 }
 
