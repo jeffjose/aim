@@ -82,6 +82,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     command,
                     device_id,
                     filters,
+                    watch,
+                    watch_time,
                 } => {
                     let target_device = if let Some(ref id) = device_id {
                         Some(device_info::find_target_device(&devices, Some(id))?)
@@ -99,6 +101,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         } else {
                             Some(&filters)
                         },
+                        watch,
+                        watch_time,
                     )
                     .await
                     {
