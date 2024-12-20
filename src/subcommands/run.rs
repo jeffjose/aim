@@ -41,9 +41,6 @@ pub async fn run(
         }
     };
 
-    // Show command being executed
-    println!("Executing: {}\n", command);
-
     if !watch {
         // Regular single execution
         return execute_command(host, port, command, Some(target_device), filters).await;
@@ -51,6 +48,7 @@ pub async fn run(
 
     // Watch mode
     let mut iteration = 1;
+    println!("Executing: {}\n", command);
     println!("Press Ctrl+C to stop\n");
 
     loop {
