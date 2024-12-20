@@ -1,4 +1,5 @@
 use crate::{config::Config, library::adb, types::DeviceDetails};
+use chrono::Local;
 use log::debug;
 use rand::Rng;
 use std::error::Error;
@@ -36,16 +37,12 @@ pub async fn run(
             .map(PathBuf::from)
             .unwrap_or_else(|| PathBuf::from("/tmp"));
 
-        // Generate random suffix for output file
-        let random_suffix: String = rand::thread_rng()
-            .sample_iter(&rand::distributions::Alphanumeric)
-            .take(8)
-            .map(char::from)
-            .collect();
+        // Generate timestamp
+        let timestamp = Local::now().format("%Y%m%d-%H%M%S");
 
         base_dir.join(format!(
-            "aim-{}-{}.png",
-            device.device_id_short, random_suffix
+            "aim-screenshot-{}-{}.png",
+            device.device_id_short, timestamp
         ))
     };
 
@@ -70,10 +67,11 @@ pub async fn run(
     .await?;
 
     // Clean up temp file
+    debug!("Cleaning up temp file on device");
     adb::run_shell_command_async(
         host,
         port,
-        &format!("rm {}", &temp_file),
+        &format!("rm -f {}", &temp_file),
         adb_id.map(|x| x.as_str()),
     )
     .await?;
