@@ -14,8 +14,7 @@ pub struct CommandArgs<'a> {
     pub command: &'a str,
     pub device: Option<&'a DeviceDetails>,
     pub filters: Option<&'a [String]>,
-    pub watch: bool,
-    pub watch_time: Option<u32>,
+    pub watch: Option<u32>,
 }
 
 pub async fn run(
@@ -24,8 +23,7 @@ pub async fn run(
     command: &str,
     device: Option<&DeviceDetails>,
     filters: Option<&[String]>,
-    watch: bool,
-    watch_time: Option<u32>,
+    watch: Option<u32>,
 ) -> Result<(), Box<dyn Error>> {
     // Check device requirements
     let target_device = match device {
@@ -41,7 +39,7 @@ pub async fn run(
         }
     };
 
-    if !watch {
+    if watch.is_none() {
         // Regular single execution
         return execute_command(host, port, command, Some(target_device), filters).await;
     }
@@ -56,8 +54,8 @@ pub async fn run(
         execute_command(host, port, command, Some(target_device), filters).await?;
 
         // Check if we should continue
-        if let Some(time) = watch_time {
-            if iteration >= time {
+        if let Some(duration) = watch {
+            if duration > 0 && iteration >= duration {
                 break;
             }
         }

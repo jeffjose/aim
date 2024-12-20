@@ -83,7 +83,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     device_id,
                     filters,
                     watch,
-                    watch_time,
                 } => {
                     let target_device = if devices.len() == 1 {
                         devices.first().unwrap()
@@ -105,7 +104,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             Some(&filters)
                         },
                         watch,
-                        watch_time,
                     )
                     .await
                     {

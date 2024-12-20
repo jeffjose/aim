@@ -51,12 +51,9 @@ pub enum Commands {
         /// Filter devices by property (format: key=value)
         #[arg(short = 'f', long = "filter", num_args = 1)]
         filters: Vec<String>,
-        /// Watch mode - repeat command every second
-        #[arg(short = 'w', long = "watch")]
-        watch: bool,
-        /// Time to watch in seconds (default: run indefinitely)
-        #[arg(short = 't', long = "time", requires = "watch")]
-        watch_time: Option<u32>,
+        /// Watch mode - repeat command every second. Optional value specifies duration in seconds
+        #[arg(short = 'w', long = "watch", num_args = 0..=1, default_missing_value = "0")]
+        watch: Option<u32>,
     },
 
     /// Get device properties
