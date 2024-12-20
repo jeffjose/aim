@@ -149,25 +149,11 @@ impl AdbStream {
         self.stream.read_exact(&mut response)?;
         debug!("Response in read_okay: {:?}", response);
 
-        // Define valid responses
-        const VALID_RESPONSES: &[&[u8]] = &[
-            RESPONSE_OKAY,
-            &[0, 0, 0, 0],
-            &[1, 0, 0, 0],
-            &[2, 0, 0, 0],
-            &[3, 0, 0, 0],
-            &[4, 0, 0, 0],
-            &[5, 0, 0, 0],
-            &[6, 0, 0, 0],
-            &[7, 0, 0, 0],
-            &[8, 0, 0, 0],
-            &[9, 0, 0, 0],
-        ];
-
-        if !VALID_RESPONSES.contains(&&response[..]) {
-            return Err(format!("Expected OKAY response.  Got {:?}", response).into());
+        match response {
+            [b'O', b'K', b'A', b'Y'] => Ok(()),
+            [n, 0, 0, 0] if n != 0 => Ok(()),  // Accept any non-zero first byte
+            _ => Err(format!("Expected OKAY response or status code. Got {:?}", response).into())
         }
-        Ok(())
     }
 
     fn write_all(&mut self, buf: &[u8]) -> Result<(), Box<dyn Error>> {
