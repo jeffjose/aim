@@ -273,7 +273,7 @@ impl AdbStream {
         }
 
         // Open destination file
-        println!("Creating file: {:?}", dst_path);
+        debug!("Creating file: {:?}", dst_path);
         let mut file = File::create(dst_path)?;
         let mut total_bytes = 0;
 
@@ -287,7 +287,7 @@ impl AdbStream {
         let transfer_start = std::time::Instant::now();
         let mut chunk_start;
 
-        println!("Transferring {}...", description);
+        debug!("Transferring {}...", description);
         loop {
             let mut response = [0u8; 4];
             if self.stream.read_exact(&mut response).is_err() {
@@ -745,9 +745,9 @@ pub async fn pull(
     src_path: &PathBuf,
     dst_path: &PathBuf,
 ) -> Result<(), Box<dyn Error>> {
-    println!("\n=== Starting Pull Operation ===");
-    println!("Source: {:?}", src_path);
-    println!("Destination: {:?}", dst_path);
+    debug!("\n=== Starting Pull Operation ===");
+    debug!("Source: {:?}", src_path);
+    debug!("Destination: {:?}", dst_path);
     debug!("Starting pull operation:");
     debug!("Source path: {:?}", src_path);
     debug!("Destination path: {:?}", dst_path);
@@ -757,36 +757,36 @@ pub async fn pull(
         .file_name()
         .ok_or("Source path must have a filename")?
         .to_string_lossy();
-    println!("Filename: {}", filename);
+    debug!("Filename: {}", filename);
 
     // Construct the full destination path
     let full_dst_path = if dst_path.to_string_lossy().ends_with('/') || dst_path.is_dir() {
-        println!("Destination is a directory, appending filename");
+        debug!("Destination is a directory, appending filename");
         dst_path.join(&*filename)
     } else {
         dst_path.clone()
     };
 
     debug!("Full destination path: {:?}", full_dst_path);
-    println!("Full destination path: {:?}", full_dst_path);
+    debug!("Full destination path: {:?}", full_dst_path);
 
     let host_command = match adb_id {
         Some(id) => format!("host:tport:serial:{}", id),
         None => "host:tport:any".to_string(),
     };
     debug!("Using host command: {}", host_command);
-    println!("Using device: {}", host_command);
+    debug!("Using device: {}", host_command);
 
     let mut adb = AdbStream::new(host, port)?;
 
     // Send device selection command
-    println!("\n[1/4] Connecting to device...");
+    debug!("\n[1/4] Connecting to device...");
     debug!("Sending host_command: {}", host_command);
     adb.send_command(&host_command)?;
     adb.read_okay()?;
 
     // Send sync command
-    println!("[2/4] Initializing sync...");
+    debug!("[2/4] Initializing sync...");
     debug!("Sending sync: command");
     adb.send_command("sync:")?;
     adb.read_okay()?;
@@ -794,7 +794,7 @@ pub async fn pull(
     adb.read_okay()?;
 
     // Send LST2 command to get file size
-    println!("[3/4] Checking source path...");
+    debug!("[3/4] Checking source path...");
     let src_path_str = src_path.to_string_lossy();
     let src_path_bytes = src_path_str.as_bytes();
     let mut command = Vec::with_capacity(4 + 4 + src_path_bytes.len());
@@ -808,13 +808,13 @@ pub async fn pull(
     adb.stream.read_exact(&mut response_buf)?;
     let lstat_response = AdbLstatResponse::from_bytes(&response_buf)?;
     let file_size = lstat_response.size() as u64;
-    println!("Source type: {}", lstat_response.file_type());
-    println!("Source size: {} bytes", file_size);
+    debug!("Source type: {}", lstat_response.file_type());
+    debug!("Source size: {} bytes", file_size);
 
     // If source is a directory, list its contents with LIS2
     let mut files_to_transfer = if lstat_response.file_type() == "Directory" {
-        println!("\n=== Pulling Directory ===");
-        println!("Listing directory contents...");
+        debug!("\n=== Pulling Directory ===");
+        debug!("Listing directory contents...");
         let mut command = Vec::with_capacity(4 + 4 + src_path_bytes.len());
         command.extend_from_slice(b"LIS2");
         command.extend_from_slice(&(src_path_bytes.len() as u32).to_le_bytes());
@@ -877,7 +877,7 @@ pub async fn pull(
     // Transfer all files
     for (src_file, dst_file, file_size) in files_to_transfer {
         // Send RCV2 command with path
-        println!("\n[4/4] Starting file transfer...");
+        debug!("\n[4/4] Starting file transfer...");
         let file_path_str = src_file.to_string_lossy();
         let file_path_bytes = file_path_str.as_bytes();
         let mut command = Vec::with_capacity(4 + 4 + file_path_bytes.len() + 8);
@@ -896,7 +896,7 @@ pub async fn pull(
         )?;
     }
 
-    println!("\n=== Pull Operation Completed Successfully ===");
+    debug!("\n=== Pull Operation Completed Successfully ===");
     Ok(())
 }
 
