@@ -1,4 +1,5 @@
 use clap::{Parser, Subcommand};
+use std::path::PathBuf;
 
 #[derive(clap::ValueEnum, Clone, Debug)]
 pub enum OutputType {
@@ -98,6 +99,24 @@ pub enum Commands {
 
     /// Display configuration
     Config,
+
+    /// Run perfetto trace
+    Perfetto {
+        /// Config file path
+        #[arg(short = 'f', long = "config", required = true)]
+        config: PathBuf,
+
+        /// Time to run trace in seconds
+        #[arg(short = 't', long = "time", required = true)]
+        time: u32,
+
+        /// Output file location
+        #[arg(short = 'o', long = "output", required = true)]
+        output: PathBuf,
+
+        /// Optional device ID (can be partial)
+        device_id: Option<String>,
+    },
 }
 
 #[derive(clap::ValueEnum, Clone, Debug)]

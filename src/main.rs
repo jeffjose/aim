@@ -78,7 +78,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 Commands::Ls => {
                     subcommands::ls::run(&devices, cli.output).await;
                 }
-                Commands::Command { command, device_id, filters } => {
+                Commands::Command {
+                    command,
+                    device_id,
+                    filters,
+                } => {
                     let target_device = if let Some(ref id) = device_id {
                         Some(device_info::find_target_device(&devices, Some(id))?)
                     } else {
@@ -90,7 +94,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         &cli.port,
                         &command,
                         target_device,
-                        if filters.is_empty() { None } else { Some(&filters) },
+                        if filters.is_empty() {
+                            None
+                        } else {
+                            Some(&filters)
+                        },
                     )
                     .await
                     {
@@ -106,7 +114,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     let props_vec = if propnames.is_empty() {
                         Vec::new()
                     } else {
-                        propnames.split(',')
+                        propnames
+                            .split(',')
                             .map(|s| s.trim().to_string())
                             .filter(|s| !s.is_empty())
                             .collect()
@@ -115,7 +124,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     // Handle single argument case - try device ID first if only one arg provided
                     let (props, target_device) = if device_id.is_none() && !propnames.is_empty() {
                         // Try to match the propnames as a device ID first
-                        if let Ok(matched_device) = device_info::find_target_device(&devices, Some(&propnames)) {
+                        if let Ok(matched_device) =
+                            device_info::find_target_device(&devices, Some(&propnames))
+                        {
                             // If it matches a device, use it as the target and get all properties
                             (&[][..], matched_device)
                         } else if devices.len() == 1 {
@@ -127,7 +138,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         }
                     } else if let Some(device_id) = device_id {
                         // Two arguments provided - second is device ID
-                        let target_device = device_info::find_target_device(&devices, Some(&device_id))?;
+                        let target_device =
+                            device_info::find_target_device(&devices, Some(&device_id))?;
                         (&props_vec[..], target_device)
                     } else {
                         // No arguments or empty propnames - must have single device
@@ -176,8 +188,34 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 Commands::Adb { args } => {
                     subcommands::adb::run(subcommands::adb::AdbArgs { args }).await?
                 }
-                Commands::Config => {
-                    subcommands::config::run().await?
+                Commands::Config => subcommands::config::run().await?,
+                Commands::Perfetto {
+                    config,
+                    time,
+                    output,
+                    device_id,
+                } => {
+                    let target_device = if devices.len() == 1 {
+                        devices.first().unwrap()
+                    } else {
+                        if device_id.is_none() {
+                            return Err(error::AdbError::DeviceIdRequired.into());
+                        }
+                        device_info::find_target_device(&devices, device_id.as_ref())?
+                    };
+
+                    subcommands::perfetto::run(
+                        subcommands::perfetto::PerfettoArgs {
+                            config,
+                            time,
+                            output,
+                            device_id,
+                        },
+                        target_device,
+                        &cli.host,
+                        &cli.port,
+                    )
+                    .await?
                 }
                 _ => unreachable!(),
             }

@@ -1,11 +1,12 @@
+pub mod adb;
 pub mod command;
+pub mod config;
 pub mod copy;
 pub mod getprop;
 pub mod ls;
+pub mod perfetto;
 pub mod rename;
 pub mod server;
-pub mod adb;
-pub mod config;
 
 #[cfg(test)]
 mod copy_test;
