@@ -1,11 +1,14 @@
 use crate::{config::Config, library::adb, types::DeviceDetails};
 use chrono::Local;
-use crossterm::event::{self, Event, KeyCode};
-use crossterm::terminal::{disable_raw_mode, enable_raw_mode};
+use crossterm::{
+    cursor::MoveToColumn,
+    event::{self, Event, KeyCode},
+    terminal::{disable_raw_mode, enable_raw_mode, Clear, ClearType},
+    ExecutableCommand,
+};
 use log::debug;
 use rand::Rng;
-use std::error::Error;
-use std::path::PathBuf;
+use std::{error::Error, io::stdout, path::PathBuf};
 
 pub struct ScreenshotArgs {
     pub device_id: Option<String>,
@@ -18,6 +21,8 @@ async fn take_single_screenshot(
     base_dir: PathBuf,
     host: &str,
     port: &str,
+    interactive: bool,
+    count: Option<u32>,
 ) -> Result<(), Box<dyn Error>> {
     let adb_id = Some(&device.adb_id);
 
@@ -29,8 +34,12 @@ async fn take_single_screenshot(
         .collect();
     let temp_file = format!("/tmp/screenshot_{}.png", random_suffix);
 
-    // Generate timestamp for output file
-    let timestamp = Local::now().format("%Y%m%d-%H%M%S");
+    // Generate timestamp for output file with microseconds for interactive mode
+    let timestamp = if interactive {
+        Local::now().format("%Y%m%d-%H%M%S-%6f")
+    } else {
+        Local::now().format("%Y%m%d-%H%M%S")
+    };
     let output_path = base_dir.join(format!(
         "aim-screenshot-{}-{}.png",
         device.device_id_short, timestamp
@@ -66,7 +75,20 @@ async fn take_single_screenshot(
     )
     .await?;
 
-    println!("Screenshot saved to: {}", output_path.display());
+    if interactive {
+        let timestamp = Local::now().format("%Y-%m-%d %H:%M:%S");
+        stdout()
+            .execute(Clear(ClearType::CurrentLine))?
+            .execute(MoveToColumn(0))?;
+        println!(
+            "[{}] Screenshot #{} saved to: {}",
+            timestamp,
+            count.unwrap_or(1),
+            output_path.display()
+        );
+    } else {
+        println!("Screenshot saved to: {}", output_path.display());
+    }
     Ok(())
 }
 
@@ -88,23 +110,39 @@ pub async fn run(
     };
 
     if !args.interactive {
-        // Single screenshot mode
-        return take_single_screenshot(device, base_dir, host, port).await;
+        return take_single_screenshot(device, base_dir, host, port, false, None).await;
     }
 
     // Interactive mode
-    println!("Interactive screenshot mode");
-    println!("Press SPACE to take a screenshot");
-    println!("Press Ctrl+C to exit");
+    let timestamp = Local::now().format("%Y-%m-%d %H:%M:%S");
+    println!("[{}] Interactive screenshot mode", timestamp);
+    println!("[{}] Press SPACE to take a screenshot", timestamp);
+    println!("[{}] Press Ctrl+C to exit\n", timestamp);
     enable_raw_mode()?;
+
+    let mut screenshot_count = 0;
 
     loop {
         if event::poll(std::time::Duration::from_millis(100))? {
             if let Event::Key(key) = event::read()? {
                 match key.code {
                     KeyCode::Char(' ') => {
-                        if let Err(e) = take_single_screenshot(device, base_dir.clone(), host, port).await {
-                            eprintln!("Error taking screenshot: {}", e);
+                        screenshot_count += 1;
+                        if let Err(e) = take_single_screenshot(
+                            device,
+                            base_dir.clone(),
+                            host,
+                            port,
+                            true,
+                            Some(screenshot_count),
+                        )
+                        .await
+                        {
+                            let timestamp = Local::now().format("%Y-%m-%d %H:%M:%S");
+                            stdout()
+                                .execute(Clear(ClearType::CurrentLine))?
+                                .execute(MoveToColumn(0))?;
+                            eprintln!("[{}] Error taking screenshot: {}", timestamp, e);
                         }
                     }
                     KeyCode::Char('c') if key.modifiers.contains(event::KeyModifiers::CONTROL) => {
@@ -117,6 +155,13 @@ pub async fn run(
     }
 
     disable_raw_mode()?;
-    println!("\nInteractive mode ended");
+    let timestamp = Local::now().format("%Y-%m-%d %H:%M:%S");
+    stdout()
+        .execute(Clear(ClearType::CurrentLine))?
+        .execute(MoveToColumn(0))?;
+    println!(
+        "[{}] Interactive mode ended. {} screenshots taken.",
+        timestamp, screenshot_count
+    );
     Ok(())
 }
