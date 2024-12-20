@@ -1,5 +1,6 @@
 use crate::library::adb;
 use crate::types::DeviceDetails;
+use indicatif::ProgressBar;
 use log::debug;
 use rand::Rng;
 use std::error::Error;
@@ -63,9 +64,21 @@ pub async fn run(
     )
     .await?;
 
-    // Step 3: Wait for specified duration
+    // Step 3: Wait for specified duration with progress bar
     debug!("Waiting for {} seconds", args.time);
-    sleep(Duration::from_secs(args.time as u64)).await;
+    let pb = ProgressBar::new(args.time as u64);
+    pb.set_style(
+        indicatif::ProgressStyle::default_bar()
+            .template("{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {pos}/{len}s")
+            .unwrap()
+            .progress_chars("#>-"),
+    );
+
+    for _ in 0..args.time {
+        sleep(Duration::from_secs(1)).await;
+        pb.inc(1);
+    }
+    pb.finish_with_message("Trace collection complete");
 
     // Step 4: Kill perfetto
     debug!("Stopping perfetto");
