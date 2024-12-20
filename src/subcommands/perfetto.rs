@@ -142,5 +142,6 @@ pub async fn run(
     .await?;
 
     debug!("Perfetto trace collection completed");
+    println!("\nTrace file saved to: {}", args.output.display());
     Ok(())
 }
