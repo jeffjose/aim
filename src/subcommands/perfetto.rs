@@ -49,7 +49,7 @@ pub async fn run(
     // Step 2: Start perfetto trace
     debug!("Starting perfetto trace");
     let perfetto_cmd = format!(
-        "cat {} | perfetto --txt -c - -o /data/misc/perfetto-traces/trace",
+        "cat {} | perfetto --txt -c - -o /data/misc/perfetto-traces/trace -d",
         temp_file
     );
 

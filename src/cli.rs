@@ -29,11 +29,11 @@ pub struct Cli {
     pub port: String,
 
     /// Connection timeout in seconds
-    #[arg(long, short = 't', global = true, default_value_t = 5)]
+    #[arg(long, global = true, default_value_t = 5)]
     pub timeout: u8,
 
     /// Output format (table or json)
-    #[arg(long, short = 'o', global = true, default_value = "table")]
+    #[arg(long, short = 'o', default_value = "table")]
     pub output: OutputType,
 }
 
