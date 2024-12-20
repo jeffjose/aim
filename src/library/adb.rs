@@ -836,11 +836,10 @@ pub async fn pull(
                 }
                 b"DONE" => {
                     debug!("Directory listing complete");
-                    // Read any remaining padded response
-                    let mut padding = [0u8; 1];
-                    while adb.stream.read_exact(&mut padding).is_ok() {
-                        debug!("Read padding byte: {:?}", padding);
-                    }
+                    // Read exactly 68 padding bytes after DONE
+                    let mut padding = [0u8; 68];
+                    adb.stream.read_exact(&mut padding)?;
+                    debug!("Read padding bytes: {:?}", padding);
                     break;
                 }
                 _ => {
