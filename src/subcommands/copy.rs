@@ -47,12 +47,12 @@ pub async fn run(
             (Some(device), None) => {
                 debug!("Copying from device {} to local", device.adb_id);
                 let adb_id = Some(device.adb_id.as_str());
-                adb::pull(host, port, adb_id, &src_path, &dst_path).await?;
+                adb::pull(host, port, adb_id, &src_path, &dst_path, adb::ProgressDisplay::Show).await?;
             }
             (None, Some(device)) => {
                 debug!("Copying from local to device {}", device.adb_id);
                 let adb_id = Some(device.adb_id.as_str());
-                adb::push(host, port, adb_id, &src_path, &dst_path, has_multiple_sources).await?;
+                adb::push(host, port, adb_id, &src_path, &dst_path, has_multiple_sources, adb::ProgressDisplay::Show).await?;
             }
         }
     }

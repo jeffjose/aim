@@ -43,13 +43,14 @@ pub async fn run(
         &args.config,
         &PathBuf::from(&temp_file),
         false,
+        adb::ProgressDisplay::Hide,
     )
     .await?;
 
     // Step 2: Start perfetto trace
     debug!("Starting perfetto trace");
     let perfetto_cmd = format!(
-        "cat {} | perfetto --txt -c - -o /data/misc/perfetto-traces/trace -d",
+        "cat {} | perfetto --txt -c - -o /data/misc/perfetto-traces/trace",
         temp_file
     );
 
@@ -68,8 +69,8 @@ pub async fn run(
 
     // Step 4: Kill perfetto
     debug!("Stopping perfetto");
-    adb::run_shell_command_async(host, port, "killall perfetto", 
-    adb_id.map(|x| x.as_str())).await?;
+    adb::run_shell_command_async(host, port, "killall perfetto", adb_id.map(|x| x.as_str()))
+        .await?;
 
     // Give perfetto a moment to finish writing
     sleep(Duration::from_secs(1)).await;
@@ -82,14 +83,19 @@ pub async fn run(
         adb_id.map(|x| x.as_str()),
         &PathBuf::from("/data/misc/perfetto-traces/trace"),
         &args.output,
+        adb::ProgressDisplay::Hide,
     )
     .await?;
 
     // Clean up temp config file
     debug!("Cleaning up temp config file");
-    adb::run_shell_command_async(host, port, &format!("rm {}", temp_file), 
+    adb::run_shell_command_async(
+        host,
+        port,
+        &format!("rm {}", temp_file),
         adb_id.map(|x| x.as_str()),
-  ).await?;
+    )
+    .await?;
 
     debug!("Perfetto trace collection completed");
     Ok(())

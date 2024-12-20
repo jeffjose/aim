@@ -201,6 +201,7 @@ impl AdbStream {
         src_path: &PathBuf,
         dst_path: &str,
         perms: u32,
+        progress: ProgressDisplay,
     ) -> Result<(), Box<dyn Error>> {
         // Send SEND command with path and mode
         debug!("Sending SEND command...");
@@ -214,12 +215,18 @@ impl AdbStream {
         let mut buffer = [0u8; CHUNK_SIZE];
         let mut total_bytes = 0;
 
-        // Setup progress bar
-        let pb = ProgressBar::new(file_size);
-        pb.set_style(indicatif::ProgressStyle::default_bar()
-            .template("{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({bytes_per_sec}) ({eta})")
-            .unwrap()
-            .progress_chars("#>-"));
+        // Setup progress bar if enabled
+        let pb = match progress {
+            ProgressDisplay::Show => Some(ProgressBar::new(file_size)),
+            ProgressDisplay::Hide => None,
+        };
+
+        if let Some(pb) = &pb {
+            pb.set_style(indicatif::ProgressStyle::default_bar()
+                .template("{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({bytes_per_sec}) ({eta})")
+                .unwrap()
+                .progress_chars("#>-"));
+        }
 
         let transfer_start = std::time::Instant::now();
         let mut chunk_start;
@@ -239,8 +246,10 @@ impl AdbStream {
 
             let chunk_duration = chunk_start.elapsed();
             let chunk_speed = bytes_read as f64 / chunk_duration.as_secs_f64() / 1024.0 / 1024.0;
-            pb.set_message(format!("{:.2} MB/s", chunk_speed));
-            pb.set_position(total_bytes as u64);
+            if let Some(pb) = &pb {
+                pb.set_message(format!("{:.2} MB/s", chunk_speed));
+                pb.set_position(total_bytes as u64);
+            }
         }
 
         // Send DONE command with file modification time
@@ -249,14 +258,16 @@ impl AdbStream {
         let mtime = fs::metadata(src_path)?.modified()?.duration_since(std::time::UNIX_EPOCH)?.as_secs() as u32;
         self.write_all(&mtime.to_le_bytes())?;
 
-        // Show final statistics
-        let total_duration = transfer_start.elapsed();
-        let avg_speed = total_bytes as f64 / total_duration.as_secs_f64() / 1024.0 / 1024.0;
-        pb.finish_with_message(format!(
-            "Transfer completed in {:.2}s at {:.2} MB/s average",
-            total_duration.as_secs_f64(),
-            avg_speed
-        ));
+        // Show final statistics if progress bar was enabled
+        if let Some(pb) = pb {
+            let total_duration = transfer_start.elapsed();
+            let avg_speed = total_bytes as f64 / total_duration.as_secs_f64() / 1024.0 / 1024.0;
+            pb.finish_with_message(format!(
+                "Transfer completed in {:.2}s at {:.2} MB/s average",
+                total_duration.as_secs_f64(),
+                avg_speed
+            ));
+        }
 
         Ok(())
     }
@@ -266,6 +277,7 @@ impl AdbStream {
         dst_path: &PathBuf,
         file_size: u64,
         description: &str,
+        progress: ProgressDisplay,
     ) -> Result<(), Box<dyn Error>> {
         // Create parent directory if needed
         if let Some(parent) = dst_path.parent() {
@@ -277,12 +289,18 @@ impl AdbStream {
         let mut file = File::create(dst_path)?;
         let mut total_bytes = 0;
 
-        // Setup progress bar
-        let pb = ProgressBar::new(file_size);
-        pb.set_style(indicatif::ProgressStyle::default_bar()
-            .template("{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({bytes_per_sec}) ({eta})")
-            .unwrap()
-            .progress_chars("#>-"));
+        // Setup progress bar if enabled
+        let pb = match progress {
+            ProgressDisplay::Show => Some(ProgressBar::new(file_size)),
+            ProgressDisplay::Hide => None,
+        };
+
+        if let Some(pb) = &pb {
+            pb.set_style(indicatif::ProgressStyle::default_bar()
+                .template("{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({bytes_per_sec}) ({eta})")
+                .unwrap()
+                .progress_chars("#>-"));
+        }
 
         let transfer_start = std::time::Instant::now();
         let mut chunk_start;
@@ -309,8 +327,10 @@ impl AdbStream {
 
                     let chunk_duration = chunk_start.elapsed();
                     let chunk_speed = len as f64 / chunk_duration.as_secs_f64() / 1024.0 / 1024.0;
-                    pb.set_message(format!("{:.2} MB/s", chunk_speed));
-                    pb.set_position(total_bytes as u64);
+                    if let Some(pb) = &pb {
+                        pb.set_message(format!("{:.2} MB/s", chunk_speed));
+                        pb.set_position(total_bytes as u64);
+                    }
                 }
                 b"DNT2" => {
                     let (_name, _entry_stat) = self.read_dnt2_entry()?;
@@ -344,14 +364,16 @@ impl AdbStream {
             }
         }
 
-        // Show final statistics
-        let total_duration = transfer_start.elapsed();
-        let avg_speed = total_bytes as f64 / total_duration.as_secs_f64() / 1024.0 / 1024.0;
-        pb.finish_with_message(format!(
-            "Transfer completed in {:.2}s at {:.2} MB/s average",
-            total_duration.as_secs_f64(),
-            avg_speed
-        ));
+        // Show final statistics if progress bar was enabled
+        if let Some(pb) = pb {
+            let total_duration = transfer_start.elapsed();
+            let avg_speed = total_bytes as f64 / total_duration.as_secs_f64() / 1024.0 / 1024.0;
+            pb.finish_with_message(format!(
+                "Transfer completed in {:.2}s at {:.2} MB/s average",
+                total_duration.as_secs_f64(),
+                avg_speed
+            ));
+        }
 
         Ok(())
     }
@@ -598,6 +620,7 @@ pub async fn push(
     src_path: &PathBuf,
     dst_path: &PathBuf,
     has_multiple_sources: bool,
+    progress: ProgressDisplay,
 ) -> Result<(), Box<dyn Error>> {
     debug!("Starting push operation:");
     debug!("Source path: {:?}", src_path);
@@ -649,7 +672,7 @@ pub async fn push(
     for (src_file, dst_file) in files_to_transfer {
         // Get permissions and transfer file
         let perms = get_permissions(&src_file)?;
-        adb.transfer_file(&src_file, &dst_file.to_string_lossy(), perms)?;
+        adb.transfer_file(&src_file, &dst_file.to_string_lossy(), perms, progress)?;
     }
 
     Ok(())
@@ -751,6 +774,7 @@ pub async fn pull(
     adb_id: Option<&str>,
     src_path: &PathBuf,
     dst_path: &PathBuf,
+    progress: ProgressDisplay,
 ) -> Result<(), Box<dyn Error>> {
     debug!("\n=== Starting Pull Operation ===");
     debug!("Source: {:?}", src_path);
@@ -900,6 +924,7 @@ pub async fn pull(
             &dst_file,
             file_size,
             "file",
+            progress,
         )?;
     }
 
@@ -1088,5 +1113,17 @@ impl fmt::Display for AdbLstatResponse {
             self.timestamps.ctime.seconds,
             self.timestamps.ctime.nanoseconds,
         )
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+pub enum ProgressDisplay {
+    Show,
+    Hide,
+}
+
+impl Default for ProgressDisplay {
+    fn default() -> Self {
+        ProgressDisplay::Show
     }
 }
