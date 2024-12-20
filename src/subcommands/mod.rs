@@ -5,6 +5,7 @@ pub mod ls;
 pub mod rename;
 pub mod server;
 pub mod adb;
+pub mod config;
 
 #[cfg(test)]
 mod copy_test;

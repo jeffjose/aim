@@ -95,6 +95,9 @@ pub enum Commands {
         #[arg(allow_hyphen_values = true, trailing_var_arg = true)]
         args: Vec<String>,
     },
+
+    /// Display configuration
+    Config,
 }
 
 #[derive(clap::ValueEnum, Clone, Debug)]

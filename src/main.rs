@@ -176,6 +176,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 Commands::Adb { args } => {
                     subcommands::adb::run(subcommands::adb::AdbArgs { args }).await?
                 }
+                Commands::Config => {
+                    subcommands::config::run().await?
+                }
                 _ => unreachable!(),
             }
         }
