@@ -821,8 +821,14 @@ pub async fn pull(
         command.extend_from_slice(src_path_bytes);
         adb.write_all(&command)?;
 
-        // Create destination directory
-        fs::create_dir_all(&dst_path)?;
+        // Get the source directory name
+        let src_dir_name = src_path.file_name()
+            .ok_or("Source directory must have a name")?
+            .to_string_lossy();
+        
+        // Create destination directory including the source directory name
+        let dst_dir = dst_path.join(&*src_dir_name);
+        fs::create_dir_all(&dst_dir)?;
 
         // Collect all files to transfer
         let mut files = Vec::new();
@@ -838,7 +844,7 @@ pub async fn pull(
                     // Preserve relative path by joining with src_path first, then getting relative component
                     let full_src_path = src_path.join(&name);
                     let relative_path = full_src_path.strip_prefix(src_path)?;
-                    let full_dst_path = dst_path.join(relative_path);
+                    let full_dst_path = dst_dir.join(relative_path);
                     
                     files.push((
                         full_src_path,
