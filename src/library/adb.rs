@@ -329,7 +329,14 @@ impl AdbStream {
                     }
                     // Otherwise it's DATA, fall through to DATA handling
                 }
-                b"DONE" => break,
+                b"DONE" => {
+                    // Flush any remaining response
+                    self.stream.set_read_timeout(Some(std::time::Duration::from_millis(100)))?;
+                    let mut buffer = [0u8; 1024];
+                    while let Ok(_) = self.stream.read(&mut buffer) {}
+                    self.stream.set_read_timeout(Some(DEFAULT_TIMEOUT))?;
+                    break;
+                }
                 _ => return Err(format!(
                     "Unexpected response during transfer: {:?}",
                     String::from_utf8_lossy(&response)
@@ -836,10 +843,11 @@ pub async fn pull(
                 }
                 b"DONE" => {
                     debug!("Directory listing complete");
-                    // Read exactly 68 padding bytes after DONE
-                    let mut padding = [0u8; 68];
-                    adb.stream.read_exact(&mut padding)?;
-                    debug!("Read padding bytes: {:?}", padding);
+                    // Flush any remaining response
+                    adb.stream.set_read_timeout(Some(std::time::Duration::from_millis(100)))?;
+                    let mut buffer = [0u8; 1024];
+                    while let Ok(_) = adb.stream.read(&mut buffer) {}
+                    adb.stream.set_read_timeout(Some(DEFAULT_TIMEOUT))?;
                     break;
                 }
                 _ => {
