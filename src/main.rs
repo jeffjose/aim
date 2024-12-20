@@ -78,7 +78,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 Commands::Ls => {
                     subcommands::ls::run(&devices, cli.output).await;
                 }
-                Commands::Command {
+                Commands::Run {
                     command,
                     device_id,
                     filters,
@@ -94,7 +94,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         device_info::find_target_device(&devices, device_id.as_ref())?
                     };
 
-                    if let Err(e) = subcommands::command::run(
+                    if let Err(e) = subcommands::run::run(
                         &cli.host,
                         &cli.port,
                         &command,

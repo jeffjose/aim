@@ -42,8 +42,8 @@ pub enum Commands {
     /// Lists connected devices
     Ls,
 
-    /// Sends a command to a device
-    Command {
+    /// Runs a command on a device
+    Run {
         /// The command to execute
         command: String,
         /// Optional device ID (can be partial)
