@@ -120,6 +120,16 @@ pub enum Commands {
         /// Optional device ID (can be partial)
         device_id: Option<String>,
     },
+
+    /// Take a screenshot
+    Screenshot {
+        /// Optional device ID (can be partial)
+        device_id: Option<String>,
+
+        /// Output file location (overrides default location)
+        #[arg(short = 'o', long = "output")]
+        output: Option<PathBuf>,
+    },
 }
 
 #[derive(clap::ValueEnum, Clone, Debug)]

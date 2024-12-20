@@ -9,6 +9,7 @@ pub struct Config {
     pub aliases: HashMap<String, String>,
     #[serde(default)]
     pub devices: HashMap<String, DeviceConfig>,
+    pub screenshot: Option<String>,
 }
 
 #[derive(Debug, Default, Deserialize)]
