@@ -4,6 +4,7 @@ pub mod getprop;
 pub mod ls;
 pub mod rename;
 pub mod server;
+pub mod adb;
 
 #[cfg(test)]
 mod copy_test;

@@ -88,6 +88,12 @@ pub enum Commands {
         #[arg(value_enum)]
         operation: ServerOperation,
     },
+
+    /// Run arbitrary adb commands
+    Adb {
+        /// Arguments to pass to adb
+        args: Vec<String>,
+    },
 }
 
 #[derive(clap::ValueEnum, Clone, Debug)]
