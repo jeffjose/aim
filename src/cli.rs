@@ -106,9 +106,9 @@ pub enum Commands {
         #[arg(short = 'f', long = "config", required = true)]
         config: PathBuf,
 
-        /// Time to run trace in seconds
-        #[arg(short = 't', long = "time", required = true)]
-        time: u32,
+        /// Time to run trace in seconds (if not specified, runs until 'q' is pressed)
+        #[arg(short = 't', long = "time")]
+        time: Option<u32>,
 
         /// Output file location
         #[arg(short = 'o', long = "output", required = true)]

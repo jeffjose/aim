@@ -1,5 +1,7 @@
 use crate::library::adb;
 use crate::types::DeviceDetails;
+use crossterm::event::{self, Event, KeyCode};
+use crossterm::terminal::{disable_raw_mode, enable_raw_mode};
 use indicatif::ProgressBar;
 use log::debug;
 use rand::Rng;
@@ -10,9 +12,27 @@ use tokio::time::sleep;
 
 pub struct PerfettoArgs {
     pub config: PathBuf,
-    pub time: u32,
+    pub time: Option<u32>,
     pub output: PathBuf,
     pub device_id: Option<String>,
+}
+
+async fn wait_for_keypress() -> Result<(), Box<dyn Error>> {
+    enable_raw_mode()?;
+    println!("\nPress 'q' to stop trace collection...");
+
+    loop {
+        if event::poll(Duration::from_millis(100))? {
+            if let Event::Key(key) = event::read()? {
+                if key.code == KeyCode::Char('q') {
+                    break;
+                }
+            }
+        }
+    }
+
+    disable_raw_mode()?;
+    Ok(())
 }
 
 pub async fn run(
@@ -64,21 +84,32 @@ pub async fn run(
     )
     .await?;
 
-    // Step 3: Wait for specified duration with progress bar
-    debug!("Waiting for {} seconds", args.time);
-    let pb = ProgressBar::new(args.time as u64);
-    pb.set_style(
-        indicatif::ProgressStyle::default_bar()
-            .template("{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {pos}/{len}s")
-            .unwrap()
-            .progress_chars("#>-"),
-    );
+    // Step 3: Wait for specified duration or user input
+    match args.time {
+        Some(duration) => {
+            // Use progress bar for fixed duration
+            debug!("Waiting for {} seconds", duration);
+            let pb = ProgressBar::new(duration as u64);
+            pb.set_style(
+                indicatif::ProgressStyle::default_bar()
+                    .template("{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {pos}/{len}s")
+                    .unwrap()
+                    .progress_chars("#>-"),
+            );
 
-    for _ in 0..args.time {
-        sleep(Duration::from_secs(1)).await;
-        pb.inc(1);
+            for _ in 0..duration {
+                sleep(Duration::from_secs(1)).await;
+                pb.inc(1);
+            }
+            pb.finish_with_message("Trace collection complete");
+        }
+        None => {
+            // Wait for user input
+            debug!("Waiting for user input to stop trace collection");
+            wait_for_keypress().await?;
+            println!("\nStopping trace collection...");
+        }
     }
-    pb.finish_with_message("Trace collection complete");
 
     // Step 4: Kill perfetto
     debug!("Stopping perfetto");
