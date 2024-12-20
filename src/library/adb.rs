@@ -835,9 +835,14 @@ pub async fn pull(
             match &response {
                 b"DNT2" => {
                     let (name, entry_stat) = adb.read_dnt2_entry()?;
+                    // Preserve relative path by joining with src_path first, then getting relative component
+                    let full_src_path = src_path.join(&name);
+                    let relative_path = full_src_path.strip_prefix(src_path)?;
+                    let full_dst_path = dst_path.join(relative_path);
+                    
                     files.push((
-                        src_path.join(&name),
-                        dst_path.join(&name),
+                        full_src_path,
+                        full_dst_path,
                         entry_stat.size() as u64,
                     ));
                 }
