@@ -313,16 +313,7 @@ impl AdbStream {
                     pb.set_position(total_bytes as u64);
                 }
                 b"DNT2" => {
-                    // Read and skip DNT2 metadata and name
-                    let mut metadata = [0u8; 68];  // 72 - 4 bytes we already read
-                    self.stream.read_exact(&mut metadata)?;
-                    
-                    // Read name length and skip the name
-                    let mut name_len_bytes = [0u8; 4];
-                    self.stream.read_exact(&mut name_len_bytes)?;
-                    let name_len = u32::from_le_bytes(name_len_bytes) as usize;
-                    let mut name_bytes = vec![0u8; name_len];
-                    self.stream.read_exact(&mut name_bytes)?;
+                    let (_name, _entry_stat) = self.read_dnt2_entry()?;
                     
                     // Read next response - could be DATA or another DNT2
                     self.stream.read_exact(&mut response)?;
@@ -356,6 +347,26 @@ impl AdbStream {
         ));
 
         Ok(())
+    }
+
+    fn read_dnt2_entry(&mut self) -> Result<(String, AdbLstatResponse), Box<dyn Error>> {
+        // Read full metadata block (72 bytes)
+        let mut entry_data = [0u8; 72];
+        entry_data[0..4].copy_from_slice(b"DNT2");  // Put magic number back
+        self.stream.read_exact(&mut entry_data[4..])?;  // Read remaining 68 bytes
+        
+        // Parse the entry data
+        let entry_stat = AdbLstatResponse::from_bytes(&entry_data)?;
+
+        // Read name length and name
+        let mut name_len_bytes = [0u8; 4];
+        self.stream.read_exact(&mut name_len_bytes)?;
+        let name_len = u32::from_le_bytes(name_len_bytes) as usize;
+        let mut name_bytes = vec![0u8; name_len];
+        self.stream.read_exact(&mut name_bytes)?;
+        let name = String::from_utf8_lossy(&name_bytes).to_string();
+
+        Ok((name, entry_stat))
     }
 }
 
@@ -815,25 +826,11 @@ pub async fn pull(
 
             match &response {
                 b"DNT2" => {
-                    // Read full metadata block (72 bytes)
-                    let mut entry_data = [0u8; 72];
-                    entry_data[0..4].copy_from_slice(b"DNT2");  // Put magic number back
-                    adb.stream.read_exact(&mut entry_data[4..])?;  // Read remaining 68 bytes
-                    
-                    // Parse the entry data
-                    let entry_stat = AdbLstatResponse::from_bytes(&entry_data)?;
-
-                    // Read name length and name
-                    let mut name_len_bytes = [0u8; 4];
-                    adb.stream.read_exact(&mut name_len_bytes)?;
-                    let name_len = u32::from_le_bytes(name_len_bytes) as usize;
-                    let mut name_bytes = vec![0u8; name_len];
-                    adb.stream.read_exact(&mut name_bytes)?;
-                    let name = String::from_utf8_lossy(&name_bytes);
+                    let (name, entry_stat) = adb.read_dnt2_entry()?;
 
                     // Construct source and destination paths
-                    let entry_src_path = src_path.join(&*name);
-                    let entry_dst_path = dst_path.join(&*name);
+                    let entry_src_path = src_path.join(&name);
+                    let entry_dst_path = dst_path.join(&name);
 
                     // Send RCV2 command for this entry
                     let entry_path_str = entry_src_path.to_string_lossy();
@@ -845,11 +842,6 @@ pub async fn pull(
                     rcv_command.extend_from_slice(b"RCV2");
                     rcv_command.extend_from_slice(&[0, 0, 0, 0]);
                     adb.write_all(&rcv_command)?;
-
-                    // Create parent directory if needed
-                    if let Some(parent) = entry_dst_path.parent() {
-                        fs::create_dir_all(parent)?;
-                    }
 
                     // Transfer the file using shared function
                     adb.transfer_data(
