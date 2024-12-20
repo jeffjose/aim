@@ -39,14 +39,14 @@ The following ADB commands are supported by `aim`:
 - [ ] `shell` - Run shell commands on device
 - [ ] `install` - Install an APK
 - [ ] `uninstall` - Remove an app
-- [.] `push` - Copy files to device
-- [.] `pull` - Copy files from device
+- [x] `push` - Copy files to device
+- [x] `pull` - Copy files from device
 - [ ] `logcat` - View device logs
-- [.] `getprop` - Get device properties
+- [x] `getprop` - Get device properties
 - [ ] `reboot` - Restart device
-- [ ] `backup` - Backup device data (planned)
-- [ ] `restore` - Restore device backup (planned)
-- [ ] `sideload` - Install OTA update (planned)
+- [ ] `backup` - Backup device data
+- [ ] `restore` - Restore device backup
+- [ ] `sideload` - Install OTA update
 
 ## Configuration
 
