@@ -85,17 +85,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     watch,
                     watch_time,
                 } => {
-                    let target_device = if let Some(ref id) = device_id {
-                        Some(device_info::find_target_device(&devices, Some(id))?)
+                    let target_device = if devices.len() == 1 {
+                        devices.first().unwrap()
                     } else {
-                        None
+                        if device_id.is_none() {
+                            return Err(error::AdbError::DeviceIdRequired.into());
+                        }
+                        device_info::find_target_device(&devices, device_id.as_ref())?
                     };
 
                     if let Err(e) = subcommands::command::run(
                         &cli.host,
                         &cli.port,
                         &command,
-                        target_device,
+                        Some(target_device),
                         if filters.is_empty() {
                             None
                         } else {
