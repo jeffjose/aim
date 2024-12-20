@@ -805,7 +805,7 @@ pub async fn pull(
     println!("Source size: {} bytes", file_size);
 
     // If source is a directory, list its contents with LIS2
-    if lstat_response.file_type() == "Directory" {
+    let mut files_to_transfer = if lstat_response.file_type() == "Directory" {
         println!("\n=== Pulling Directory ===");
         println!("Listing directory contents...");
         let mut command = Vec::with_capacity(4 + 4 + src_path_bytes.len());
@@ -818,7 +818,7 @@ pub async fn pull(
         fs::create_dir_all(&dst_path)?;
 
         // Collect all files to transfer
-        let mut files_to_transfer = Vec::new();
+        let mut files = Vec::new();
         loop {
             let mut response = [0u8; 4];
             if adb.stream.read_exact(&mut response).is_err() {
@@ -828,7 +828,7 @@ pub async fn pull(
             match &response {
                 b"DNT2" => {
                     let (name, entry_stat) = adb.read_dnt2_entry()?;
-                    files_to_transfer.push((
+                    files.push((
                         src_path.join(&name),
                         dst_path.join(&name),
                         entry_stat.size() as u64,
@@ -846,47 +846,32 @@ pub async fn pull(
                 }
             }
         }
+        files
+    } else {
+        vec![(src_path.clone(), full_dst_path.clone(), file_size)]
+    };
 
-        // Transfer all files
-        for (src_file, dst_file, file_size) in files_to_transfer {
-            // Send RCV2 command for this entry
-            let entry_path_str = src_file.to_string_lossy();
-            let entry_path_bytes = entry_path_str.as_bytes();
-            let mut rcv_command = Vec::with_capacity(4 + 4 + entry_path_bytes.len() + 8);
-            rcv_command.extend_from_slice(b"RCV2");
-            rcv_command.extend_from_slice(&(entry_path_bytes.len() as u32).to_le_bytes());
-            rcv_command.extend_from_slice(entry_path_bytes);
-            rcv_command.extend_from_slice(b"RCV2");
-            rcv_command.extend_from_slice(&[0, 0, 0, 0]);
-            adb.write_all(&rcv_command)?;
+    // Transfer all files
+    for (src_file, dst_file, file_size) in files_to_transfer {
+        // Send RCV2 command with path
+        println!("\n[4/4] Starting file transfer...");
+        let file_path_str = src_file.to_string_lossy();
+        let file_path_bytes = file_path_str.as_bytes();
+        let mut command = Vec::with_capacity(4 + 4 + file_path_bytes.len() + 8);
+        command.extend_from_slice(b"RCV2");
+        command.extend_from_slice(&(file_path_bytes.len() as u32).to_le_bytes());
+        command.extend_from_slice(file_path_bytes);
+        command.extend_from_slice(b"RCV2");
+        command.extend_from_slice(&[0, 0, 0, 0]);
+        adb.write_all(&command)?;
 
-            // Transfer the file
-            adb.transfer_data(
-                &dst_file,
-                file_size,
-                &format!("file: {}", src_file.file_name().unwrap().to_string_lossy()),
-            )?;
-        }
-
-        println!("\n=== Pull Operation Completed Successfully ===");
-        return Ok(());
+        // Transfer the file using shared function
+        adb.transfer_data(
+            &dst_file,
+            file_size,
+            "file",
+        )?;
     }
-
-    // Send RCV2 command for single file
-    let mut command = Vec::with_capacity(4 + 4 + src_path_bytes.len() + 8);
-    command.extend_from_slice(b"RCV2");
-    command.extend_from_slice(&(src_path_bytes.len() as u32).to_le_bytes());
-    command.extend_from_slice(src_path_bytes);
-    command.extend_from_slice(b"RCV2");
-    command.extend_from_slice(&[0, 0, 0, 0]);
-    adb.write_all(&command)?;
-
-    // Transfer the file using shared function
-    adb.transfer_data(
-        &full_dst_path,
-        file_size,
-        "file",
-    )?;
 
     println!("\n=== Pull Operation Completed Successfully ===");
     Ok(())
