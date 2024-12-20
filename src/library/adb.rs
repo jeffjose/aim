@@ -817,7 +817,8 @@ pub async fn pull(
         // Create destination directory
         fs::create_dir_all(&dst_path)?;
 
-        // Read directory entries and pull each file
+        // Collect all files to transfer
+        let mut files_to_transfer = Vec::new();
         loop {
             let mut response = [0u8; 4];
             if adb.stream.read_exact(&mut response).is_err() {
@@ -827,28 +828,11 @@ pub async fn pull(
             match &response {
                 b"DNT2" => {
                     let (name, entry_stat) = adb.read_dnt2_entry()?;
-
-                    // Construct source and destination paths
-                    let entry_src_path = src_path.join(&name);
-                    let entry_dst_path = dst_path.join(&name);
-
-                    // Send RCV2 command for this entry
-                    let entry_path_str = entry_src_path.to_string_lossy();
-                    let entry_path_bytes = entry_path_str.as_bytes();
-                    let mut rcv_command = Vec::with_capacity(4 + 4 + entry_path_bytes.len() + 8);
-                    rcv_command.extend_from_slice(b"RCV2");
-                    rcv_command.extend_from_slice(&(entry_path_bytes.len() as u32).to_le_bytes());
-                    rcv_command.extend_from_slice(entry_path_bytes);
-                    rcv_command.extend_from_slice(b"RCV2");
-                    rcv_command.extend_from_slice(&[0, 0, 0, 0]);
-                    adb.write_all(&rcv_command)?;
-
-                    // Transfer the file using shared function
-                    adb.transfer_data(
-                        &entry_dst_path,
+                    files_to_transfer.push((
+                        src_path.join(&name),
+                        dst_path.join(&name),
                         entry_stat.size() as u64,
-                        &format!("file: {}", name),
-                    )?;
+                    ));
                 }
                 b"DONE" => {
                     debug!("Directory listing complete");
@@ -861,6 +845,27 @@ pub async fn pull(
                     ).into())
                 }
             }
+        }
+
+        // Transfer all files
+        for (src_file, dst_file, file_size) in files_to_transfer {
+            // Send RCV2 command for this entry
+            let entry_path_str = src_file.to_string_lossy();
+            let entry_path_bytes = entry_path_str.as_bytes();
+            let mut rcv_command = Vec::with_capacity(4 + 4 + entry_path_bytes.len() + 8);
+            rcv_command.extend_from_slice(b"RCV2");
+            rcv_command.extend_from_slice(&(entry_path_bytes.len() as u32).to_le_bytes());
+            rcv_command.extend_from_slice(entry_path_bytes);
+            rcv_command.extend_from_slice(b"RCV2");
+            rcv_command.extend_from_slice(&[0, 0, 0, 0]);
+            adb.write_all(&rcv_command)?;
+
+            // Transfer the file
+            adb.transfer_data(
+                &dst_file,
+                file_size,
+                &format!("file: {}", src_file.file_name().unwrap().to_string_lossy()),
+            )?;
         }
 
         println!("\n=== Pull Operation Completed Successfully ===");
