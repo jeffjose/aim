@@ -7,6 +7,8 @@ pub struct AdbArgs {
 
 pub async fn run(args: AdbArgs) -> Result<(), Box<dyn Error>> {
     let mut command = Command::new("adb");
+    
+    // Pass all arguments including flags directly to adb
     command.args(&args.args);
 
     let output = command.output()?;

@@ -92,6 +92,7 @@ pub enum Commands {
     /// Run arbitrary adb commands
     Adb {
         /// Arguments to pass to adb
+        #[arg(allow_hyphen_values = true, trailing_var_arg = true)]
         args: Vec<String>,
     },
 }
