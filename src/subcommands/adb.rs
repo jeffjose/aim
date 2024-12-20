@@ -1,4 +1,4 @@
-use std::process::Command;
+use std::process::{Command, Stdio};
 use std::error::Error;
 
 pub struct AdbArgs {
@@ -11,19 +11,20 @@ pub async fn run(args: AdbArgs) -> Result<(), Box<dyn Error>> {
     // Pass all arguments including flags directly to adb
     command.args(&args.args);
 
-    let output = command.output()?;
+    // Set up for interactive use
+    command
+        .stdin(Stdio::inherit())
+        .stdout(Stdio::inherit())
+        .stderr(Stdio::inherit());
 
-    if !output.stdout.is_empty() {
-        print!("{}", String::from_utf8_lossy(&output.stdout));
-    }
-    if !output.stderr.is_empty() {
-        eprint!("{}", String::from_utf8_lossy(&output.stderr));
-    }
+    // Spawn and wait for the command
+    let mut child = command.spawn()?;
+    let status = child.wait()?;
 
-    if !output.status.success() {
+    if !status.success() {
         return Err(format!(
             "adb command failed with exit code: {}",
-            output.status.code().unwrap_or(-1)
+            status.code().unwrap_or(-1)
         ).into());
     }
 
