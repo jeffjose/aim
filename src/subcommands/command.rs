@@ -41,6 +41,9 @@ pub async fn run(
         }
     };
 
+    // Show command being executed
+    println!("Executing: {}\n", command);
+
     if !watch {
         // Regular single execution
         return execute_command(host, port, command, Some(target_device), filters).await;
