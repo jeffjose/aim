@@ -634,12 +634,19 @@ pub async fn push(
         }
         files
     } else {
-        vec![(src_path.clone(), dst_path.clone())]
+        // For single file, construct destination path with filename
+        let filename = src_path.file_name()
+            .ok_or("Source file must have a name")?;
+        let dst_file = if dst_path.to_string_lossy().ends_with('/') || dst_path.is_dir() {
+            dst_path.join(filename)
+        } else {
+            dst_path.clone()
+        };
+        vec![(src_path.clone(), dst_file)]
     };
 
     // Transfer each file
     for (src_file, dst_file) in files_to_transfer {
-
         // Get permissions and transfer file
         let perms = get_permissions(&src_file)?;
         adb.transfer_file(&src_file, &dst_file.to_string_lossy(), perms)?;
