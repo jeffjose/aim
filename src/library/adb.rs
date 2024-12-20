@@ -295,26 +295,7 @@ impl AdbStream {
             }
 
             match &response {
-                b"DATA" | b"DNT2" => {
-                    // For DNT2, we need to read the rest of the metadata and name
-                    if &response == b"DNT2" {
-                        let mut metadata = [0u8; 68];  // 72 - 4 bytes we already read
-                        self.stream.read_exact(&mut metadata)?;
-                        
-                        // Read name length and skip the name
-                        let mut name_len_bytes = [0u8; 4];
-                        self.stream.read_exact(&mut name_len_bytes)?;
-                        let name_len = u32::from_le_bytes(name_len_bytes) as usize;
-                        let mut name_bytes = vec![0u8; name_len];
-                        self.stream.read_exact(&mut name_bytes)?;
-                        
-                        // Read the actual DATA header
-                        self.stream.read_exact(&mut response)?;
-                        if &response != b"DATA" {
-                            return Err("Expected DATA after DNT2".into());
-                        }
-                    }
-
+                b"DATA" => {
                     // Handle the data transfer
                     let mut len_bytes = [0u8; 4];
                     self.stream.read_exact(&mut len_bytes)?;
@@ -330,6 +311,32 @@ impl AdbStream {
                     let chunk_speed = len as f64 / chunk_duration.as_secs_f64() / 1024.0 / 1024.0;
                     pb.set_message(format!("{:.2} MB/s", chunk_speed));
                     pb.set_position(total_bytes as u64);
+                }
+                b"DNT2" => {
+                    // Read and skip DNT2 metadata and name
+                    let mut metadata = [0u8; 68];  // 72 - 4 bytes we already read
+                    self.stream.read_exact(&mut metadata)?;
+                    
+                    // Read name length and skip the name
+                    let mut name_len_bytes = [0u8; 4];
+                    self.stream.read_exact(&mut name_len_bytes)?;
+                    let name_len = u32::from_le_bytes(name_len_bytes) as usize;
+                    let mut name_bytes = vec![0u8; name_len];
+                    self.stream.read_exact(&mut name_bytes)?;
+                    
+                    // Read next response - could be DATA or another DNT2
+                    self.stream.read_exact(&mut response)?;
+                    if &response != b"DATA" && &response != b"DNT2" {
+                        return Err(format!(
+                            "Expected DATA or DNT2 after DNT2, got: {:?}",
+                            String::from_utf8_lossy(&response)
+                        ).into());
+                    }
+                    // If it's DNT2, continue loop to process it
+                    if &response == b"DNT2" {
+                        continue;
+                    }
+                    // Otherwise it's DATA, fall through to DATA handling
                 }
                 b"DONE" => break,
                 _ => return Err(format!(
