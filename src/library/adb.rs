@@ -295,7 +295,27 @@ impl AdbStream {
             }
 
             match &response {
-                b"DATA" => {
+                b"DATA" | b"DNT2" => {
+                    // For DNT2, we need to read the rest of the metadata and name
+                    if &response == b"DNT2" {
+                        let mut metadata = [0u8; 68];  // 72 - 4 bytes we already read
+                        self.stream.read_exact(&mut metadata)?;
+                        
+                        // Read name length and skip the name
+                        let mut name_len_bytes = [0u8; 4];
+                        self.stream.read_exact(&mut name_len_bytes)?;
+                        let name_len = u32::from_le_bytes(name_len_bytes) as usize;
+                        let mut name_bytes = vec![0u8; name_len];
+                        self.stream.read_exact(&mut name_bytes)?;
+                        
+                        // Read the actual DATA header
+                        self.stream.read_exact(&mut response)?;
+                        if &response != b"DATA" {
+                            return Err("Expected DATA after DNT2".into());
+                        }
+                    }
+
+                    // Handle the data transfer
                     let mut len_bytes = [0u8; 4];
                     self.stream.read_exact(&mut len_bytes)?;
                     let len = u32::from_le_bytes(len_bytes) as usize;
@@ -312,7 +332,10 @@ impl AdbStream {
                     pb.set_position(total_bytes as u64);
                 }
                 b"DONE" => break,
-                _ => return Err("Unexpected response during file transfer".into()),
+                _ => return Err(format!(
+                    "Unexpected response during transfer: {:?}",
+                    String::from_utf8_lossy(&response)
+                ).into()),
             }
         }
 
