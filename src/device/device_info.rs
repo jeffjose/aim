@@ -15,7 +15,7 @@ static RE_FULL: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"^(\S+)\s+(\S+)\s+usb:(\S+)\s+product:(\S+)\s+model:(\S+)\s+device:(\S+)\s+transport_id:(\S+)").unwrap()
 });
 static RE_TRUNCATED: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"^(\S+)\s+(\S+)\s+product:(\S+)\s+model:(\S+)\s+device:(\S+)\s+transport_id:(\S+)")
+    Regex::new(r"^(\S+)\s+(\S+)\s+product:([^\s]*)\s+model:([^\s]*)\s+device:([^\s]*)\s+transport_id:(\S+)")
         .unwrap()
 });
 
@@ -88,39 +88,96 @@ struct DeviceCapture<'a> {
 }
 
 pub fn extract_device_info(input: String) -> Value {
-    let mut devices: Vec<Value> = Vec::new();
+    println!("Processing input: {:?}", input);
+    println!(
+        "Input length: {} characters, {} lines",
+        input.len(),
+        input.lines().count()
+    );
+
+    let mut devices = Vec::new();
 
     for line in input.lines() {
-        let device_info = match (
-            RE_FULL.captures(line),
-            RE_TRUNCATED.captures(line),
-            RE_SHORT.captures(line),
-        ) {
-            (Some(captures), _, _) => DeviceCapture {
-                adb_id: captures.get(1).map_or("", |m| m.as_str()),
-                type_str: captures.get(2).map_or("", |m| m.as_str()),
-                usb: captures.get(3).map_or("", |m| m.as_str()),
-                product: captures.get(4).map_or("", |m| m.as_str()),
-                model: captures.get(5).map_or("", |m| m.as_str()),
-                device: captures.get(6).map_or("", |m| m.as_str()),
-                transport_id: captures.get(7).map_or("", |m| m.as_str()),
-            },
-            (_, Some(captures), _) => DeviceCapture {
-                adb_id: captures.get(1).map_or("", |m| m.as_str()),
-                type_str: captures.get(2).map_or("", |m| m.as_str()),
-                product: captures.get(3).map_or("", |m| m.as_str()),
-                model: captures.get(4).map_or("", |m| m.as_str()),
-                device: captures.get(5).map_or("", |m| m.as_str()),
-                transport_id: captures.get(6).map_or("", |m| m.as_str()),
-                ..Default::default()
-            },
-            (_, _, Some(captures)) => DeviceCapture {
-                adb_id: captures.get(1).map_or("", |m| m.as_str()),
-                type_str: captures.get(2).map_or("", |m| m.as_str()),
-                ..Default::default()
-            },
-            _ => DeviceCapture::default(),
+        println!("\nProcessing line: {:?}", line);
+        println!("Line length: {} characters", line.len());
+
+        // Skip empty lines
+        if line.trim().is_empty() {
+            println!("Skipping empty line");
+            continue;
+        }
+
+        println!("Attempting regex matches...");
+        let full_match = RE_FULL.captures(line);
+        let truncated_match = RE_TRUNCATED.captures(line);
+        let short_match = RE_SHORT.captures(line);
+
+        println!(
+            "Match results - Full: {}, Truncated: {}, Short: {}",
+            full_match.is_some(),
+            truncated_match.is_some(),
+            short_match.is_some()
+        );
+
+        let device_info = match (full_match, truncated_match, short_match) {
+            (Some(captures), _, _) => {
+                println!("Using full match pattern");
+                DeviceCapture {
+                    adb_id: captures.get(1).map_or("", |m| m.as_str()),
+                    type_str: captures.get(2).map_or("", |m| m.as_str()),
+                    usb: captures.get(3).map_or("", |m| m.as_str()),
+                    product: captures.get(4).map_or("", |m| m.as_str()),
+                    model: captures.get(5).map_or("", |m| m.as_str()),
+                    device: captures.get(6).map_or("", |m| m.as_str()),
+                    transport_id: captures.get(7).map_or("", |m| m.as_str()),
+                }
+            }
+            (_, Some(captures), _) => {
+                println!("Using truncated match pattern");
+                DeviceCapture {
+                    adb_id: captures.get(1).map_or("", |m| m.as_str()),
+                    type_str: captures.get(2).map_or("", |m| m.as_str()),
+                    product: captures.get(3).map_or("", |m| m.as_str()),
+                    model: captures.get(4).map_or("", |m| m.as_str()),
+                    device: captures.get(5).map_or("", |m| m.as_str()),
+                    transport_id: captures.get(6).map_or("", |m| m.as_str()),
+                    ..Default::default()
+                }
+            }
+            (_, _, Some(captures)) => {
+                println!("Using short match pattern");
+                DeviceCapture {
+                    adb_id: captures.get(1).map_or("", |m| m.as_str()),
+                    type_str: captures.get(2).map_or("", |m| m.as_str()),
+                    ..Default::default()
+                }
+            }
+            _ => {
+                println!("Failed to parse line, no regex patterns matched");
+                println!("Line format did not match any expected patterns");
+                continue;
+            }
         };
+
+        println!("Extracted fields:");
+        println!("  adb_id: {:?}", device_info.adb_id);
+        println!("  type: {:?}", device_info.type_str);
+        println!("  usb: {:?}", device_info.usb);
+        println!("  product: {:?}", device_info.product);
+        println!("  model: {:?}", device_info.model);
+        println!("  device: {:?}", device_info.device);
+        println!("  transport_id: {:?}", device_info.transport_id);
+
+        // Skip if we didn't get at least an adb_id and type
+        if device_info.adb_id.is_empty() || device_info.type_str.is_empty() {
+            println!("Skipping device with empty adb_id or type");
+            println!(
+                "adb_id empty: {}, type empty: {}",
+                device_info.adb_id.is_empty(),
+                device_info.type_str.is_empty()
+            );
+            continue;
+        }
 
         let device_json = json!({
             "adb_id": device_info.adb_id,
@@ -132,11 +189,15 @@ pub fn extract_device_info(input: String) -> Value {
             "transport_id": device_info.transport_id,
         });
 
+        println!("Created device JSON: {}", device_json);
         devices.push(device_json);
+        println!("Current device count: {}", devices.len());
     }
 
-    debug!("{:?}", devices);
-    json!(devices)
+    println!("\nFinal results:");
+    println!("Total devices processed: {}", devices.len());
+    println!("Final devices array: {:#}", Value::Array(devices.clone()));
+    Value::Array(devices)
 }
 
 /// Find a target device from a list of devices based on an optional device ID.
