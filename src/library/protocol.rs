@@ -35,7 +35,7 @@ lazy_static! {
     };
 }
 pub fn format_command(cmd: &str, args: &[&str]) -> String {
-    match ADB_COMMANDS.get(cmd) {
+    match ADB_COMMANDS.get(cmd.to_uppercase().as_str()) {
         Some(&template) => {
             if args.is_empty() {
                 template.to_string()
