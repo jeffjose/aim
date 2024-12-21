@@ -94,10 +94,13 @@ pub enum Commands {
     },
 
     /// Run arbitrary adb commands
+    #[command(name = "adb")]
     Adb {
-        /// Arguments to pass to adb
-        #[arg(allow_hyphen_values = true, trailing_var_arg = true)]
-        args: Vec<String>,
+        #[arg(help = "ADB command to run")]
+        command: String,
+
+        #[arg(help = "Device ID")]
+        device_id: Option<String>,
     },
 
     /// Display configuration

@@ -1,15 +1,20 @@
 use std::process::{Command, Stdio};
 use std::error::Error;
 
-pub struct AdbArgs {
-    pub args: Vec<String>,
+pub struct AdbArgs<'a> {
+    pub command: &'a str,
+    pub adb_id: &'a str,
 }
 
-pub async fn run(args: AdbArgs) -> Result<(), Box<dyn Error>> {
+pub async fn run(args: AdbArgs<'_>) -> Result<(), Box<dyn Error>> {
     let mut command = Command::new("adb");
     
-    // Pass all arguments including flags directly to adb
-    command.args(&args.args);
+    // Add the device selector flag and ID
+    command.arg("-s");
+    command.arg(args.adb_id);
+    
+    // Split and pass the command string as arguments
+    command.args(args.command.split_whitespace());
 
     // Set up for interactive use
     command

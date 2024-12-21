@@ -190,8 +190,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     )
                     .await?
                 }
-                Commands::Adb { args } => {
-                    subcommands::adb::run(subcommands::adb::AdbArgs { args }).await?
+                Commands::Adb { command, device_id } => {
+                    let target_device = if let Some(device_id) = device_id {
+                        // If device ID is explicitly provided, try to find it
+                        device_info::find_target_device(&devices, Some(&device_id))?
+                    } else if devices.len() == 1 {
+                        // If no device ID provided and only one device, use that
+                        devices.first().unwrap()
+                    } else {
+                        // Multiple devices but no ID provided
+                        return Err(error::AdbError::DeviceIdRequired.into());
+                    };
+
+                    subcommands::adb::run(subcommands::adb::AdbArgs {
+                        command: &command,
+                        adb_id: &target_device.adb_id,
+                    })
+                    .await?;
                 }
                 Commands::Config => subcommands::config::run().await?,
                 Commands::Perfetto {
@@ -250,7 +265,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     )
                     .await?
                 }
-                Commands::Screenrecord { device_id, output, args } => {
+                Commands::Screenrecord {
+                    device_id,
+                    output,
+                    args,
+                } => {
                     let target_device = if devices.len() == 1 {
                         devices.first().unwrap()
                     } else {
@@ -283,10 +302,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     };
 
                     subcommands::dmesg::run(
-                        subcommands::dmesg::DmesgArgs {
-                            device_id,
-                            args,
-                        },
+                        subcommands::dmesg::DmesgArgs { device_id, args },
                         target_device,
                         &cli.host,
                         &cli.port,
