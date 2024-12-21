@@ -272,6 +272,27 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     )
                     .await?
                 }
+                Commands::Dmesg { device_id, args } => {
+                    let target_device = if devices.len() == 1 {
+                        devices.first().unwrap()
+                    } else {
+                        if device_id.is_none() {
+                            return Err(error::AdbError::DeviceIdRequired.into());
+                        }
+                        device_info::find_target_device(&devices, device_id.as_ref())?
+                    };
+
+                    subcommands::dmesg::run(
+                        subcommands::dmesg::DmesgArgs {
+                            device_id,
+                            args,
+                        },
+                        target_device,
+                        &cli.host,
+                        &cli.port,
+                    )
+                    .await?
+                }
                 _ => unreachable!(),
             }
         }

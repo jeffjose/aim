@@ -25,7 +25,7 @@ pub struct Cli {
     pub host: String,
 
     /// ADB server port
-    #[arg(long, global = true, default_value = "5037")]
+    #[arg(long, short = 'p', global = true, default_value = "5037")]
     pub port: String,
 
     /// Connection timeout in seconds
@@ -149,6 +149,17 @@ pub enum Commands {
         output: Option<PathBuf>,
 
         /// Additional arguments to pass to screenrecord
+        #[arg(last = true)]
+        args: Vec<String>,
+    },
+
+    /// Run dmesg command on the device
+    Dmesg {
+        /// Device ID to target (required if multiple devices are connected)
+        #[arg(long, short)]
+        device_id: Option<String>,
+
+        /// Additional arguments to pass to dmesg
         #[arg(last = true)]
         args: Vec<String>,
     },
