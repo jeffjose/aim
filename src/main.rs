@@ -191,16 +191,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     .await?
                 }
                 Commands::Adb { command, device_id } => {
-                    let target_device = if let Some(device_id) = device_id {
-                        // If device ID is explicitly provided, try to find it
-                        device_info::find_target_device(&devices, Some(&device_id))?
-                    } else if devices.len() == 1 {
-                        // If no device ID provided and only one device, use that
-                        devices.first().unwrap()
-                    } else {
-                        // Multiple devices but no ID provided
-                        return Err(error::AdbError::DeviceIdRequired.into());
-                    };
+                    let target_device = device_info::find_target_device(&devices, device_id.as_ref())?;
 
                     subcommands::adb::run(subcommands::adb::AdbArgs {
                         command: &command,
@@ -215,14 +206,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     output,
                     device_id,
                 } => {
-                    let target_device = if devices.len() == 1 {
-                        devices.first().unwrap()
-                    } else {
-                        if device_id.is_none() {
-                            return Err(error::AdbError::DeviceIdRequired.into());
-                        }
-                        device_info::find_target_device(&devices, device_id.as_ref())?
-                    };
+                    let target_device = device_info::find_target_device(&devices, device_id.as_ref())?;
 
                     subcommands::perfetto::run(
                         subcommands::perfetto::PerfettoArgs {
@@ -243,14 +227,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     interactive,
                     args,
                 } => {
-                    let target_device = if devices.len() == 1 {
-                        devices.first().unwrap()
-                    } else {
-                        if device_id.is_none() {
-                            return Err(error::AdbError::DeviceIdRequired.into());
-                        }
-                        device_info::find_target_device(&devices, device_id.as_ref())?
-                    };
+                    let target_device = device_info::find_target_device(&devices, device_id.as_ref())?;
 
                     subcommands::screenshot::run(
                         subcommands::screenshot::ScreenshotArgs {
@@ -270,14 +247,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     output,
                     args,
                 } => {
-                    let target_device = if devices.len() == 1 {
-                        devices.first().unwrap()
-                    } else {
-                        if device_id.is_none() {
-                            return Err(error::AdbError::DeviceIdRequired.into());
-                        }
-                        device_info::find_target_device(&devices, device_id.as_ref())?
-                    };
+                    let target_device = device_info::find_target_device(&devices, device_id.as_ref())?;
 
                     subcommands::screenrecord::run(
                         subcommands::screenrecord::ScreenrecordArgs {
@@ -292,14 +262,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     .await?
                 }
                 Commands::Dmesg { device_id, args } => {
-                    let target_device = if devices.len() == 1 {
-                        devices.first().unwrap()
-                    } else {
-                        if device_id.is_none() {
-                            return Err(error::AdbError::DeviceIdRequired.into());
-                        }
-                        device_info::find_target_device(&devices, device_id.as_ref())?
-                    };
+                    let target_device = device_info::find_target_device(&devices, device_id.as_ref())?;
 
                     subcommands::dmesg::run(
                         subcommands::dmesg::DmesgArgs { device_id, args },

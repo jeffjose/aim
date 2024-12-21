@@ -170,10 +170,7 @@ pub fn find_target_device<'a>(
             if devices.len() == 1 {
                 Ok(&devices[0])
             } else {
-                Err(AdbError::DeviceNotFound(
-                    "No device ID provided and multiple devices found".to_string(),
-                )
-                .into())
+                Err(AdbError::DeviceIdRequired.into())
             }
         }
     }
