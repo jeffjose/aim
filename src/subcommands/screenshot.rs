@@ -34,7 +34,7 @@ async fn take_single_screenshot(
         .take(8)
         .map(char::from)
         .collect();
-    let temp_file = format!("/tmp/screenshot_{}.png", random_suffix);
+    let temp_file = format!("/sdcard/screenshot_{}.png", random_suffix);
 
     // Generate timestamp for output file with microseconds for interactive mode
     let timestamp = if interactive {
@@ -60,13 +60,7 @@ async fn take_single_screenshot(
     };
 
     debug!("Taking screenshot");
-    adb::run_shell_command_async(
-        host,
-        port,
-        &screencap_cmd,
-        adb_id.map(|x| x.as_str()),
-    )
-    .await?;
+    adb::run_shell_command_async(host, port, &screencap_cmd, adb_id.map(|x| x.as_str())).await?;
 
     debug!("Copying screenshot to host");
     adb::pull(
