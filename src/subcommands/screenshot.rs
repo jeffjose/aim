@@ -14,6 +14,7 @@ pub struct ScreenshotArgs {
     pub device_id: Option<String>,
     pub output: Option<PathBuf>,
     pub interactive: bool,
+    pub args: Vec<String>,
 }
 
 async fn take_single_screenshot(
@@ -23,6 +24,7 @@ async fn take_single_screenshot(
     port: &str,
     interactive: bool,
     count: Option<u32>,
+    args: &[String],
 ) -> Result<(), Box<dyn Error>> {
     let adb_id = Some(&device.adb_id);
 
@@ -40,16 +42,28 @@ async fn take_single_screenshot(
     } else {
         Local::now().format("%Y%m%d-%H%M%S")
     };
+
     let output_path = base_dir.join(format!(
         "aim-screenshot-{}-{}.png",
         device.device_id_short, timestamp
     ));
 
+    // Build screencap command with additional args
+    let screencap_cmd = if args.is_empty() {
+        format!("screencap -p 2> /dev/null > {}", &temp_file)
+    } else {
+        format!(
+            "screencap {} -p 2> /dev/null > {}",
+            args.join(" "),
+            &temp_file
+        )
+    };
+
     debug!("Taking screenshot");
     adb::run_shell_command_async(
         host,
         port,
-        &format!("screencap -p 2> /dev/null > {}", &temp_file),
+        &screencap_cmd,
         adb_id.map(|x| x.as_str()),
     )
     .await?;
@@ -110,7 +124,7 @@ pub async fn run(
     };
 
     if !args.interactive {
-        return take_single_screenshot(device, base_dir, host, port, false, None).await;
+        return take_single_screenshot(device, base_dir, host, port, false, None, &args.args).await;
     }
 
     // Interactive mode
@@ -140,6 +154,7 @@ pub async fn run(
                             port,
                             true,
                             Some(screenshot_count),
+                            &args.args,
                         )
                         .await
                         {

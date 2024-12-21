@@ -133,6 +133,10 @@ pub enum Commands {
         /// Interactive mode - take screenshots with spacebar
         #[arg(short = 'i', long = "interactive")]
         interactive: bool,
+
+        /// Additional arguments to pass to screencap
+        #[arg(last = true)]
+        args: Vec<String>,
     },
 }
 

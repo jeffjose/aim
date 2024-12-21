@@ -222,7 +222,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     )
                     .await?
                 }
-                Commands::Screenshot { device_id, output, interactive } => {
+                Commands::Screenshot {
+                    device_id,
+                    output,
+                    interactive,
+                    args,
+                } => {
                     let target_device = if devices.len() == 1 {
                         devices.first().unwrap()
                     } else {
@@ -237,6 +242,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             device_id,
                             output,
                             interactive,
+                            args,
                         },
                         target_device,
                         &cli.host,
