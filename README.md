@@ -62,6 +62,5 @@ brand = "getprop ro.product.brand"
 
 MIT
 
-### Ideas
-
-adb -s R5CTB143WKV shell dumpsys SurfaceFlinger
+### Todo
+- --filter
