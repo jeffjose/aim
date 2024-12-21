@@ -52,10 +52,10 @@ pub async fn run(
 
     // Build screenrecord command with additional args
     let screenrecord_cmd = if args.args.is_empty() {
-        format!("screenrecord {} > /dev/null 2>&1 &", &temp_file)
+        format!("screenrecord {}", &temp_file)
     } else {
         format!(
-            "screenrecord {} {} > /dev/null 2>&1 &",
+            "screenrecord {} {}",
             args.args.join(" "),
             &temp_file
         )
