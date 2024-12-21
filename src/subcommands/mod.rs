@@ -15,3 +15,7 @@ pub mod server;
 mod copy_test;
 #[cfg(test)]
 mod rename_test;
+
+
+#[cfg(test)]
+mod config_test;
