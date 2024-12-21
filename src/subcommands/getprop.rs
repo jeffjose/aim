@@ -1,4 +1,5 @@
 use crate::{cli::OutputType, library::adb, types::DeviceDetails};
+use colored_json::ToColoredJson;
 use comfy_table::Table;
 use log::debug;
 use serde_json::json;
@@ -59,11 +60,8 @@ pub async fn run(
             }
         }
         OutputType::Json => {
-            let json = json!({
-                "device": device.map(|d| &d.adb_id),
-                "properties": results
-            });
-            println!("{}", serde_json::to_string_pretty(&json)?);
+            let json_str = serde_json::to_string_pretty(&results)?;
+            println!("{}", json_str.to_colored_json_auto()?);
         }
         OutputType::Table => {
             let mut table = Table::new();

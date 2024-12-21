@@ -1,5 +1,6 @@
 use crate::cli::OutputType;
 use crate::types::DeviceDetails;
+use colored_json::ToColoredJson;
 use comfy_table::Table;
 use std::collections::HashMap;
 use std::sync::LazyLock;
@@ -110,7 +111,8 @@ fn display_plain(devices: &[DeviceDetails]) {
 }
 
 fn display_json(devices: &[DeviceDetails]) {
-    println!("{}", serde_json::to_string_pretty(devices).unwrap());
+    let json_str = serde_json::to_string_pretty(devices).unwrap();
+    println!("{}", json_str.to_colored_json_auto().unwrap());
 }
 
 fn display_table(devices: &[DeviceDetails], headers: &[String]) {
@@ -137,7 +139,7 @@ fn display_table(devices: &[DeviceDetails], headers: &[String]) {
                     } else {
                         "".to_string()
                     }
-                },
+                }
                 "adb_id" => device.adb_id.clone(),
                 "device_name" => device.device_name.clone(),
                 _ => device
