@@ -112,6 +112,262 @@ aim pull /sdcard/file.txt ./       # Pull file from device
 aim push -r local_dir/ /sdcard/    # Push directory recursively
 ```
 
+## Subcommands Reference
+
+### `ls` - List Devices
+
+Lists all connected Android devices with their details.
+
+```bash
+aim ls [options]
+```
+
+Options:
+
+- `-o, --output <format>` Output format [default: table]
+  - `table`: Formatted table output
+  - `json`: JSON output (colorized)
+  - `plain`: Plain text output
+- `-v, --verbose` Enable verbose output
+
+Examples:
+
+```bash
+aim ls                  # Default table output
+aim ls -o json         # JSON output
+aim ls -o plain        # Plain text output
+aim ls -v              # Verbose output with more details
+```
+
+### `getprop` - Get Device Properties
+
+Query device properties with optional filtering.
+
+```bash
+aim getprop [pattern] [options]
+```
+
+Options:
+
+- `-o, --output <format>` Output format [default: plain]
+  - `plain`: Key-value pairs with colored output
+  - `json`: JSON output (colorized)
+  - `table`: Formatted table
+- `-d, --device <id>` Target specific device
+- `-v, --verbose` Show verbose output
+
+Examples:
+
+```bash
+aim getprop                     # List all properties
+aim getprop ro.product.model    # Get specific property
+aim getprop "ro.product.*"      # Pattern matching
+aim getprop -o json            # JSON output
+aim getprop -d pixel6          # Query specific device
+```
+
+### `dmesg` - Device Kernel Logs
+
+View and filter kernel logs from the device.
+
+```bash
+aim dmesg [options]
+```
+
+Options:
+
+- `-f, --filter <pattern>` Filter log entries
+- `-o, --output <format>` Output format [default: plain]
+- `-d, --device <id>` Target specific device
+- `-c, --clear` Clear the log after reading
+- `-w, --follow` Wait for new messages
+- `-t, --time` Show timestamps
+
+Examples:
+
+```bash
+aim dmesg                  # Show all kernel logs
+aim dmesg -f "USB"        # Filter USB-related logs
+aim dmesg -w              # Watch for new logs
+aim dmesg -t              # Show with timestamps
+aim dmesg -o json         # JSON output
+```
+
+### `logcat` - Application Logs
+
+View and filter application logs.
+
+```bash
+aim logcat [options]
+```
+
+Options:
+
+- `-p, --priority <level>` Filter by priority (V,D,I,W,E,F)
+- `-f, --filter <pattern>` Filter by content
+- `-t, --tag <tag>` Filter by tag
+- `-n, --lines <count>` Number of lines to show
+- `-w, --follow` Watch for new logs
+- `-c, --clear` Clear the log buffer
+- `-o, --output <format>` Output format
+
+Examples:
+
+```bash
+aim logcat                    # Show all logs
+aim logcat -p ERROR          # Show only errors
+aim logcat -t "MyApp"        # Filter by tag
+aim logcat -f "Exception"    # Filter by content
+aim logcat -n 100            # Show last 100 lines
+aim logcat -w               # Watch mode
+```
+
+### `screenshot` - Take Screenshots
+
+Capture device screen.
+
+```bash
+aim screenshot [options]
+```
+
+Options:
+
+- `-o, --output <file>` Output file path
+- `-i, --interactive` Interactive mode
+- `-d, --device <id>` Target specific device
+- `-q, --quality <num>` JPEG quality (1-100)
+- `-f, --format <type>` Output format (png/jpg)
+
+Examples:
+
+```bash
+aim screenshot                      # Save with timestamp
+aim screenshot -o screen.png        # Specific filename
+aim screenshot -i                   # Interactive mode
+aim screenshot -q 90 -f jpg        # JPEG with quality
+```
+
+### `screenrecord` - Record Screen
+
+Record device screen.
+
+```bash
+aim screenrecord [options]
+```
+
+Options:
+
+- `-o, --output <file>` Output file path
+- `-t, --time <seconds>` Recording duration
+- `-s, --size <WxH>` Video size (e.g., 1280x720)
+- `-b, --bitrate <rate>` Video bitrate (e.g., 4M)
+- `-r, --rotate` Rotate 90 degrees
+
+Examples:
+
+```bash
+aim screenrecord                    # Default recording
+aim screenrecord -t 30             # Record for 30 seconds
+aim screenrecord -s 1280x720       # Set resolution
+aim screenrecord -b 8M             # Set bitrate
+aim screenrecord -o video.mp4      # Custom filename
+```
+
+### `push` - Copy Files to Device
+
+Upload files or directories to device.
+
+```bash
+aim push [options] <source> <destination>
+```
+
+Options:
+
+- `-r, --recursive` Copy directories recursively
+- `-p, --progress` Show progress bar
+- `-s, --sync` Sync mode (only copy newer files)
+- `-d, --device <id>` Target specific device
+
+Examples:
+
+```bash
+aim push file.txt /sdcard/           # Push single file
+aim push -r local/ /sdcard/remote/   # Push directory
+aim push -s backup/ /sdcard/backup/  # Sync directory
+aim push -p large_file.zip /sdcard/  # Show progress
+```
+
+### `pull` - Copy Files from Device
+
+Download files or directories from device.
+
+```bash
+aim pull [options] <source> <destination>
+```
+
+Options:
+
+- `-r, --recursive` Copy directories recursively
+- `-p, --progress` Show progress bar
+- `-s, --sync` Sync mode (only copy newer files)
+- `-d, --device <id>` Target specific device
+
+Examples:
+
+```bash
+aim pull /sdcard/file.txt ./           # Pull single file
+aim pull -r /sdcard/DCIM/ ./photos/    # Pull directory
+aim pull -s /sdcard/backup/ ./backup/  # Sync directory
+aim pull -p /sdcard/large.zip ./       # Show progress
+```
+
+### `shell` - Interactive Shell
+
+Start an interactive shell session on the device.
+
+```bash
+aim shell [options] [command]
+```
+
+Options:
+
+- `-d, --device <id>` Target specific device
+- `-t, --tty` Allocate a TTY
+- `-x, --exit` Exit after command execution
+
+Examples:
+
+```bash
+aim shell                    # Interactive shell
+aim shell ls /sdcard        # Run single command
+aim shell -t                # With TTY allocation
+aim shell -x "pm list packages"  # Run and exit
+```
+
+### `server` - ADB Server Control
+
+Manage the ADB server.
+
+```bash
+aim server [command]
+```
+
+Commands:
+
+- `start` Start the server
+- `stop` Stop the server
+- `restart` Restart the server
+- `status` Show server status
+
+Examples:
+
+```bash
+aim server start     # Start ADB server
+aim server stop      # Stop ADB server
+aim server restart   # Restart ADB server
+aim server status    # Check server status
+```
+
 ## Comparison with ADB
 
 Here's how `aim` commands compare to their `adb` counterparts:
