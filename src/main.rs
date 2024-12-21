@@ -70,13 +70,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             debug!("Found {} devices", devices.len());
 
             // Check if any devices were found (except for the 'ls' command which should work regardless)
-            if devices.is_empty() && !matches!(cli.command(), Commands::Ls) {
+            if devices.is_empty() && !matches!(cli.command(), Commands::Ls { output: _ }) {
                 return Err(error::AdbError::NoDevicesFound.into());
             }
 
             match cli.command() {
-                Commands::Ls => {
-                    subcommands::ls::run(&devices, cli.output).await;
+                Commands::Ls { output } => {
+                    subcommands::ls::run(&devices, output).await;
                 }
                 Commands::Run {
                     command,
@@ -191,7 +191,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     .await?
                 }
                 Commands::Adb { command, device_id } => {
-                    let target_device = device_info::find_target_device(&devices, device_id.as_ref())?;
+                    let target_device =
+                        device_info::find_target_device(&devices, device_id.as_ref())?;
 
                     subcommands::adb::run(subcommands::adb::AdbArgs {
                         command: &command,
@@ -206,7 +207,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     output,
                     device_id,
                 } => {
-                    let target_device = device_info::find_target_device(&devices, device_id.as_ref())?;
+                    let target_device =
+                        device_info::find_target_device(&devices, device_id.as_ref())?;
 
                     subcommands::perfetto::run(
                         subcommands::perfetto::PerfettoArgs {
@@ -227,7 +229,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     interactive,
                     args,
                 } => {
-                    let target_device = device_info::find_target_device(&devices, device_id.as_ref())?;
+                    let target_device =
+                        device_info::find_target_device(&devices, device_id.as_ref())?;
 
                     subcommands::screenshot::run(
                         subcommands::screenshot::ScreenshotArgs {
@@ -247,7 +250,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     output,
                     args,
                 } => {
-                    let target_device = device_info::find_target_device(&devices, device_id.as_ref())?;
+                    let target_device =
+                        device_info::find_target_device(&devices, device_id.as_ref())?;
 
                     subcommands::screenrecord::run(
                         subcommands::screenrecord::ScreenrecordArgs {
@@ -262,7 +266,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     .await?
                 }
                 Commands::Dmesg { device_id, args } => {
-                    let target_device = device_info::find_target_device(&devices, device_id.as_ref())?;
+                    let target_device =
+                        device_info::find_target_device(&devices, device_id.as_ref())?;
 
                     subcommands::dmesg::run(
                         subcommands::dmesg::DmesgArgs { device_id, args },

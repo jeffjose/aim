@@ -40,7 +40,11 @@ pub struct Cli {
 #[derive(Subcommand, Clone, Debug)]
 pub enum Commands {
     /// Lists connected devices
-    Ls,
+    Ls {
+        /// Output format (table, json, or plain)
+        #[arg(short = 'o', long, value_enum, default_value_t = OutputType::Table)]
+        output: OutputType,
+    },
 
     /// Runs a command on a device
     Run {
@@ -177,6 +181,8 @@ pub enum ServerOperation {
 
 impl Cli {
     pub fn command(&self) -> Commands {
-        self.command.clone().unwrap_or(Commands::Ls)
+        self.command.clone().unwrap_or(Commands::Ls {
+            output: OutputType::Table,
+        })
     }
 }
