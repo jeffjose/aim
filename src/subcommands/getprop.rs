@@ -1,10 +1,11 @@
+use crate::utils::print_colored_json;
 use crate::{cli::OutputType, library::adb, types::DeviceDetails};
+use colored::*;
 use colored_json::ToColoredJson;
 use comfy_table::Table;
 use log::debug;
 use serde_json::json;
 use std::collections::HashMap;
-use crate::utils::print_colored_json;
 
 pub async fn run(
     host: &str,
@@ -48,7 +49,7 @@ pub async fn run(
             // For single property, just print value
             if propnames.len() == 1 {
                 if let Some(value) = results.get(&propnames[0]) {
-                    println!("{}", value.trim());
+                    println!("{}", value.trim().bright_white());
                 }
             } else {
                 // For multiple or all properties, print property=value format
@@ -56,7 +57,7 @@ pub async fn run(
                 sorted_props.sort_by(|a, b| a.0.cmp(b.0));
 
                 for (propname, value) in sorted_props {
-                    println!("{}={}", propname, value.trim());
+                    println!("{}={}", propname.cyan(), value.trim().bright_white());
                 }
             }
         }
