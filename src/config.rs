@@ -9,12 +9,18 @@ pub struct Config {
     pub aliases: HashMap<String, String>,
     #[serde(default)]
     pub devices: HashMap<String, DeviceConfig>,
-    pub screenshot: Option<String>,
+    #[serde(default)]
+    pub screenshot: Option<ScreenshotConfig>,
 }
 
 #[derive(Debug, Default, Deserialize)]
 pub struct DeviceConfig {
     pub name: Option<String>,
+}
+
+#[derive(Debug, Default, Deserialize)]
+pub struct ScreenshotConfig {
+    pub output: Option<String>,
 }
 
 impl Config {
@@ -43,17 +49,26 @@ impl Config {
                         if let Some(device_section) = toml.get("device").and_then(|v| v.as_table()) {
                             debug!("Processing device section: {:?}", device_section);
                             for (device_id, value) in device_section {
-                                debug!("Processing device: {} = {:?}", device_id, value);
                                 if let Some(table) = value.as_table() {
-                                    debug!("Processing device config: {:?}", table);
                                     let device_config = DeviceConfig {
                                         name: table.get("name").and_then(|v| v.as_str()).map(String::from),
                                     };
-                                    debug!("Adding device config: {} -> {:?}", device_id, device_config);
                                     config.devices.insert(device_id.to_string(), device_config);
                                 }
                             }
                         }
+
+                        // Parse screenshot section
+                        if let Some(screenshot_section) = toml.get("screenshot").and_then(|v| v.as_table()) {
+                            debug!("Processing screenshot section: {:?}", screenshot_section);
+                            config.screenshot = Some(ScreenshotConfig {
+                                output: screenshot_section
+                                    .get("output")
+                                    .and_then(|v| v.as_str())
+                                    .map(String::from),
+                            });
+                        }
+
                         debug!("Final config: {:?}", config);
                         config
                     }

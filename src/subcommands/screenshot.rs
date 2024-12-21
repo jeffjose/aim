@@ -105,6 +105,7 @@ pub async fn run(
         let config = Config::load();
         config
             .screenshot
+            .and_then(|s| s.output)
             .map(PathBuf::from)
             .unwrap_or_else(|| PathBuf::from("/tmp"))
     };
@@ -116,6 +117,11 @@ pub async fn run(
     // Interactive mode
     let timestamp = Local::now().format("%Y-%m-%d %H:%M:%S");
     println!("[{}] Interactive screenshot mode", timestamp);
+    println!(
+        "[{}] Screenshots will be saved to: {}",
+        timestamp,
+        base_dir.display()
+    );
     println!("[{}] Press SPACE to take a screenshot", timestamp);
     println!("[{}] Press Ctrl+C to exit\n", timestamp);
     enable_raw_mode()?;
