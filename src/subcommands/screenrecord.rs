@@ -1,14 +1,17 @@
 use crate::{config::Config, library::adb, types::DeviceDetails};
 use chrono::Local;
 use crossterm::{
+    cursor::MoveToColumn,
     event::{self, Event, KeyCode},
-    terminal::{disable_raw_mode, enable_raw_mode},
+    terminal::{disable_raw_mode, enable_raw_mode, Clear, ClearType},
+    ExecutableCommand,
 };
 use log::debug;
 use rand::Rng;
+use std::io::{stdout, Write};
+use std::time::{Duration, Instant};
 use std::{error::Error, path::PathBuf};
 use tokio::time::sleep;
-use std::time::Duration;
 
 pub struct ScreenrecordArgs {
     pub device_id: Option<String>,
@@ -52,10 +55,10 @@ pub async fn run(
 
     // Build screenrecord command with additional args
     let screenrecord_cmd = if args.args.is_empty() {
-        format!("screenrecord {}", &temp_file)
+        format!("screenrecord {} > /dev/null 2>&1 &", &temp_file)
     } else {
         format!(
-            "screenrecord {} {}",
+            "screenrecord {} {} > /dev/null 2>&1 &",
             args.args.join(" "),
             &temp_file
         )
@@ -66,13 +69,9 @@ pub async fn run(
 
     // Start recording
     debug!("Starting screen recording");
-    adb::run_shell_command_async(
-        host,
-        port,
-        &screenrecord_cmd,
-        adb_id.map(|x| x.as_str()),
-    )
-    .await?;
+    adb::run_shell_command_async(host, port, &screenrecord_cmd, adb_id.map(|x| x.as_str())).await?;
+
+    let start_time = Instant::now();
 
     // Wait for 'q' key
     loop {
@@ -83,6 +82,21 @@ pub async fn run(
                 }
             }
         }
+
+        // Update elapsed time display
+        let elapsed = start_time.elapsed();
+        let hours = elapsed.as_secs() / 3600;
+        let minutes = (elapsed.as_secs() % 3600) / 60;
+        let seconds = elapsed.as_secs() % 60;
+
+        stdout()
+            .execute(Clear(ClearType::CurrentLine))?
+            .execute(MoveToColumn(0))?;
+        print!(
+            "\rRecording... [{:02}:{:02}:{:02}]",
+            hours, minutes, seconds
+        );
+        stdout().flush()?;
     }
 
     // Stop recording
@@ -120,7 +134,16 @@ pub async fn run(
     )
     .await?;
 
+    let total_elapsed = start_time.elapsed();
+    let hours = total_elapsed.as_secs() / 3600;
+    let minutes = (total_elapsed.as_secs() % 3600) / 60;
+    let seconds = total_elapsed.as_secs() % 60;
+
     disable_raw_mode()?;
     println!("\nRecording saved to: {}", output_path.display());
+    println!(
+        "Total recording time: {:02}:{:02}:{:02}",
+        hours, minutes, seconds
+    );
     Ok(())
-} 
+}
