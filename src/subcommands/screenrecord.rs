@@ -104,7 +104,7 @@ pub async fn run(
     adb::run_shell_command_async(
         host,
         port,
-        "killall screenrecord",
+        "killall -s 2 screenrecord",
         adb_id.map(|x| x.as_str()),
     )
     .await?;
