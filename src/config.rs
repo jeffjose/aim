@@ -12,6 +12,8 @@ pub struct Config {
     pub devices: HashMap<String, DeviceConfig>,
     #[serde(default)]
     pub screenshot: Option<ScreenshotConfig>,
+    #[serde(default)]
+    pub screenrecord: Option<ScreenrecordConfig>,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -24,7 +26,20 @@ pub struct ScreenshotConfig {
     pub output: Option<String>,
 }
 
+#[derive(Debug, Default, Deserialize)]
+pub struct ScreenrecordConfig {
+    pub output: Option<String>,
+}
+
 impl ScreenshotConfig {
+    pub fn get_output_path(&self) -> Option<PathBuf> {
+        self.output.as_ref().map(|path| {
+            PathBuf::from(shellexpand::tilde(path).into_owned())
+        })
+    }
+}
+
+impl ScreenrecordConfig {
     pub fn get_output_path(&self) -> Option<PathBuf> {
         self.output.as_ref().map(|path| {
             PathBuf::from(shellexpand::tilde(path).into_owned())
@@ -72,6 +87,17 @@ impl Config {
                             debug!("Processing screenshot section: {:?}", screenshot_section);
                             config.screenshot = Some(ScreenshotConfig {
                                 output: screenshot_section
+                                    .get("output")
+                                    .and_then(|v| v.as_str())
+                                    .map(String::from),
+                            });
+                        }
+
+                        // Parse screenrecord section
+                        if let Some(screenrecord_section) = toml.get("screenrecord").and_then(|v| v.as_table()) {
+                            debug!("Processing screenrecord section: {:?}", screenrecord_section);
+                            config.screenrecord = Some(ScreenrecordConfig {
+                                output: screenrecord_section
                                     .get("output")
                                     .and_then(|v| v.as_str())
                                     .map(String::from),

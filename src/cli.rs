@@ -138,6 +138,20 @@ pub enum Commands {
         #[arg(last = true)]
         args: Vec<String>,
     },
+
+    /// Record screen
+    Screenrecord {
+        /// Optional device ID (can be partial)
+        device_id: Option<String>,
+
+        /// Output file location (overrides default location)
+        #[arg(short = 'o', long = "output")]
+        output: Option<PathBuf>,
+
+        /// Additional arguments to pass to screenrecord
+        #[arg(last = true)]
+        args: Vec<String>,
+    },
 }
 
 #[derive(clap::ValueEnum, Clone, Debug)]

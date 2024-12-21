@@ -8,6 +8,7 @@ pub mod rename;
 pub mod run;
 pub mod server;
 pub mod screenshot;
+pub mod screenrecord;
 
 #[cfg(test)]
 mod copy_test;
