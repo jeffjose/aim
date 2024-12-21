@@ -25,7 +25,7 @@ pub struct Cli {
     pub host: String,
 
     /// ADB server port
-    #[arg(long, short = 'p', global = true, default_value = "5037")]
+    #[arg(long, global = true, default_value = "5037")]
     pub port: String,
 
     /// Connection timeout in seconds
