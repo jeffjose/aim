@@ -156,7 +156,6 @@ pub enum Commands {
     /// Run dmesg command on the device
     Dmesg {
         /// Device ID to target (required if multiple devices are connected)
-        #[arg(long, short)]
         device_id: Option<String>,
 
         /// Additional arguments to pass to dmesg
