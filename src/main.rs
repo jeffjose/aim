@@ -5,6 +5,7 @@ mod error;
 mod library;
 mod subcommands;
 mod types;
+mod utils;
 
 use std::path::PathBuf;
 

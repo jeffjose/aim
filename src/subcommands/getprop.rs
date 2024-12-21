@@ -4,6 +4,7 @@ use comfy_table::Table;
 use log::debug;
 use serde_json::json;
 use std::collections::HashMap;
+use crate::utils::print_colored_json;
 
 pub async fn run(
     host: &str,
@@ -60,8 +61,7 @@ pub async fn run(
             }
         }
         OutputType::Json => {
-            let json_str = serde_json::to_string_pretty(&results)?;
-            println!("{}", json_str.to_colored_json_auto()?);
+            print_colored_json(&results)?;
         }
         OutputType::Table => {
             let mut table = Table::new();

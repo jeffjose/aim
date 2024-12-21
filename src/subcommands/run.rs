@@ -1,5 +1,7 @@
+use crate::cli::OutputType;
 use crate::library::adb;
 use crate::types::DeviceDetails;
+use crate::utils::print_colored_json;
 use crossterm::{
     terminal::{Clear, ClearType},
     ExecutableCommand,

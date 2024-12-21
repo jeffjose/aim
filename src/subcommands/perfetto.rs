@@ -9,6 +9,7 @@ use std::error::Error;
 use std::path::PathBuf;
 use std::time::Duration;
 use tokio::time::sleep;
+use crate::utils::print_colored_json;
 
 pub struct PerfettoArgs {
     pub config: PathBuf,

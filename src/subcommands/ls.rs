@@ -1,7 +1,6 @@
 use crate::cli::OutputType;
 use crate::types::DeviceDetails;
-use colored_json::ToColoredJson;
-use comfy_table::Table;
+use crate::utils::print_colored_json;
 use std::collections::HashMap;
 use std::sync::LazyLock;
 
@@ -108,15 +107,14 @@ pub fn display_devices(devices: &[DeviceDetails], output_type: OutputType) {
 
 fn display_plain(devices: &[DeviceDetails]) {
     println!("{:?}", devices);
+    // End of display_plain function
 }
-
 fn display_json(devices: &[DeviceDetails]) {
-    let json_str = serde_json::to_string_pretty(devices).unwrap();
-    println!("{}", json_str.to_colored_json_auto().unwrap());
+    let _ = print_colored_json(&devices.to_vec());
 }
 
 fn display_table(devices: &[DeviceDetails], headers: &[String]) {
-    let mut table = Table::new();
+    let mut table = comfy_table::Table::new();
 
     let header_names: Vec<String> = headers
         .iter()
