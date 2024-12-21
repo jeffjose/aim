@@ -29,6 +29,8 @@ fn test_alias_resolution() {
             map
         },
         devices: HashMap::new(),
+        screenshot: None,
+        screenrecord: None,
     };
 
     assert_eq!(config.resolve_alias("ls"), "shell ls -la");
@@ -56,6 +58,8 @@ fn test_device_name_lookup() {
             );
             map
         },
+        screenshot: None,
+        screenrecord: None,
     };
 
     assert_eq!(
@@ -116,6 +120,8 @@ fn test_case_insensitive_device_lookup() {
             );
             map
         },
+        screenshot: None,
+        screenrecord: None,
     };
 
     assert_eq!(
@@ -187,6 +193,8 @@ fn test_device_name_partial_match() {
             );
             map
         },
+        screenshot: None,
+        screenrecord: None,
     };
 
     // Ambiguous partial match should return None
@@ -211,6 +219,8 @@ fn test_device_without_name() {
             map.insert("device123".to_string(), DeviceConfig { name: None });
             map
         },
+        screenshot: None,
+        screenrecord: None,
     };
 
     assert_eq!(config.get_device_name("device123"), None);
@@ -249,6 +259,8 @@ fn test_multiple_partial_matches() {
             );
             map
         },
+        screenshot: None,
+        screenrecord: None,
     };
 
     // Multiple matches should return None
