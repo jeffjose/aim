@@ -105,8 +105,7 @@ pub async fn run(
         let config = Config::load();
         config
             .screenshot
-            .and_then(|s| s.output)
-            .map(PathBuf::from)
+            .and_then(|s| s.get_output_path())
             .unwrap_or_else(|| PathBuf::from("/tmp"))
     };
 

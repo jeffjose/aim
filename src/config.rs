@@ -2,6 +2,7 @@ use log::debug;
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::path::PathBuf;
+use shellexpand;
 
 #[derive(Debug, Default, Deserialize)]
 pub struct Config {
@@ -21,6 +22,14 @@ pub struct DeviceConfig {
 #[derive(Debug, Default, Deserialize)]
 pub struct ScreenshotConfig {
     pub output: Option<String>,
+}
+
+impl ScreenshotConfig {
+    pub fn get_output_path(&self) -> Option<PathBuf> {
+        self.output.as_ref().map(|path| {
+            PathBuf::from(shellexpand::tilde(path).into_owned())
+        })
+    }
 }
 
 impl Config {
