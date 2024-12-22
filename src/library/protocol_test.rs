@@ -1,6 +1,4 @@
-use protocol::{format_command, ADB_COMMANDS};
-
-use super::*;
+use super::protocol::{format_command, AdbCommand};
 
 #[test]
 fn test_basic_commands() {
@@ -75,22 +73,26 @@ fn test_commands_with_special_chars() {
 
 #[test]
 fn test_command_map_completeness() {
-    // Test that all documented commands are present in the map
-    let commands = ADB_COMMANDS.keys().collect::<Vec<_>>();
-    assert!(commands.contains(&&"ANY_DEVICE"));
-    assert!(commands.contains(&&"SELECT_DEVICE"));
-    assert!(commands.contains(&&"SHELL"));
-    assert!(commands.contains(&&"SHELL_V2"));
-    assert!(commands.contains(&&"GETPROP"));
-    assert!(commands.contains(&&"GETPROP_SINGLE"));
-    assert!(commands.contains(&&"SYNC"));
-    assert!(commands.contains(&&"PUSH"));
-    assert!(commands.contains(&&"PULL"));
-    assert!(commands.contains(&&"VERSION"));
-    assert!(commands.contains(&&"DEVICES"));
-    assert!(commands.contains(&&"KILL"));
-    assert!(commands.contains(&&"TRACK_DEVICES"));
-    assert!(commands.contains(&&"TRANSPORT"));
+    // Test that all enum variants are mapped
+    for command in [
+        AdbCommand::AnyDevice,
+        AdbCommand::SelectDevice,
+        AdbCommand::Shell,
+        AdbCommand::ShellV2,
+        AdbCommand::GetProp,
+        AdbCommand::GetPropSingle,
+        AdbCommand::Sync,
+        AdbCommand::Push,
+        AdbCommand::Pull,
+        AdbCommand::Version,
+        AdbCommand::Devices,
+        AdbCommand::Kill,
+        AdbCommand::TrackDevices,
+        AdbCommand::Transport,
+    ] {
+        // Verify each command can format without panicking
+        command.format(&[]);
+    }
 }
 
 #[test]
@@ -187,7 +189,6 @@ fn test_commands_with_multiple_arguments() {
     );
 }
 
-
 #[test]
 fn test_transport_command_variations() {
     assert_eq!(
@@ -206,4 +207,14 @@ fn test_command_case_sensitivity() {
     assert_eq!(format_command("version", &[]), "host:version");
     assert_eq!(format_command("DEVICES", &[]), "host:devices");
     assert_eq!(format_command("devices", &[]), "host:devices");
+}
+
+#[test]
+fn test_adb_command_direct_format() {
+    assert_eq!(AdbCommand::Version.format(&[]), "host:version");
+    assert_eq!(AdbCommand::Shell.format(&["ls"]), "shell:ls");
+    assert_eq!(
+        AdbCommand::Transport.format(&["device1"]),
+        "host:transport:device1"
+    );
 }
