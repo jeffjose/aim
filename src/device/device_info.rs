@@ -1,23 +1,12 @@
 use std::collections::HashMap;
-use std::sync::LazyLock;
 
 use log::debug;
-use regex::Regex;
 use serde_json::{json, Value};
 
 use crate::config::Config;
 use crate::library::adb;
 use crate::library::hash::{petname, sha256, sha256_short};
 use crate::{error::AdbError, types::DeviceDetails};
-
-static RE_SHORT: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^(\S+)\s+(\S+)").unwrap());
-static RE_FULL: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"^(\S+)\s+(\S+)\s+usb:(\S+)\s+product:(\S+)\s+model:(\S+)\s+device:(\S+)\s+transport_id:(\S+)").unwrap()
-});
-static RE_TRUNCATED: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"^(\S+)\s+(\S+)\s+product:([^\s]*)\s+model:([^\s]*)\s+device:([^\s]*)\s+transport_id:(\S+)")
-        .unwrap()
-});
 
 pub async fn get_devices(host: &str, port: &str) -> Vec<DeviceDetails> {
     let config = Config::load();
@@ -76,82 +65,49 @@ fn format_device_list(responses: &[String]) -> Value {
     extract_device_info(responses.join("\n"))
 }
 
-#[derive(Default)]
-struct DeviceCapture<'a> {
-    adb_id: &'a str,
-    type_str: &'a str,
-    usb: &'a str,
-    product: &'a str,
-    model: &'a str,
-    device: &'a str,
-    transport_id: &'a str,
-}
-
 pub fn extract_device_info(input: String) -> Value {
-    let mut devices = Vec::new();
-
-    for line in input.lines() {
-        // Skip empty lines
-        if line.trim().is_empty() {
-            continue;
-        }
-
-        let full_match = RE_FULL.captures(line);
-        let truncated_match = RE_TRUNCATED.captures(line);
-        let short_match = RE_SHORT.captures(line);
-
-        let device_info = match (full_match, truncated_match, short_match) {
-            (Some(captures), _, _) => DeviceCapture {
-                adb_id: captures.get(1).map_or("", |m| m.as_str()),
-                type_str: captures.get(2).map_or("", |m| m.as_str()),
-                usb: captures.get(3).map_or("", |m| m.as_str()),
-                product: captures.get(4).map_or("", |m| m.as_str()),
-                model: captures.get(5).map_or("", |m| m.as_str()),
-                device: captures.get(6).map_or("", |m| m.as_str()),
-                transport_id: captures.get(7).map_or("", |m| m.as_str()),
-            },
-            (_, Some(captures), _) => DeviceCapture {
-                adb_id: captures.get(1).map_or("", |m| m.as_str()),
-                type_str: captures.get(2).map_or("", |m| m.as_str()),
-                product: captures.get(3).map_or("", |m| m.as_str()),
-                model: captures.get(4).map_or("", |m| m.as_str()),
-                device: captures.get(5).map_or("", |m| m.as_str()),
-                transport_id: captures.get(6).map_or("", |m| m.as_str()),
-                ..Default::default()
-            },
-            (_, _, Some(captures)) => DeviceCapture {
-                adb_id: captures.get(1).map_or("", |m| m.as_str()),
-                type_str: captures.get(2).map_or("", |m| m.as_str()),
-                ..Default::default()
-            },
-            _ => continue,
-        };
-
-        // Skip if we didn't get at least an adb_id and type
-        if device_info.adb_id.is_empty() || device_info.type_str.is_empty() {
-            continue;
-        }
-
-        let device_json = json!({
-            "adb_id": device_info.adb_id,
-            "type": device_info.type_str,
-            "usb": device_info.usb,
-            "product": device_info.product,
-            "model": device_info.model,
-            "device": device_info.device,
-            "transport_id": device_info.transport_id,
-        });
-
-        devices.push(device_json);
-    }
+    let devices = input
+        .lines()
+        .filter(|line| !line.trim().is_empty())
+        .filter_map(|line| parse_device_line(line))
+        .collect();
 
     Value::Array(devices)
 }
 
-/// Find a target device from a list of devices based on an optional device ID.
-/// If no device ID is provided and there is exactly one device, that device is returned.
-/// If no device ID is provided and there are multiple devices, an error is returned.
-/// If a device ID is provided, it will match against device IDs that start with the provided prefix.
+fn parse_device_line(line: &str) -> Option<Value> {
+    let (adb_id, remainder) = line.split_once(char::is_whitespace)?;
+    let remainder = remainder.trim();
+    let (device_type, properties) = remainder.split_once(char::is_whitespace).unwrap_or((remainder, ""));
+
+    let mut device = json!({
+        "adb_id": adb_id,
+        "type": device_type,
+        "usb": "",
+        "product": "",
+        "model": "",
+        "device": "",
+        "transport_id": "",
+    });
+
+    if !properties.is_empty() {
+        for prop in properties.split_whitespace() {
+            if let Some((key, value)) = prop.split_once(':') {
+                match key {
+                    "usb" => device["usb"] = Value::String(value.to_string()),
+                    "product" => device["product"] = Value::String(value.to_string()),
+                    "model" => device["model"] = Value::String(value.to_string()),
+                    "device" => device["device"] = Value::String(value.to_string()),
+                    "transport_id" => device["transport_id"] = Value::String(value.to_string()),
+                    _ => {} // Ignore unknown properties
+                }
+            }
+        }
+    }
+
+    Some(device)
+}
+
 pub fn find_target_device<'a>(
     devices: &'a [DeviceDetails],
     device_id: Option<&String>,
