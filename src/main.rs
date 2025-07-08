@@ -12,6 +12,9 @@ mod subcommands;
 mod types;
 mod utils;
 
+#[cfg(test)]
+mod testing;
+
 use std::path::PathBuf;
 
 use clap::Parser;

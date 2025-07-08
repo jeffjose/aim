@@ -13,4 +13,7 @@ pub mod types;
 pub mod utils;
 
 #[cfg(test)]
+pub mod testing;
+
+#[cfg(test)]
 mod config_test;
