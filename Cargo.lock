@@ -31,8 +31,10 @@ name = "aim"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-trait",
  "bincode",
  "byteorder",
+ "bytes",
  "chrono",
  "clap",
  "clap-verbosity-flag",
@@ -56,6 +58,7 @@ dependencies = [
  "sha2",
  "shellexpand",
  "tempfile",
+ "thiserror",
  "tokio",
  "toml",
  "toml_edit 0.21.1",
@@ -131,6 +134,17 @@ name = "anyhow"
 version = "1.0.94"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c1fd03a028ef38ba2276dce7e33fcd6369c158a1bca17946c4b1b701891c1ff7"
+
+[[package]]
+name = "async-trait"
+version = "0.1.88"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e539d3fca749fcee5236ab05e93a52867dd549cc157c8cb7f99595f3cedffdb5"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
 
 [[package]]
 name = "autocfg"

@@ -34,6 +34,9 @@ crossterm = "0.28.1"
 shellexpand = "3.1.0"
 colored_json = "5.0.0"
 colored = "2.2.0"
+thiserror = "1.0"
+async-trait = "0.1"
+bytes = "1.5"
 
 [dev-dependencies]
 tempfile = "3.8"

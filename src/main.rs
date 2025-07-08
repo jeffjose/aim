@@ -1,5 +1,8 @@
+mod adb;
 mod cli;
+mod commands;
 mod config;
+mod core;
 mod device;
 mod error;
 mod library;
