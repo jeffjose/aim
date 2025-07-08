@@ -6,6 +6,8 @@ mod core;
 mod device;
 mod error;
 mod library;
+mod output;
+mod progress;
 mod subcommands;
 mod types;
 mod utils;

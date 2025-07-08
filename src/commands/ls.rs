@@ -1,11 +1,11 @@
-use super::{SubCommand, format_json_output};
+use super::SubCommand;
 use crate::core::context::CommandContext;
 use crate::core::types::{Device, DeviceProperties, OutputFormat};
 use crate::device::DeviceManager;
 use crate::error::Result;
+use crate::output::OutputFormatter;
 use crate::types::DeviceDetails;
 use async_trait::async_trait;
-use comfy_table::Table;
 use serde::{Deserialize, Serialize};
 
 pub struct LsCommand {
@@ -44,57 +44,16 @@ impl SubCommand for LsCommand {
         let output_format = OutputFormat::from_str(&args.output)
             .unwrap_or(ctx.output_format);
             
-        match output_format {
-            OutputFormat::Table => self.format_table(&device_details)?,
-            OutputFormat::Json => format_json_output(&device_details)?,
-            OutputFormat::Plain => self.format_plain(&device_details)?,
-        }
-        
-        Ok(())
-    }
-}
-
-impl LsCommand {
-    fn format_table(&self, devices: &[DeviceDetails]) -> Result<()> {
-        let mut table = Table::new();
-        
-        // Set headers
-        table.set_header(vec![
-            "DEVICE ID",
-            "BRAND", 
-            "MODEL",
-            "STATUS",
-            "ADB ID",
-            "NAME"
-        ]);
-        
-        table.load_preset(comfy_table::presets::NOTHING);
-        
-        for device in devices {
-            let status = if device.additional_props.get("service.adb.root") == Some(&"1".to_string()) {
-                "root"
-            } else {
-                ""
-            };
+        // Use the unified output formatter
+        let formatter = OutputFormatter::new()
+            .with_quiet(ctx.quiet);
             
-            table.add_row(vec![
-                device.device_id_short.clone(),
-                device.brand.clone().unwrap_or_default(),
-                device.model.clone().unwrap_or_default(),
-                status.to_string(),
-                device.adb_id.clone(),
-                device.device_name.clone(),
-            ]);
+        match output_format {
+            OutputFormat::Table => formatter.table(&device_details)?,
+            OutputFormat::Json => formatter.json(&device_details)?,
+            OutputFormat::Plain => formatter.plain(&device_details)?,
         }
         
-        println!("{}", table);
-        Ok(())
-    }
-    
-    fn format_plain(&self, devices: &[DeviceDetails]) -> Result<()> {
-        for device in devices {
-            println!("{}", device.adb_id);
-        }
         Ok(())
     }
 }

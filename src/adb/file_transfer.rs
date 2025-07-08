@@ -2,7 +2,7 @@ use crate::core::types::{DeviceId, TransferDirection, TransferProgress as Progre
 use crate::error::{AimError, Result};
 use crate::adb::connection::AdbConnection;
 use crate::adb::protocol::{AdbLstatResponse, sync};
-use indicatif::{ProgressBar, ProgressStyle};
+use crate::progress::{ProgressReporter, ProgressFactory};
 use log::*;
 use std::fs::{self, File};
 use std::io::{Read, Write};
@@ -19,7 +19,7 @@ const SYNC_STAT: &[u8] = sync::STAT;
 /// File transfer operations
 pub struct FileTransfer {
     conn: AdbConnection,
-    progress_bar: Option<ProgressBar>,
+    progress_reporter: Option<Box<dyn ProgressReporter>>,
 }
 
 impl FileTransfer {
@@ -38,20 +38,14 @@ impl FileTransfer {
         
         Ok(Self {
             conn,
-            progress_bar: None,
+            progress_reporter: None,
         })
     }
     
     /// Enable progress reporting
-    pub fn with_progress(mut self, total_size: u64) -> Self {
-        let pb = ProgressBar::new(total_size);
-        pb.set_style(
-            ProgressStyle::default_bar()
-                .template("{spinner:.green} [{bar:40.cyan/blue}] {bytes}/{total_bytes} ({eta})")
-                .unwrap()
-                .progress_chars("#>-"),
-        );
-        self.progress_bar = Some(pb);
+    pub fn with_progress(mut self, file_name: &str, total_size: u64) -> Self {
+        let factory = ProgressFactory::new(true);
+        self.progress_reporter = Some(factory.file_transfer(file_name, total_size));
         self
     }
     
@@ -94,8 +88,8 @@ impl FileTransfer {
             bytes_sent += bytes_read as u64;
             
             // Update progress
-            if let Some(ref pb) = self.progress_bar {
-                pb.set_position(bytes_sent);
+            if let Some(ref reporter) = self.progress_reporter {
+                reporter.update(bytes_sent);
             }
         }
         
@@ -108,8 +102,8 @@ impl FileTransfer {
         self.read_sync_response()?;
         
         // Finish progress
-        if let Some(ref pb) = self.progress_bar {
-            pb.finish_with_message("Complete");
+        if let Some(ref reporter) = self.progress_reporter {
+            reporter.finish();
         }
         
         info!("Successfully pushed {}", local_path.display());
@@ -148,8 +142,8 @@ impl FileTransfer {
                     bytes_received += data.len() as u64;
                     
                     // Update progress
-                    if let Some(ref pb) = self.progress_bar {
-                        pb.set_position(bytes_received);
+                    if let Some(ref reporter) = self.progress_reporter {
+                        reporter.update(bytes_received);
                     }
                 }
                 b"DONE" => {
@@ -174,8 +168,8 @@ impl FileTransfer {
         }
         
         // Finish progress
-        if let Some(ref pb) = self.progress_bar {
-            pb.finish_with_message("Complete");
+        if let Some(ref reporter) = self.progress_reporter {
+            reporter.finish();
         }
         
         info!("Successfully pulled {}", remote_path);
