@@ -1,17 +1,10 @@
-use crate::cli::OutputType;
 use crate::library::adb;
 use crate::types::DeviceDetails;
-use crate::utils::print_colored_json;
-use crossterm::{
-    terminal::{Clear, ClearType},
-    ExecutableCommand,
-};
-use indicatif::ProgressBar;
 use std::error::Error;
-use std::io::stdout;
 use std::time::Duration;
 use tokio::time::sleep;
 
+#[allow(dead_code)]
 pub struct CommandArgs<'a> {
     pub command: &'a str,
     pub device: Option<&'a DeviceDetails>,
@@ -74,7 +67,7 @@ async fn execute_command(
     port: &str,
     command: &str,
     device: Option<&DeviceDetails>,
-    filters: Option<&[String]>,
+    _filters: Option<&[String]>,
 ) -> Result<(), Box<dyn Error>> {
     let adb_id = device.map(|d| d.adb_id.as_str());
     let response = adb::run_shell_command_async(host, port, command, adb_id).await?;

@@ -5,6 +5,7 @@ use async_trait::async_trait;
 
 /// Base trait for all subcommands
 #[async_trait]
+#[allow(dead_code)]
 pub trait SubCommand {
     type Args;
     
@@ -13,12 +14,14 @@ pub trait SubCommand {
 
 /// Common argument fields shared by most commands
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct CommonArgs {
     pub device: Option<String>,
     pub output: OutputFormat,
     pub verbose: bool,
 }
 
+#[allow(dead_code)]
 impl CommonArgs {
     /// Convert string output format to enum
     pub fn parse_output_format(s: &str) -> OutputFormat {
@@ -28,6 +31,7 @@ impl CommonArgs {
 
 /// Helper trait for commands that produce formatted output
 #[async_trait]
+#[allow(dead_code)]
 pub trait OutputCommand {
     type Output: serde::Serialize;
     
@@ -49,6 +53,7 @@ pub trait OutputCommand {
 }
 
 /// Default JSON formatting implementation
+#[allow(dead_code)]
 pub fn format_json_output<T: serde::Serialize>(output: &T) -> Result<()> {
     // Use the existing utility function
     crate::utils::print_colored_json(output)?;
@@ -56,6 +61,7 @@ pub fn format_json_output<T: serde::Serialize>(output: &T) -> Result<()> {
 }
 
 /// Helper for device selection in commands
+#[allow(dead_code)]
 pub async fn select_device(
     ctx: &CommandContext,
     device_arg: Option<&str>,
@@ -108,7 +114,6 @@ mod ls_test;
 // pub mod config;
 
 // Re-export command implementations
-pub use ls::LsCommand;
 // pub use getprop::GetPropCommand;
 // pub use screenshot::ScreenshotCommand;
 // pub use screenrecord::ScreenRecordCommand;

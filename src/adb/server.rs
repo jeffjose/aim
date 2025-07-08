@@ -10,6 +10,7 @@ const SERVER_CHECK_TIMEOUT: Duration = Duration::from_millis(500);
 /// ADB server management
 pub struct AdbServer;
 
+#[allow(dead_code)]
 impl AdbServer {
     /// Start the ADB server
     pub async fn start(port: u16) -> Result<()> {

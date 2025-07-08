@@ -14,6 +14,7 @@ use std::{error::Error, path::PathBuf};
 use tokio::time::sleep;
 
 pub struct ScreenrecordArgs {
+    #[allow(dead_code)]
     pub device_id: Option<String>,
     pub output: Option<PathBuf>,
     pub args: Vec<String>,

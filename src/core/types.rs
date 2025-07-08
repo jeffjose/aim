@@ -45,6 +45,7 @@ pub enum DeviceState {
 }
 
 impl DeviceState {
+    #[allow(dead_code)]
     pub fn from_str(s: &str) -> Self {
         match s.to_lowercase().as_str() {
             "device" => DeviceState::Device,
@@ -81,6 +82,7 @@ pub struct Device {
     pub device: Option<String>,
 }
 
+#[allow(dead_code)]
 impl Device {
     pub fn new(id: impl Into<DeviceId>) -> Self {
         Self {
@@ -144,6 +146,7 @@ pub struct DeviceProperties {
     pub additional: HashMap<String, String>,
 }
 
+#[allow(dead_code)]
 impl DeviceProperties {
     pub fn new() -> Self {
         Self::default()
@@ -211,6 +214,7 @@ impl fmt::Display for OutputFormat {
 
 /// Common command options
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct CommonOptions {
     pub device: Option<String>,
     pub output_format: OutputFormat,
@@ -230,18 +234,22 @@ impl Default for CommonOptions {
 /// File transfer direction
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TransferDirection {
+    #[allow(dead_code)]
     Push,
+    #[allow(dead_code)]
     Pull,
 }
 
 /// Progress information for file transfers
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct TransferProgress {
     pub bytes_transferred: u64,
     pub total_bytes: u64,
     pub file_path: String,
 }
 
+#[allow(dead_code)]
 impl TransferProgress {
     pub fn percentage(&self) -> f64 {
         if self.total_bytes == 0 {

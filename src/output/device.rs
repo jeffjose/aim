@@ -3,6 +3,7 @@ use crate::output::{TableFormat, PlainFormat};
 use crate::types::DeviceDetails;
 
 /// Formatter for device information
+#[allow(dead_code)]
 pub struct DeviceFormatter;
 
 impl TableFormat for DeviceDetails {

@@ -4,12 +4,15 @@ use crate::error::Result;
 /// Shared context for all commands
 #[derive(Debug, Clone)]
 pub struct CommandContext {
+    #[allow(dead_code)]
     pub device: Option<Device>,
     pub output_format: OutputFormat,
+    #[allow(dead_code)]
     pub verbose: bool,
     pub quiet: bool,
 }
 
+#[allow(dead_code)]
 impl CommandContext {
     pub fn new() -> Self {
         Self {
@@ -66,6 +69,7 @@ impl Default for CommandContext {
 
 /// Trait for commands that can be executed with context
 #[async_trait::async_trait]
+#[allow(dead_code)]
 pub trait Command {
     type Args;
     type Output;
@@ -75,9 +79,11 @@ pub trait Command {
 
 /// Builder for creating command contexts
 pub struct CommandContextBuilder {
+    #[allow(dead_code)]
     ctx: CommandContext,
 }
 
+#[allow(dead_code)]
 impl CommandContextBuilder {
     pub fn new() -> Self {
         Self {

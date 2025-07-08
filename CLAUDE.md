@@ -107,26 +107,55 @@ The codebase follows a clean modular architecture designed for extensibility:
 ### Architectural Patterns
 
 1. **Async Architecture**: Built on Tokio for efficient async I/O operations
-2. **Error Handling**: Uses anyhow for error propagation with custom error types
-3. **Output Formatting**: Centralized formatting logic supporting multiple formats
+2. **Error Handling**: Comprehensive error types with `thiserror`, automatic conversions
+3. **Output Formatting**: Unified output system with trait-based formatting
 4. **Device Selection**: Smart device selection with partial matching and aliases
 5. **Configuration**: TOML-based config at `~/.config/aim/config.toml`
+6. **Dependency Injection**: Mock-friendly design for testing
+7. **Command Pattern**: Consistent interface for all subcommands
 
-### Adding New Subcommands
+### Adding New Subcommands (New Pattern)
 
-To add a new subcommand:
-1. Create a new file in `src/subcommands/`
-2. Define the command structure in `src/cli.rs`
-3. Implement the command logic following existing patterns
-4. Add the command to the match statement in `src/main.rs`
-5. Write tests in a corresponding `*_test.rs` file
+To add a new subcommand using the refactored architecture:
+1. Create a new file in `src/commands/[command].rs`
+2. Implement the `SubCommand` trait for your command
+3. Define args struct with `clap::Args` derive
+4. Add command to `src/cli.rs` Commands enum
+5. Add routing in `src/commands/runner.rs`
+6. Write tests in `src/commands/[command]_test.rs`
+
+Example:
+```rust
+use crate::commands::SubCommand;
+use crate::core::context::CommandContext;
+use crate::error::Result;
+
+pub struct MyCommand {
+    // dependencies
+}
+
+#[derive(Debug, clap::Args)]
+pub struct MyCommandArgs {
+    // command-specific arguments
+}
+
+#[async_trait]
+impl SubCommand for MyCommand {
+    type Args = MyCommandArgs;
+    
+    async fn run(&self, ctx: &CommandContext, args: Self::Args) -> Result<()> {
+        // implementation
+    }
+}
+```
 
 ### Testing Strategy
 
-- Unit tests are placed in `*_test.rs` files alongside source files
-- Use `#[test]` for sync tests and `#[tokio::test]` for async tests
-- Tests should cover normal operation, edge cases, and error conditions
-- Use `tempfile` crate for file system operations in tests
+- Tests live in separate `*_test.rs` files in the same module
+- Use the testing infrastructure in `src/testing/`
+- Mock external dependencies using traits
+- Test fixtures available for common scenarios
+- Run with `cargo test --lib` for faster testing
 
 ### Key Dependencies
 
@@ -136,3 +165,19 @@ To add a new subcommand:
 - **comfy-table**: Table formatting for readable output
 - **colored/colored_json**: Colored terminal output
 - **indicatif**: Progress bars for long operations
+- **thiserror**: Error type derivation
+- **async-trait**: Async traits for commands
+- **bytes**: Efficient byte buffer handling
+
+### Migration Status
+
+Currently migrating from the old architecture to the new one:
+- ✅ Core infrastructure (error, types, context)
+- ✅ ADB modules split and refactored
+- ✅ Output and progress systems
+- ✅ Testing infrastructure
+- ✅ Command runner and base trait
+- 🔄 `ls` command migrated as example
+- ⏳ Other subcommands pending migration
+
+The old subcommands in `src/subcommands/` still work but will be gradually migrated to `src/commands/`.

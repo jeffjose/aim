@@ -6,22 +6,29 @@ use crate::progress::{ProgressReporter, ProgressFactory};
 use log::*;
 use std::fs::{self, File};
 use std::io::{Read, Write};
-use std::path::{Path, PathBuf};
-use std::time::Duration;
+use std::path::Path;
 
+#[allow(dead_code)]
 const CHUNK_SIZE: usize = 64 * 1024;
+#[allow(dead_code)]
 const SYNC_DATA: &[u8] = sync::DATA;
+#[allow(dead_code)]
 const SYNC_DONE: &[u8] = sync::DONE;
+#[allow(dead_code)]
 const SYNC_SEND: &[u8] = sync::SEND;
+#[allow(dead_code)]
 const SYNC_RECV: &[u8] = sync::RECV;
+#[allow(dead_code)]
 const SYNC_STAT: &[u8] = sync::STAT;
 
 /// File transfer operations
+#[allow(dead_code)]
 pub struct FileTransfer {
     conn: AdbConnection,
     progress_reporter: Option<Box<dyn ProgressReporter>>,
 }
 
+#[allow(dead_code)]
 impl FileTransfer {
     /// Create a new file transfer instance
     pub async fn new(host: &str, port: u16, device_id: Option<&DeviceId>) -> Result<Self> {
@@ -61,8 +68,8 @@ impl FileTransfer {
             return Err(AimError::FileTransfer("Can only push regular files".into()));
         }
         
-        let file_size = metadata.len();
-        let permissions = get_permissions(&metadata);
+        let _file_size = metadata.len();
+        let _permissions = get_permissions(&metadata);
         
         // Send SEND command
         self.send_sync_command(SYNC_SEND, remote_path)?;
@@ -120,7 +127,7 @@ impl FileTransfer {
             return Err(AimError::FileTransfer("Can only pull regular files".into()));
         }
         
-        let file_size = stat.size() as u64;
+        let _file_size = stat.size() as u64;
         
         // Send RECV command
         self.send_sync_command(SYNC_RECV, remote_path)?;
@@ -268,17 +275,19 @@ impl FileTransfer {
 }
 
 /// Progress tracking for file transfers
+#[allow(dead_code)]
 pub struct TransferProgress {
-    direction: TransferDirection,
+    _direction: TransferDirection,
     progress: Progress,
     callback: Option<Box<dyn Fn(&Progress) + Send>>,
 }
 
+#[allow(dead_code)]
 impl TransferProgress {
     /// Create a new progress tracker
     pub fn new(direction: TransferDirection, file_path: String, total_bytes: u64) -> Self {
         Self {
-            direction,
+            _direction: direction,
             progress: Progress {
                 bytes_transferred: 0,
                 total_bytes,
@@ -313,12 +322,14 @@ impl TransferProgress {
 
 /// Get Unix permissions from metadata
 #[cfg(unix)]
+#[allow(dead_code)]
 fn get_permissions(metadata: &fs::Metadata) -> u32 {
     use std::os::unix::fs::PermissionsExt;
     metadata.permissions().mode()
 }
 
 #[cfg(not(unix))]
+#[allow(dead_code)]
 fn get_permissions(_metadata: &fs::Metadata) -> u32 {
     0o644 // Default permissions for non-Unix systems
 }

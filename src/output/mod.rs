@@ -9,6 +9,7 @@ pub struct OutputFormatter {
     quiet: bool,
 }
 
+#[allow(dead_code)]
 impl OutputFormatter {
     pub fn new() -> Self {
         Self {
@@ -157,6 +158,3 @@ pub mod property;
 pub mod file;
 
 // Re-exports
-pub use device::DeviceFormatter;
-pub use property::PropertyFormatter;
-pub use file::FileFormatter;

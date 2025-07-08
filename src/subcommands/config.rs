@@ -1,6 +1,5 @@
 use dirs::home_dir;
 use std::error::Error;
-use std::path::PathBuf;
 
 pub async fn run() -> Result<(), Box<dyn Error>> {
     let config_path = home_dir()

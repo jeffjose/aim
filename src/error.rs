@@ -1,6 +1,7 @@
 use thiserror::Error;
 
 #[derive(Error, Debug)]
+#[allow(dead_code)]
 pub enum AimError {
     #[error("No devices found. Is the device connected and authorized?")]
     NoDevicesFound,

@@ -1,17 +1,19 @@
 use crate::cli::{Cli, Commands};
 use crate::commands::{ls::{LsCommand, LsArgs}, SubCommand};
-use crate::core::context::{CommandContext, CommandContextBuilder};
+use crate::core::context::CommandContextBuilder;
 use crate::core::types::OutputFormat;
 use crate::device::DeviceManager;
 use crate::error::{AimError, Result};
 use crate::output::OutputFormatter;
 
 /// Command runner that handles routing and execution
+#[allow(dead_code)]
 pub struct CommandRunner {
     device_manager: DeviceManager,
-    output_formatter: OutputFormatter,
+    _output_formatter: OutputFormatter,
 }
 
+#[allow(dead_code)]
 impl CommandRunner {
     /// Create a new command runner
     pub async fn new() -> Result<Self> {
@@ -20,7 +22,7 @@ impl CommandRunner {
         
         Ok(Self {
             device_manager,
-            output_formatter,
+            _output_formatter: output_formatter,
         })
     }
     
@@ -75,6 +77,7 @@ impl CommandRunner {
 }
 
 /// Helper to get the default ADB host and port
+#[allow(dead_code)]
 pub fn get_adb_connection_params() -> (&'static str, u16) {
     let host = std::env::var("ADB_SERVER_HOST").unwrap_or_else(|_| "localhost".to_string());
     let port = std::env::var("ADB_SERVER_PORT")

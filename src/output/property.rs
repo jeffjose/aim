@@ -8,6 +8,7 @@ pub struct Property {
     pub value: String,
 }
 
+#[allow(dead_code)]
 impl Property {
     pub fn new(key: impl Into<String>, value: impl Into<String>) -> Self {
         Self {
@@ -18,10 +19,12 @@ impl Property {
 }
 
 /// Formatter for device properties
+#[allow(dead_code)]
 pub struct PropertyFormatter {
     color_enabled: bool,
 }
 
+#[allow(dead_code)]
 impl PropertyFormatter {
     pub fn new() -> Self {
         Self {
@@ -73,6 +76,7 @@ pub struct PropertyCollection {
     pub properties: Vec<Property>,
 }
 
+#[allow(dead_code)]
 impl PropertyCollection {
     pub fn new() -> Self {
         Self {

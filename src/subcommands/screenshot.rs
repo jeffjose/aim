@@ -11,6 +11,7 @@ use rand::Rng;
 use std::{error::Error, io::stdout, path::PathBuf};
 
 pub struct ScreenshotArgs {
+    #[allow(dead_code)]
     pub device_id: Option<String>,
     pub output: Option<PathBuf>,
     pub interactive: bool,

@@ -3,6 +3,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 /// Trait for progress reporting
+#[allow(dead_code)]
 pub trait ProgressReporter: Send + Sync {
     fn start(&self, total: u64);
     fn update(&self, current: u64);
@@ -16,6 +17,7 @@ pub struct IndicatifProgress {
     bar: ProgressBar,
 }
 
+#[allow(dead_code)]
 impl IndicatifProgress {
     /// Create a new progress bar
     pub fn new(total: u64) -> Self {
@@ -91,11 +93,13 @@ impl ProgressReporter for NoOpProgress {
 }
 
 /// Progress reporter factory
+#[allow(dead_code)]
 pub struct ProgressFactory {
     enabled: bool,
     multi: Option<Arc<MultiProgress>>,
 }
 
+#[allow(dead_code)]
 impl ProgressFactory {
     /// Create a new progress factory
     pub fn new(enabled: bool) -> Self {
@@ -139,7 +143,7 @@ impl ProgressFactory {
             return Box::new(NoOpProgress);
         }
         
-        let mut progress = IndicatifProgress::spinner();
+        let progress = IndicatifProgress::spinner();
         progress.set_message(&format!("Running: {}", command));
         
         if let Some(multi) = &self.multi {
@@ -181,11 +185,13 @@ impl ProgressFactory {
 }
 
 /// Progress context for commands
+#[allow(dead_code)]
 pub struct ProgressContext {
     factory: ProgressFactory,
     reporters: Vec<Box<dyn ProgressReporter>>,
 }
 
+#[allow(dead_code)]
 impl ProgressContext {
     /// Create a new progress context
     pub fn new(enabled: bool) -> Self {

@@ -5,6 +5,7 @@ use crate::error::{Result, AimError};
 #[derive(Clone)]
 pub struct DeviceManager;
 
+#[allow(dead_code)]
 impl DeviceManager {
     pub fn new() -> Self {
         Self

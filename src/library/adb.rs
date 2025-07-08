@@ -22,7 +22,6 @@ const BUFFER_SIZE: usize = 1024;
 const CHUNK_SIZE: usize = 64 * 1024;
 const SERVER_START_DELAY: std::time::Duration = std::time::Duration::from_secs(1);
 const DEFAULT_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(2);
-const RESPONSE_OKAY: &[u8] = b"OKAY";
 const S_IFMT: u16 = 0o170000; // bit mask for the file type bit field
 const S_IFSOCK: u16 = 0o140000; // socket
 const S_IFLNK: u16 = 0o120000; // symbolic link
@@ -167,6 +166,7 @@ impl AdbStream {
         Ok(())
     }
 
+    #[allow(dead_code)]
     fn stat(&mut self, path: &PathBuf) -> Result<AdbLstatResponse, Box<dyn Error>> {
         let path_str = path.to_string_lossy();
         let path_bytes = path_str.as_bytes();
@@ -829,7 +829,7 @@ pub async fn pull(
     debug!("Source size: {} bytes", file_size);
 
     // If source is a directory, list its contents with LIS2
-    let mut files_to_transfer = if lstat_response.file_type() == "Directory" {
+    let files_to_transfer = if lstat_response.file_type() == "Directory" {
         debug!("\n=== Pulling Directory ===");
         debug!("Listing directory contents...");
         let mut command = Vec::with_capacity(4 + 4 + src_path_bytes.len());
@@ -926,6 +926,7 @@ pub struct AdbLstatResponse {
 }
 
 #[derive(Debug)]
+#[allow(dead_code)]
 struct FileMetadata {
     unknown1: u32,
     dev_major: u16,
@@ -1014,6 +1015,7 @@ impl AdbLstatResponse {
     pub fn device_id(&self) -> u32 {
         ((self.metadata.dev_major as u32) << 8) | (self.metadata.dev_minor as u32)
     }
+    #[allow(dead_code)]
     pub fn mode(&self) -> u16 {
         self.metadata.mode
     }

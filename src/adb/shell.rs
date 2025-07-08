@@ -1,17 +1,17 @@
 use crate::core::types::DeviceId;
 use crate::error::{AimError, Result};
 use crate::adb::connection::AdbConnection;
-use log::*;
-use std::sync::Arc;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::io::AsyncReadExt;
 use tokio::net::TcpStream;
 
 /// Shell command execution
+#[allow(dead_code)]
 pub struct ShellCommand {
     command: String,
     device_id: Option<DeviceId>,
 }
 
+#[allow(dead_code)]
 impl ShellCommand {
     /// Create a new shell command
     pub fn new(command: impl Into<String>) -> Self {
@@ -106,12 +106,14 @@ impl ShellCommand {
 
 /// Shell command output
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct ShellOutput {
     pub stdout: String,
     pub stderr: String,
     pub exit_code: i32,
 }
 
+#[allow(dead_code)]
 impl ShellOutput {
     /// Check if command succeeded
     pub fn success(&self) -> bool {
@@ -129,6 +131,7 @@ impl ShellOutput {
 }
 
 /// Helper functions for common shell operations
+#[allow(dead_code)]
 pub mod helpers {
     use super::*;
     

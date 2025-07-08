@@ -1,12 +1,10 @@
 use super::SubCommand;
 use crate::core::context::CommandContext;
-use crate::core::types::{Device, DeviceProperties, OutputFormat};
+use crate::core::types::OutputFormat;
 use crate::device::DeviceManager;
 use crate::error::Result;
 use crate::output::OutputFormatter;
-use crate::types::DeviceDetails;
 use async_trait::async_trait;
-use serde::{Deserialize, Serialize};
 
 pub struct LsCommand {
     device_manager: DeviceManager,
@@ -19,6 +17,7 @@ pub struct LsArgs {
     pub output: String,
 }
 
+#[allow(dead_code)]
 impl LsCommand {
     pub fn new(device_manager: DeviceManager) -> Self {
         Self { device_manager }

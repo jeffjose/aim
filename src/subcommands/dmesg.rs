@@ -3,6 +3,7 @@ use crate::types::DeviceDetails;
 use std::error::Error;
 
 pub struct DmesgArgs {
+    #[allow(dead_code)]
     pub device_id: Option<String>,
     pub args: Vec<String>,
 }

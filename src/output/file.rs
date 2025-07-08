@@ -1,5 +1,4 @@
 use crate::output::{TableFormat, PlainFormat};
-use std::path::Path;
 
 /// File information for display
 #[derive(Debug, Clone, serde::Serialize)]
@@ -11,6 +10,7 @@ pub struct FileInfo {
     pub modified: Option<String>,
 }
 
+#[allow(dead_code)]
 impl FileInfo {
     pub fn new(name: impl Into<String>) -> Self {
         Self {
@@ -67,6 +67,7 @@ impl FileInfo {
 }
 
 /// Formatter for file listings
+#[allow(dead_code)]
 pub struct FileFormatter;
 
 impl TableFormat for FileInfo {
@@ -105,6 +106,7 @@ pub struct TransferInfo {
     pub rate: Option<f64>, // bytes per second
 }
 
+#[allow(dead_code)]
 impl TransferInfo {
     pub fn new(file_name: impl Into<String>, total_bytes: u64) -> Self {
         Self {

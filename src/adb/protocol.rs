@@ -3,19 +3,29 @@ use bytes::{Bytes, BytesMut};
 use std::convert::TryInto;
 
 // File mode constants
+#[allow(dead_code)]
 const S_IFMT: u16 = 0o170000; // bit mask for the file type bit field
+#[allow(dead_code)]
 const S_IFSOCK: u16 = 0o140000; // socket
+#[allow(dead_code)]
 const S_IFLNK: u16 = 0o120000; // symbolic link
+#[allow(dead_code)]
 const S_IFREG: u16 = 0o100000; // regular file
+#[allow(dead_code)]
 const S_IFBLK: u16 = 0o060000; // block device
+#[allow(dead_code)]
 const S_IFDIR: u16 = 0o040000; // directory
+#[allow(dead_code)]
 const S_IFCHR: u16 = 0o020000; // character device
+#[allow(dead_code)]
 const S_IFIFO: u16 = 0o010000; // FIFO
 
 /// ADB wire protocol implementation
+#[allow(dead_code)]
 pub struct AdbProtocol;
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct AdbMessage {
     pub command: String,
     pub arg0: u32,
@@ -23,6 +33,7 @@ pub struct AdbMessage {
     pub data: Bytes,
 }
 
+#[allow(dead_code)]
 impl AdbProtocol {
     /// Format a command for the ADB protocol
     pub fn format_command(device_id: Option<&str>, command: &str) -> String {
@@ -90,6 +101,7 @@ impl AdbProtocol {
 
 /// File metadata from lstat response
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct AdbLstatResponse {
     magic: [u8; 4],
     metadata: FileMetadata,
@@ -97,6 +109,7 @@ pub struct AdbLstatResponse {
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 struct FileMetadata {
     unknown1: u32,
     dev_major: u16,
@@ -114,6 +127,7 @@ struct FileMetadata {
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 struct FileTimestamps {
     atime: FileTimestamp,
     mtime: FileTimestamp,
@@ -121,11 +135,13 @@ struct FileTimestamps {
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 struct FileTimestamp {
     seconds: u32,
     nanoseconds: u32,
 }
 
+#[allow(dead_code)]
 impl AdbLstatResponse {
     /// Parse lstat response from bytes
     pub fn from_bytes(bytes: &[u8]) -> Result<Self> {
@@ -239,6 +255,7 @@ impl AdbLstatResponse {
 }
 
 /// Sync protocol commands
+#[allow(dead_code)]
 pub mod sync {
     pub const DATA: &[u8] = b"DATA";
     pub const DONE: &[u8] = b"DONE";

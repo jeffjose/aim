@@ -7,16 +7,19 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 
 // Constants
+#[allow(dead_code)]
 const BUFFER_SIZE: usize = 1024;
+#[allow(dead_code)]
 const DEFAULT_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(2);
-const RESPONSE_OKAY: &[u8] = b"OKAY";
 
 /// Manages TCP connections to ADB server
+#[allow(dead_code)]
 pub struct AdbConnection {
     stream: TcpStream,
     device_id: Option<DeviceId>,
 }
 
+#[allow(dead_code)]
 impl AdbConnection {
     /// Create a new connection to the ADB server
     pub fn new(host: &str, port: u16) -> Result<Self> {
@@ -200,12 +203,14 @@ impl AdbConnection {
 }
 
 /// Connection pool for reusing ADB connections
+#[allow(dead_code)]
 pub struct ConnectionPool {
     connections: Arc<Mutex<Vec<AdbConnection>>>,
     host: String,
     port: u16,
 }
 
+#[allow(dead_code)]
 impl ConnectionPool {
     /// Create a new connection pool
     pub fn new(host: impl Into<String>, port: u16) -> Self {

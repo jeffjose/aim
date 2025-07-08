@@ -1,10 +1,8 @@
 use crate::utils::print_colored_json;
 use crate::{cli::OutputType, library::adb, types::DeviceDetails};
 use colored::*;
-use colored_json::ToColoredJson;
 use comfy_table::Table;
 use log::debug;
-use serde_json::json;
 use std::collections::HashMap;
 
 pub async fn run(
