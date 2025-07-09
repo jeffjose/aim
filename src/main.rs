@@ -286,6 +286,34 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     )
                     .await?
                 }
+                Commands::App { command } => {
+                    // For app commands, we need to create a CommandContext
+                    use crate::core::context::CommandContext;
+                    use crate::core::types::{Device, DeviceId, DeviceState};
+                    
+                    // Find target device if any connected
+                    let device = if !devices.is_empty() {
+                        let target_device = if devices.len() == 1 {
+                            &devices[0]
+                        } else {
+                            // For app commands, we'll handle device selection inside each command
+                            &devices[0]
+                        };
+                        
+                        Some(Device::new(DeviceId::new(&target_device.adb_id))
+                            .with_state(DeviceState::Device)
+                            .with_model(target_device.model.clone().unwrap_or_default())
+                            .with_product(target_device.product.clone().unwrap_or_default())
+                            .with_device(target_device.device.clone().unwrap_or_default()))
+                    } else {
+                        None
+                    };
+                    
+                    let ctx = CommandContext::new()
+                        .with_device(device.unwrap_or_else(|| Device::new(DeviceId::new(""))));
+                    
+                    crate::commands::app::run(&ctx, command).await?
+                }
                 _ => unreachable!(),
             }
         }

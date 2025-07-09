@@ -169,6 +169,12 @@ pub enum Commands {
         #[arg(last = true)]
         args: Vec<String>,
     },
+
+    /// Application management commands
+    App {
+        #[command(subcommand)]
+        command: crate::commands::app::AppCommands,
+    },
 }
 
 #[derive(clap::ValueEnum, Clone, Debug)]
