@@ -1,525 +1,152 @@
-# aim - ADB Improved
+# aim
 
-`aim` is a modern, user-friendly command-line interface for Android Debug Bridge (ADB). It enhances the ADB experience with better output formatting, intuitive commands, and improved usability.
+A better interface for `adb`. Same functionality, better UX.
 
-## Features
+## Why?
 
-- 🎨 Colored and formatted output for better readability
-- 📱 Smart device selection with partial ID matching
-- 📊 Multiple output formats (table, json, plain) for easy integration
-- 🔍 Improved device information display with detailed properties
-- ⚡ Faster common operations with parallel processing
-- 🎯 Intuitive command structure and aliases
-- 🔄 Interactive modes for continuous operations
-- 📝 Detailed logging and debugging capabilities
-- 🌈 Customizable configuration and environment settings
+Because `adb` output is hard to read and commands are inconsistent. `aim` makes common tasks easier without changing how ADB works.
 
-## Requirements
-
-- Rust 1.70.0 or higher
-- ADB (Android Debug Bridge) installed and in PATH
-- USB debugging enabled on Android device
-
-## Installation
-
-From crates.io:
+## Install
 
 ```bash
-cargo install aim
-```
-
-From source:
-
-```bash
-git clone https://github.com/yourusername/aim.git
-cd aim
 cargo install --path .
 ```
 
-## Quick Start
+Requirements: Rust 1.70+, ADB in PATH
 
-1. Connect your Android device via USB
-2. Enable USB debugging on your device
-3. Run `aim ls` to verify device connection
-4. Start using aim commands!
+## Command Comparison
 
-## Basic Usage
+| Task | aim | adb |
+|------|-----|-----|
+| List devices | `aim ls` | `adb devices -l` |
+| Get property | `aim getprop ro.product.model` | `adb shell getprop ro.product.model` |
+| Get all properties | `aim getprop` | `adb shell getprop` |
+| Pattern match props | `aim getprop "ro.product.*"` | `adb shell getprop \| grep ro.product` |
+| Screenshot | `aim screenshot` | `adb exec-out screencap -p > screen.png` |
+| Screenshot (specific file) | `aim screenshot -o photo.png` | `adb exec-out screencap -p > photo.png` |
+| Screen record | `aim screenrecord` | `adb shell screenrecord /sdcard/video.mp4 && adb pull /sdcard/video.mp4` |
+| Screen record (30s) | `aim screenrecord -t 30` | `adb shell screenrecord --time-limit 30 /sdcard/video.mp4 && adb pull /sdcard/video.mp4` |
+| Push file | `aim push file.txt /sdcard/` | `adb push file.txt /sdcard/` |
+| Pull file | `aim pull /sdcard/file.txt ./` | `adb pull /sdcard/file.txt ./` |
+| Push directory | `aim push -r folder/ /sdcard/` | `adb push folder/ /sdcard/` |
+| Interactive shell | `aim shell` | `adb shell` |
+| Run command | `aim shell ls /sdcard` | `adb shell ls /sdcard` |
+| View kernel logs | `aim dmesg` | `adb shell dmesg` |
+| View app logs | `aim logcat` | `adb logcat` |
+| Filter logs by priority | `aim logcat -p ERROR` | `adb logcat *:E` |
+| Clear logs | `aim logcat -c` | `adb logcat -c` |
+| Restart ADB server | `aim server restart` | `adb kill-server && adb start-server` |
+| Check server status | `aim server status` | `adb start-server` |
+| Install APK | `aim install app.apk` | `adb install app.apk` |
+| Uninstall app | `aim uninstall com.example` | `adb uninstall com.example` |
+| List packages | `aim shell pm list packages` | `adb shell pm list packages` |
+| Device info | `aim ls -v` | `adb devices -l` |
+| Run with specific device | `aim -d pixel screenshot` | `adb -s <full-id> exec-out screencap -p > screen.png` |
 
-### List Connected Devices
+## Examples
+
+### List devices
 
 ```bash
+# Instead of: adb devices -l
 aim ls
-```
 
-This will show a nicely formatted table of all connected devices with their details. You can change the output format:
-
-```bash
-aim ls -o json    # JSON output
-aim ls -o plain   # Plain text output
-aim ls -o table   # Table format (default)
-```
-
-Example output:
-
-```
+# Output:
 DEVICE ID    BRAND     MODEL       STATUS     NAME
 abc123      Google    Pixel 6     device     work-phone
 def456      Samsung   Galaxy S21  device     personal
 ```
 
-### Device Properties
+### Get properties
 
 ```bash
-aim getprop                    # Get all properties
-aim getprop ro.product.model   # Get specific property
-aim getprop ro.product.*       # Get properties by pattern
+# Instead of: adb shell getprop ro.product.model
+aim getprop ro.product.model
+
+# Get all properties matching a pattern
+aim getprop "ro.product.*"
 ```
 
-Properties are displayed with colored output for better readability:
-
-```
-ro.product.model: Pixel 6
-ro.product.brand: Google
-ro.product.name: raven
-```
-
-### Device Logs
+### Screenshots
 
 ```bash
-aim dmesg              # View kernel logs
-aim logcat             # View application logs
-aim logcat -p ERROR    # Filter by priority
-aim logcat -f myapp    # Filter by tag
+# Instead of: adb exec-out screencap -p > screen.png
+aim screenshot
+
+# Interactive mode - press space to capture
+aim screenshot -i
 ```
 
-### Screenshots and Screen Recording
+### Screen recording
 
 ```bash
-aim screenshot                     # Take a screenshot
-aim screenshot -o screen.png       # Save to specific file
-aim screenshot -i                  # Interactive mode
+# Instead of: adb shell screenrecord /sdcard/video.mp4 && adb pull /sdcard/video.mp4
+aim screenrecord
 
-aim screenrecord                   # Record screen
-aim screenrecord -o video.mp4      # Save to specific file
-aim screenrecord -t 10            # Record for 10 seconds
+# Record for 30 seconds
+aim screenrecord -t 30
 ```
 
-### File Operations
+### File operations
 
 ```bash
-aim push local_file.txt /sdcard/   # Push file to device
-aim pull /sdcard/file.txt ./       # Pull file from device
-aim push -r local_dir/ /sdcard/    # Push directory recursively
+# Progress bars for file transfers
+aim push largefile.zip /sdcard/
+aim pull /sdcard/DCIM/ ./photos/
 ```
 
-## Subcommands Reference
+## Device selection
 
-### `ls` - List Devices
-
-Lists all connected Android devices with their details.
+When multiple devices are connected:
 
 ```bash
-aim ls [options]
+# Partial ID matching
+aim -d pixel screenshot    # Matches "pixel6-serial123"
+aim -d work screenshot     # Matches device aliased as "work"
 ```
-
-Options:
-
-- `-o, --output <format>` Output format [default: table]
-  - `table`: Formatted table output
-  - `json`: JSON output (colorized)
-  - `plain`: Plain text output
-- `-v, --verbose` Enable verbose output
-
-Examples:
-
-```bash
-aim ls                  # Default table output
-aim ls -o json         # JSON output
-aim ls -o plain        # Plain text output
-aim ls -v              # Verbose output with more details
-```
-
-### `getprop` - Get Device Properties
-
-Query device properties with optional filtering.
-
-```bash
-aim getprop [pattern] [options]
-```
-
-Options:
-
-- `-o, --output <format>` Output format [default: plain]
-  - `plain`: Key-value pairs with colored output
-  - `json`: JSON output (colorized)
-  - `table`: Formatted table
-- `-d, --device <id>` Target specific device
-- `-v, --verbose` Show verbose output
-
-Examples:
-
-```bash
-aim getprop                     # List all properties
-aim getprop ro.product.model    # Get specific property
-aim getprop "ro.product.*"      # Pattern matching
-aim getprop -o json            # JSON output
-aim getprop -d pixel6          # Query specific device
-```
-
-### `dmesg` - Device Kernel Logs
-
-View and filter kernel logs from the device.
-
-```bash
-aim dmesg [options]
-```
-
-Options:
-
-- `-f, --filter <pattern>` Filter log entries
-- `-o, --output <format>` Output format [default: plain]
-- `-d, --device <id>` Target specific device
-- `-c, --clear` Clear the log after reading
-- `-w, --follow` Wait for new messages
-- `-t, --time` Show timestamps
-
-Examples:
-
-```bash
-aim dmesg                  # Show all kernel logs
-aim dmesg -f "USB"        # Filter USB-related logs
-aim dmesg -w              # Watch for new logs
-aim dmesg -t              # Show with timestamps
-aim dmesg -o json         # JSON output
-```
-
-### `logcat` - Application Logs
-
-View and filter application logs.
-
-```bash
-aim logcat [options]
-```
-
-Options:
-
-- `-p, --priority <level>` Filter by priority (V,D,I,W,E,F)
-- `-f, --filter <pattern>` Filter by content
-- `-t, --tag <tag>` Filter by tag
-- `-n, --lines <count>` Number of lines to show
-- `-w, --follow` Watch for new logs
-- `-c, --clear` Clear the log buffer
-- `-o, --output <format>` Output format
-
-Examples:
-
-```bash
-aim logcat                    # Show all logs
-aim logcat -p ERROR          # Show only errors
-aim logcat -t "MyApp"        # Filter by tag
-aim logcat -f "Exception"    # Filter by content
-aim logcat -n 100            # Show last 100 lines
-aim logcat -w               # Watch mode
-```
-
-### `screenshot` - Take Screenshots
-
-Capture device screen.
-
-```bash
-aim screenshot [options]
-```
-
-Options:
-
-- `-o, --output <file>` Output file path
-- `-i, --interactive` Interactive mode
-- `-d, --device <id>` Target specific device
-- `-q, --quality <num>` JPEG quality (1-100)
-- `-f, --format <type>` Output format (png/jpg)
-
-Examples:
-
-```bash
-aim screenshot                      # Save with timestamp
-aim screenshot -o screen.png        # Specific filename
-aim screenshot -i                   # Interactive mode
-aim screenshot -q 90 -f jpg        # JPEG with quality
-```
-
-### `screenrecord` - Record Screen
-
-Record device screen.
-
-```bash
-aim screenrecord [options]
-```
-
-Options:
-
-- `-o, --output <file>` Output file path
-- `-t, --time <seconds>` Recording duration
-- `-s, --size <WxH>` Video size (e.g., 1280x720)
-- `-b, --bitrate <rate>` Video bitrate (e.g., 4M)
-- `-r, --rotate` Rotate 90 degrees
-
-Examples:
-
-```bash
-aim screenrecord                    # Default recording
-aim screenrecord -t 30             # Record for 30 seconds
-aim screenrecord -s 1280x720       # Set resolution
-aim screenrecord -b 8M             # Set bitrate
-aim screenrecord -o video.mp4      # Custom filename
-```
-
-### `push` - Copy Files to Device
-
-Upload files or directories to device.
-
-```bash
-aim push [options] <source> <destination>
-```
-
-Options:
-
-- `-r, --recursive` Copy directories recursively
-- `-p, --progress` Show progress bar
-- `-s, --sync` Sync mode (only copy newer files)
-- `-d, --device <id>` Target specific device
-
-Examples:
-
-```bash
-aim push file.txt /sdcard/           # Push single file
-aim push -r local/ /sdcard/remote/   # Push directory
-aim push -s backup/ /sdcard/backup/  # Sync directory
-aim push -p large_file.zip /sdcard/  # Show progress
-```
-
-### `pull` - Copy Files from Device
-
-Download files or directories from device.
-
-```bash
-aim pull [options] <source> <destination>
-```
-
-Options:
-
-- `-r, --recursive` Copy directories recursively
-- `-p, --progress` Show progress bar
-- `-s, --sync` Sync mode (only copy newer files)
-- `-d, --device <id>` Target specific device
-
-Examples:
-
-```bash
-aim pull /sdcard/file.txt ./           # Pull single file
-aim pull -r /sdcard/DCIM/ ./photos/    # Pull directory
-aim pull -s /sdcard/backup/ ./backup/  # Sync directory
-aim pull -p /sdcard/large.zip ./       # Show progress
-```
-
-### `shell` - Interactive Shell
-
-Start an interactive shell session on the device.
-
-```bash
-aim shell [options] [command]
-```
-
-Options:
-
-- `-d, --device <id>` Target specific device
-- `-t, --tty` Allocate a TTY
-- `-x, --exit` Exit after command execution
-
-Examples:
-
-```bash
-aim shell                    # Interactive shell
-aim shell ls /sdcard        # Run single command
-aim shell -t                # With TTY allocation
-aim shell -x "pm list packages"  # Run and exit
-```
-
-### `server` - ADB Server Control
-
-Manage the ADB server.
-
-```bash
-aim server [command]
-```
-
-Commands:
-
-- `start` Start the server
-- `stop` Stop the server
-- `restart` Restart the server
-- `status` Show server status
-
-Examples:
-
-```bash
-aim server start     # Start ADB server
-aim server stop      # Stop ADB server
-aim server restart   # Restart ADB server
-aim server status    # Check server status
-```
-
-## Comparison with ADB
-
-Here's how `aim` commands compare to their `adb` counterparts:
-
-| Operation       | aim                            | adb                                        | Benefits                                                                   |
-| --------------- | ------------------------------ | ------------------------------------------ | -------------------------------------------------------------------------- |
-| List devices    | `aim ls`                       | `adb devices -l`                           | ✓ Better formatting<br>✓ More device details<br>✓ Multiple output formats  |
-| Get property    | `aim getprop ro.product.model` | `adb shell getprop ro.product.model`       | ✓ Colored output<br>✓ Pattern matching<br>✓ Faster retrieval               |
-| Take screenshot | `aim screenshot`               | `adb exec-out screencap -p > screen.png`   | ✓ Automatic file handling<br>✓ Interactive mode<br>✓ Custom save locations |
-| Record screen   | `aim screenrecord`             | `adb shell screenrecord /sdcard/video.mp4` | ✓ Progress tracking<br>✓ Automatic file transfer<br>✓ Time limit option    |
-| View logs       | `aim logcat`                   | `adb logcat`                               | ✓ Better filtering<br>✓ Colored output<br>✓ Priority levels                |
-| Push file       | `aim push file.txt /sdcard/`   | `adb push file.txt /sdcard/`               | ✓ Progress bar<br>✓ Recursive transfer<br>✓ Better error handling          |
-| Pull file       | `aim pull /sdcard/file.txt ./` | `adb pull /sdcard/file.txt ./`             | ✓ Progress tracking<br>✓ Multiple file support<br>✓ Auto-retry             |
-
-## Advanced Features
-
-### Device Selection
-
-When multiple devices are connected, you can specify the target device in several ways:
-
-```bash
-aim -d 1234 ls                     # By device ID (full or partial)
-aim -d pixel ls                    # By device name
-aim -d 192.168.1.100:5555 ls      # By network address
-aim -d work-phone ls              # By custom alias
-```
-
-### Output Formatting
-
-Most commands support multiple output formats:
-
-```bash
-aim ls -o json          # JSON output (colorized)
-aim getprop -o plain    # Plain text (with colors)
-aim dmesg -o table      # Table format
-```
-
-### Filtering and Search
-
-```bash
-aim logcat -p ERROR                 # Filter by priority (ERROR, WARN, INFO)
-aim getprop ro.product             # Filter properties by prefix
-aim dmesg -f "USB"                 # Filter kernel logs
-aim logcat -t "1h"                 # Show last hour of logs
-```
-
-### Interactive Mode
-
-Some commands support interactive mode for continuous operation:
-
-```bash
-aim screenshot -i    # Take screenshots with spacebar
-aim logcat -i       # Interactive log viewer with filtering
-aim shell -i        # Interactive shell session
-```
-
-## Environment Variables
-
-- `AIM_DEFAULT_OUTPUT`: Set default output format (json, plain, table)
-- `AIM_CONFIG`: Path to custom config file
-- `AIM_LOG_LEVEL`: Set log level (error, warn, info, debug)
-- `AIM_SCREENSHOT_DIR`: Default directory for screenshots
-- `AIM_RECORD_DIR`: Default directory for screen recordings
-- `AIM_DEFAULT_DEVICE`: Default device to use
-- `AIM_COLOR_MODE`: Control color output (auto, always, never)
 
 ## Configuration
 
-Create `~/.config/aim/config.toml` to customize behavior:
+`~/.config/aim/config.toml`:
 
 ```toml
-# Device aliases and settings
 [devices]
-pixel = { name = "Pixel 6", id = "abc123" }
-tablet = { name = "Galaxy Tab", id = "def456" }
+work = { id = "28291FDH200001", name = "Pixel 6 (work)" }
+personal = { id = "R5CR10ZYZAB", name = "Galaxy S21" }
 
-# Screenshot settings
 [screenshot]
 output = "~/Pictures/Screenshots"
-format = "png"
-quality = 100
 
-# Screen recording settings
 [screenrecord]
-output = "~/Videos/Screenrecords"
-bitrate = "4M"
-size = "720p"
-
-# Command aliases
-[aliases]
-props = "getprop ro.product"
-logs = "logcat -p ERROR"
-cap = "screenshot -i"
+output = "~/Videos"
 ```
 
-## Tips and Tricks
+## All commands
 
-1. Use tab completion for commands and options
-2. Set aliases for frequently used commands
-3. Use `-v` flag for verbose output when debugging issues
-4. Combine with pipes for advanced filtering: `aim logcat | grep "ERROR"`
-5. Use pattern matching in property searches: `aim getprop "ro.product.*"`
-6. Set up device aliases for quick access
-7. Use interactive mode for repeated operations
-8. Configure default directories for screenshots and recordings
+- `aim ls` - List devices (with better formatting)
+- `aim getprop [pattern]` - Get device properties  
+- `aim screenshot` - Take a screenshot
+- `aim screenrecord` - Record screen
+- `aim push/pull` - Transfer files with progress bars
+- `aim dmesg` - View kernel logs
+- `aim logcat` - View app logs (with filtering)
+- `aim shell [cmd]` - Run shell commands
+- `aim server start/stop/restart` - Manage ADB server
+- `aim rename <device> <alias>` - Create device aliases
 
-## Common Issues
+## Output formats
 
-### Device Not Found
+Most commands support `-o json` or `-o plain`:
 
-- Ensure USB debugging is enabled in Developer Options
-- Check USB cable connection and try a different cable
-- Verify device is authorized for debugging
-- Try restarting ADB server: `aim server restart`
-- Check device shows up in `adb devices`
-
-### Permission Denied
-
-- Check ADB user permissions
-- Verify device authorization status
-- Run `aim server restart` if needed
-- Try running with sudo (Linux/macOS)
-- Check SELinux settings on device
-
-### Performance Issues
-
-- Use filtered output when possible
-- Avoid pulling large files over USB 2.0
-- Consider using a USB 3.0 cable
-- Use network connection for large file transfers
-- Enable compression for file transfers
+```bash
+aim ls -o json
+aim getprop -o json
+```
 
 ## Contributing
 
-Contributions are welcome! Please check our [Contributing Guidelines](CONTRIBUTING.md) for details.
-
-### Development Setup
-
-1. Fork the repository
-2. Clone your fork
-3. Install development dependencies
-4. Create a new branch
-5. Make your changes
-6. Run tests: `cargo test`
-7. Submit a pull request
+Standard Rust project. Run tests with `cargo test`.
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) for details
-
-## Acknowledgments
-
-- Android Debug Bridge (ADB) team
-- Rust community
-- All contributors to this project
+MIT
