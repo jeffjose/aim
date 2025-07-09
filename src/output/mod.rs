@@ -52,12 +52,9 @@ impl OutputFormatter {
             return Ok(());
         }
         
-        if self.color_enabled {
-            crate::utils::print_colored_json(items)?;
-        } else {
-            let json = serde_json::to_string_pretty(items)?;
-            println!("{}", json);
-        }
+        // Never use colored output for JSON - it breaks parsability
+        let json = serde_json::to_string_pretty(items)?;
+        println!("{}", json);
         Ok(())
     }
     

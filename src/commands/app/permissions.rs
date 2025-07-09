@@ -241,12 +241,6 @@ impl SubCommand for PermissionsCommand {
         // Get app name for display
         let app_name = self.get_app_name(ctx, &package).await?;
         
-        if !ctx.quiet {
-            println!("Getting permissions for: {}", app_name.bright_cyan());
-            println!("Package: {}", package.bright_cyan());
-            println!();
-        }
-        
         // Get permissions
         let mut permissions = self.get_permissions(ctx, &package).await?;
         
@@ -265,7 +259,17 @@ impl SubCommand for PermissionsCommand {
             } else {
                 "No permissions found"
             };
-            println!("{}", msg);
+            
+            // For JSON output, return empty array
+            let output_format = OutputFormat::from_str(&args.output)
+                .ok_or_else(|| AimError::InvalidArgument(format!("Invalid output format: {}", args.output)))?;
+            
+            if output_format == OutputFormat::Json {
+                let formatter = OutputFormatter::new();
+                formatter.json(&permissions)?;
+            } else {
+                println!("{}", msg);
+            }
             return Ok(());
         }
         
@@ -277,6 +281,12 @@ impl SubCommand for PermissionsCommand {
         
         match output_format {
             OutputFormat::Plain => {
+                if !ctx.quiet {
+                    println!("Getting permissions for: {}", app_name.bright_cyan());
+                    println!("Package: {}", package.bright_cyan());
+                    println!();
+                }
+                
                 let granted_count = permissions.iter().filter(|p| p.granted).count();
                 let denied_count = permissions.len() - granted_count;
                 

@@ -197,6 +197,9 @@ impl SubCommand for ListCommand {
         let output_format = OutputFormat::from_str(&args.output)
             .ok_or_else(|| AimError::InvalidArgument(format!("Invalid output format: {}", args.output)))?;
         
+        // Never print to stdout when outputting JSON (except the JSON itself)
+        let is_json = matches!(output_format, OutputFormat::Json);
+        
         let formatter = OutputFormatter::new();
         
         match output_format {
@@ -208,7 +211,8 @@ impl SubCommand for ListCommand {
             }
             OutputFormat::Table | OutputFormat::Json => {
                 // Get detailed info for table/json output
-                if !ctx.quiet {
+                // Never print progress messages when outputting JSON
+                if !is_json && !ctx.quiet {
                     println!("Fetching app details...");
                 }
                 

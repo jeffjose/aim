@@ -59,6 +59,12 @@ impl CommandContext {
             crate::error::AimError::DeviceIdRequired
         })
     }
+    
+    /// Check if progress/status messages should be shown
+    /// Returns false if quiet mode is enabled or output format is JSON
+    pub fn should_show_progress(&self) -> bool {
+        !self.quiet && self.output_format != OutputFormat::Json
+    }
 }
 
 impl Default for CommandContext {
