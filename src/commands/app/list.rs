@@ -30,8 +30,12 @@ pub struct ListArgs {
     #[clap(short, long)]
     pub disabled: bool,
     
+    /// Show detailed information (slower)
+    #[clap(long)]
+    pub details: bool,
+    
     /// Output format
-    #[clap(short, long, value_parser = ["table", "json", "plain"], default_value = "table")]
+    #[clap(short, long, value_parser = ["table", "json", "plain"], default_value = "plain")]
     pub output: String,
 }
 
@@ -202,30 +206,52 @@ impl SubCommand for ListCommand {
         
         let formatter = OutputFormatter::new();
         
-        match output_format {
-            OutputFormat::Plain => {
-                // Simple package list
-                for package in packages {
-                    println!("{}", package);
+        // If details flag is not set, just show package names
+        if !args.details {
+            match output_format {
+                OutputFormat::Plain => {
+                    for package in packages {
+                        println!("{}", package);
+                    }
+                }
+                OutputFormat::Table => {
+                    // For table without details, show a simple single-column table
+                    let mut table = comfy_table::Table::new();
+                    table.set_header(vec!["PACKAGE"]);
+                    for package in packages {
+                        table.add_row(vec![package]);
+                    }
+                    println!("{}", table);
+                }
+                OutputFormat::Json => {
+                    // For JSON, return array of package names
+                    formatter.json(&packages)?;
                 }
             }
-            OutputFormat::Table | OutputFormat::Json => {
-                // Get detailed info for table/json output
-                // Never print progress messages when outputting JSON
-                if !is_json && !ctx.quiet {
-                    println!("Fetching app details...");
+        } else {
+            // With details flag, fetch and show full information
+            if !is_json && !ctx.quiet {
+                println!("Fetching app details...");
+            }
+            
+            let apps = self.get_app_details(ctx, packages).await?;
+            
+            match output_format {
+                OutputFormat::Table => {
+                    formatter.table(&apps)?;
                 }
-                
-                let apps = self.get_app_details(ctx, packages).await?;
-                
-                match output_format {
-                    OutputFormat::Table => {
-                        formatter.table(&apps)?;
+                OutputFormat::Json => {
+                    formatter.json(&apps)?;
+                }
+                OutputFormat::Plain => {
+                    // For plain output with details, show key info
+                    for app in apps {
+                        println!("{} - {} ({})", 
+                            app.package, 
+                            app.name,
+                            if app.is_system { "system" } else { "user" }
+                        );
                     }
-                    OutputFormat::Json => {
-                        formatter.json(&apps)?;
-                    }
-                    _ => unreachable!(),
                 }
             }
         }

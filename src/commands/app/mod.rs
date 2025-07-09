@@ -28,6 +28,7 @@ pub use uninstall::UninstallCommand;
 #[derive(Debug, Clone, Subcommand)]
 pub enum AppCommands {
     /// List installed applications
+    #[command(alias = "ls")]
     List(list::ListArgs),
     
     /// Show detailed information about an app
