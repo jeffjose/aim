@@ -137,6 +137,10 @@ pub struct MyCommand {
 #[derive(Debug, clap::Args)]
 pub struct MyCommandArgs {
     // command-specific arguments
+    
+    /// Output format (for commands that produce data)
+    #[clap(short, long, value_parser = ["table", "json", "plain"], default_value = "table")]
+    pub output: String,
 }
 
 #[async_trait]
@@ -148,6 +152,17 @@ impl SubCommand for MyCommand {
     }
 }
 ```
+
+#### Output Format Guidelines
+
+For commands that produce queryable data (not action commands):
+- Always include `-o, --output` flag with options: `table`, `json`, `plain`
+- Use consistent field name: `output: String`
+- Convert using: `OutputFormat::from_str(&args.output)`
+- Use `OutputFormatter` for consistent formatting
+- Default to `"table"` for lists, `"plain"` for single items
+
+Action commands (start, stop, clear, etc.) should NOT have output format options.
 
 ### Testing Strategy
 
