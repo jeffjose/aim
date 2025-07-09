@@ -4,7 +4,7 @@ use crossterm::event::{self, Event, KeyCode};
 use crossterm::terminal::{disable_raw_mode, enable_raw_mode};
 use indicatif::ProgressBar;
 use log::debug;
-use rand::Rng;
+use rand::{distr::Alphanumeric, Rng};
 use std::error::Error;
 use std::path::PathBuf;
 use std::time::Duration;
@@ -48,8 +48,8 @@ pub async fn run(
     // Generate random temp file name
     let temp_file = format!(
         "/tmp/perfetto_config_{}.txt",
-        rand::thread_rng()
-            .sample_iter(&rand::distributions::Alphanumeric)
+        rand::rng()
+            .sample_iter(&Alphanumeric)
             .take(8)
             .map(char::from)
             .collect::<String>()

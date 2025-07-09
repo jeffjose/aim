@@ -7,7 +7,7 @@ use crossterm::{
     ExecutableCommand,
 };
 use log::debug;
-use rand::Rng;
+use rand::{distr::Alphanumeric, Rng};
 use std::io::{stdout, Write};
 use std::time::{Duration, Instant};
 use std::{error::Error, path::PathBuf};
@@ -29,8 +29,8 @@ pub async fn run(
     let adb_id = Some(&device.adb_id);
 
     // Generate random suffix for temp file
-    let random_suffix: String = rand::thread_rng()
-        .sample_iter(&rand::distributions::Alphanumeric)
+    let random_suffix: String = rand::rng()
+        .sample_iter(&Alphanumeric)
         .take(8)
         .map(char::from)
         .collect();

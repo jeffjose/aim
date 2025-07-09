@@ -13,7 +13,7 @@ pub fn sha256_short(input: &str) -> String {
 }
 
 pub fn petname(input: &str) -> String {
-    let mut rng: rand_chacha::ChaCha8Rng = rand_seeder::Seeder::from(input).make_rng();
+    let mut rng: rand_chacha::ChaCha8Rng = rand_seeder::Seeder::from(input).into_rng();
 
     petname::Petnames::default()
         .generate(&mut rng, 2, "-")
