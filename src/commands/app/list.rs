@@ -14,6 +14,9 @@ pub struct ListArgs {
     #[clap(long)]
     pub details: bool,
     
+    /// Device ID (required if multiple devices are connected)
+    pub device_id: Option<String>,
+    
     /// Show only disabled apps
     #[clap(short, long)]
     pub disabled: bool,

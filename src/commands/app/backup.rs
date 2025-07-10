@@ -15,6 +15,9 @@ pub struct BackupArgs {
     #[clap(short, long)]
     pub apk: bool,
     
+    /// Device ID (required if multiple devices are connected)
+    pub device_id: Option<String>,
+    
     /// Include OBB files in backup
     #[clap(short, long)]
     pub obb: bool,

@@ -10,6 +10,9 @@ pub struct RestoreCommand;
 pub struct RestoreArgs {
     /// Backup file to restore
     pub backup_file: std::path::PathBuf,
+    
+    /// Device ID (required if multiple devices are connected)
+    pub device_id: Option<String>,
 }
 
 impl RestoreCommand {

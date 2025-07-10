@@ -59,6 +59,24 @@ pub enum AppCommands {
     Uninstall(uninstall::UninstallArgs),
 }
 
+impl AppCommands {
+    /// Get the device_id from any app subcommand
+    pub fn device_id(&self) -> Option<&str> {
+        match self {
+            AppCommands::Backup(args) => args.device_id.as_deref(),
+            AppCommands::Clear(args) => args.device_id.as_deref(),
+            AppCommands::Info(args) => args.device_id.as_deref(),
+            AppCommands::List(args) => args.device_id.as_deref(),
+            AppCommands::Permissions(args) => args.device_id.as_deref(),
+            AppCommands::Pull(args) => args.device_id.as_deref(),
+            AppCommands::Restore(args) => args.device_id.as_deref(),
+            AppCommands::Start(args) => args.device_id.as_deref(),
+            AppCommands::Stop(args) => args.device_id.as_deref(),
+            AppCommands::Uninstall(args) => args.device_id.as_deref(),
+        }
+    }
+}
+
 pub async fn run(ctx: &CommandContext, cmd: AppCommands) -> Result<()> {
     match cmd {
         AppCommands::Backup(args) => {

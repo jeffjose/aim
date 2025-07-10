@@ -291,13 +291,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     use crate::core::context::CommandContext;
                     use crate::core::types::{Device, DeviceId, DeviceState};
                     
-                    // Find target device if any connected
+                    // Get device_id from the app subcommand
+                    let device_id_arg = command.device_id();
+                    
+                    // Find target device based on device_id argument
                     let device = if !devices.is_empty() {
-                        let target_device = if devices.len() == 1 {
+                        let target_device = if let Some(device_id) = device_id_arg {
+                            // User specified a device ID
+                            device_info::find_target_device(&devices, Some(&device_id.to_string()))?
+                        } else if devices.len() == 1 {
+                            // Only one device connected, use it
                             &devices[0]
                         } else {
-                            // For app commands, we'll handle device selection inside each command
-                            &devices[0]
+                            // Multiple devices but no device ID specified
+                            return Err(error::AdbError::DeviceIdRequired.into());
                         };
                         
                         Some(Device::new(DeviceId::new(&target_device.adb_id))
@@ -306,6 +313,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             .with_product(target_device.product.clone().unwrap_or_default())
                             .with_device(target_device.device.clone().unwrap_or_default()))
                     } else {
+                        // No devices connected
                         None
                     };
                     

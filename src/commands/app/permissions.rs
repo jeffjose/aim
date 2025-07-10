@@ -14,13 +14,16 @@ pub struct PermissionsArgs {
     /// Package name (supports partial matching)
     pub package: String,
     
-    /// Show only granted permissions
-    #[clap(short, long)]
-    pub granted: bool,
-    
     /// Show only denied permissions
     #[clap(short, long)]
     pub denied: bool,
+    
+    /// Device ID (required if multiple devices are connected)
+    pub device_id: Option<String>,
+    
+    /// Show only granted permissions
+    #[clap(short, long)]
+    pub granted: bool,
     
     /// Output format
     #[clap(short, long, value_parser = ["table", "json", "plain"], default_value = "table")]

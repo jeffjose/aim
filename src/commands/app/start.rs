@@ -14,6 +14,9 @@ pub struct StartArgs {
     /// Activity to start (default: main launcher activity)
     #[clap(short, long)]
     pub activity: Option<String>,
+    
+    /// Device ID (required if multiple devices are connected)
+    pub device_id: Option<String>,
 }
 
 impl StartCommand {

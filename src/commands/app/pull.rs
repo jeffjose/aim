@@ -13,6 +13,9 @@ pub struct PullArgs {
     /// Package name (supports partial matching)
     pub package: String,
     
+    /// Device ID (required if multiple devices are connected)
+    pub device_id: Option<String>,
+    
     /// Output directory (default: current directory)
     #[clap(short, long)]
     pub output: Option<PathBuf>,

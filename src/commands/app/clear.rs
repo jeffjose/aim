@@ -11,6 +11,9 @@ pub struct ClearArgs {
     /// Package name (supports partial matching)
     pub package: String,
     
+    /// Device ID (required if multiple devices are connected)
+    pub device_id: Option<String>,
+    
     /// Skip confirmation prompt
     #[clap(short = 'y', long)]
     pub yes: bool,

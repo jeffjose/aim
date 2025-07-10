@@ -11,6 +11,9 @@ pub struct UninstallArgs {
     /// Package name (supports partial matching)
     pub package: String,
     
+    /// Device ID (required if multiple devices are connected)
+    pub device_id: Option<String>,
+    
     /// Keep app data and cache
     #[clap(short, long)]
     pub keep_data: bool,
