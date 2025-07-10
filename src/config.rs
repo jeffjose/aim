@@ -123,14 +123,18 @@ impl Config {
     }
 
     pub fn load() -> Self {
+        debug!("Config::load() called");
         let config_path = dirs::home_dir()
             .map(|mut path| {
                 path.push(".aimconfig");
                 path
             })
             .unwrap_or_else(|| PathBuf::from(".aimconfig"));
+        debug!("Config path: {:?}", config_path);
 
-        Self::load_from_path(&config_path)
+        let config = Self::load_from_path(&config_path);
+        debug!("Config loaded successfully");
+        config
     }
 
     pub fn resolve_alias(&self, cmd: &str) -> String {

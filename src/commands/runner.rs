@@ -19,6 +19,7 @@ use crate::core::types::OutputFormat;
 use crate::device::DeviceManager;
 use crate::error::{AimError, Result};
 use crate::output::OutputFormatter;
+use log::debug;
 
 /// Command runner that handles routing and execution
 #[allow(dead_code)]
@@ -31,9 +32,11 @@ pub struct CommandRunner {
 impl CommandRunner {
     /// Create a new command runner
     pub async fn new() -> Result<Self> {
+        debug!("CommandRunner::new() called");
         let device_manager = DeviceManager::new();
         let output_formatter = OutputFormatter::new();
         
+        debug!("CommandRunner initialized");
         Ok(Self {
             device_manager,
             _output_formatter: output_formatter,
@@ -42,6 +45,8 @@ impl CommandRunner {
     
     /// Run a command based on CLI arguments
     pub async fn run(&self, cli: Cli) -> Result<()> {
+        debug!("CommandRunner::run() called with command: {:?}", cli.command());
+        
         // Build context from global options
         let mut context_builder = CommandContextBuilder::new();
         

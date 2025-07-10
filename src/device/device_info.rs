@@ -14,8 +14,11 @@ const DEVICE_PROPERTIES: [&str; 4] = [
 ];
 
 pub async fn get_devices(host: &str, port: &str) -> Vec<DeviceDetails> {
+    debug!("get_devices called with host={}, port={}", host, port);
     let config = Config::load();
+    debug!("Getting device list from ADB...");
     let device_info = get_device_list_from_adb(host, port);
+    debug!("Device info: {:?}", device_info);
     let mut devices = Vec::new();
 
     if let Value::Array(arr) = device_info {
@@ -31,9 +34,18 @@ pub async fn get_devices(host: &str, port: &str) -> Vec<DeviceDetails> {
 }
 
 fn get_device_list_from_adb(host: &str, port: &str) -> Value {
+    debug!("get_device_list_from_adb: sending host:devices-l");
     let messages = vec!["host:devices-l"];
-    let responses = adb::send(host, port, messages, false).unwrap_or_default();
-    format_device_list(&responses)
+    match adb::send(host, port, messages, false) {
+        Ok(responses) => {
+            debug!("Got responses: {:?}", responses);
+            format_device_list(&responses)
+        }
+        Err(e) => {
+            debug!("Error getting device list: {}", e);
+            Value::Array(vec![])
+        }
+    }
 }
 
 async fn process_device(host: &str, port: &str, item: Value, config: &Config) -> Option<DeviceDetails> {

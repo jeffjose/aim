@@ -15,9 +15,14 @@ impl DeviceManager {
         // Placeholder implementation using existing device_info
         use super::device_info;
         use crate::core::types::DeviceState;
+        use log::debug;
+        
+        debug!("DeviceManager::list_devices() called");
         
         // For now, use default host and port
+        debug!("Getting devices from localhost:5037");
         let device_details = device_info::get_devices("localhost", "5037").await;
+        debug!("Got {} device details", device_details.len());
         
         Ok(device_details.into_iter().map(|d| {
             // Parse device state from device type

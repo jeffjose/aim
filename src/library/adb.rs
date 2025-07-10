@@ -40,20 +40,33 @@ struct AdbStream {
 impl AdbStream {
     fn new(host: &str, port: &str) -> Result<Self, Box<dyn Error>> {
         debug!("=== Creating new ADB stream ===");
+        debug!("AdbStream::new() - host: {}, port: {}", host, port);
 
+        debug!("Ensuring server is running...");
         Self::ensure_server_running(host, port)?;
+        debug!("Server check complete");
+        
+        debug!("Establishing connection...");
         let stream = Self::establish_connection(host, port)?;
+        debug!("Connection established successfully");
 
         Ok(Self { stream })
     }
 
     fn ensure_server_running(host: &str, port: &str) -> Result<(), Box<dyn Error>> {
+        debug!("ensure_server_running: checking if server is already running");
         if !check_server_running(host, port) {
+            debug!("Server not running, attempting to start it");
             start_adb_server(port)?;
 
+            debug!("Checking if server started successfully");
             if !check_server_running(host, port) {
+                debug!("Server failed to start");
                 return Err("Failed to start ADB server".into());
             }
+            debug!("Server started successfully");
+        } else {
+            debug!("Server already running");
         }
         Ok(())
     }
@@ -74,9 +87,17 @@ impl AdbStream {
         let address = addresses.next().ok_or("Could not resolve address")?;
         debug!("Resolved address: {:?}", address);
 
-        debug!("Establishing connection...");
-        let stream = TcpStream::connect(address)?;
-        debug!("Connection established");
+        debug!("Establishing TCP connection to {:?}...", address);
+        let stream = match TcpStream::connect(address) {
+            Ok(s) => {
+                debug!("TCP connection established successfully");
+                s
+            }
+            Err(e) => {
+                debug!("Failed to establish TCP connection: {}", e);
+                return Err(e.into());
+            }
+        };
 
         stream.set_read_timeout(Some(DEFAULT_TIMEOUT))?;
         stream.set_write_timeout(Some(DEFAULT_TIMEOUT))?;
@@ -95,20 +116,25 @@ impl AdbStream {
     fn read_response(&mut self) -> Result<String, Box<dyn Error>> {
         let mut buffer = [0; BUFFER_SIZE];
         let mut response = Vec::new();
-        debug!("Waiting for response...");
+        debug!("read_response: start - waiting for response...");
 
         loop {
+            debug!("read_response: attempting to read up to {} bytes", BUFFER_SIZE);
             match self.stream.read(&mut buffer) {
                 Ok(0) => {
-                    debug!("Server closed the connection");
+                    debug!("read_response: server closed the connection");
                     break;
                 }
                 Ok(bytes_read) => {
+                    debug!("read_response: read {} bytes", bytes_read);
+                    debug!("read_response: first 20 bytes: {:?}", &buffer[..bytes_read.min(20)]);
                     response.extend_from_slice(&buffer[..bytes_read]);
                     // If we read less than buffer size, we're probably done
                     if bytes_read < BUFFER_SIZE {
+                        debug!("read_response: read less than buffer size, assuming done");
                         break;
                     }
+                    debug!("read_response: read full buffer, continuing...");
                 }
                 Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {
                     debug!("Would block");
@@ -392,21 +418,27 @@ pub fn send(
     no_clean_response: bool,
 ) -> Result<Vec<String>, Box<dyn Error>> {
     debug!("=== Starting send operation ===");
+    debug!("Host: {}, Port: {}", host, port);
     debug!("Messages to send: {:?}", messages);
+    debug!("no_clean_response: {}", no_clean_response);
 
+    debug!("Creating AdbStream...");
     let mut adb = AdbStream::new(host, port)?;
+    debug!("AdbStream created successfully");
     let mut responses = Vec::new();
 
     for (i, message) in messages.iter().enumerate() {
         debug!("\n--- Sending message {} of {} ---", i + 1, messages.len());
         debug!("Message: {:?}", message);
         debug!("--------------------------------");
+        debug!("About to call send_command...");
         adb.send_command(message)?;
+        debug!("send_command completed successfully");
 
         loop {
             let response = adb.read_response()?;
             if response.is_empty() {
-                continue;
+                break;
             }
             if response != "OKAY" {
                 responses.push(if no_clean_response {

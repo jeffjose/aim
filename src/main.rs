@@ -62,6 +62,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .filter_level(cli.verbose.log_level_filter())
         .init();
 
+    debug!("Starting aim with command: {:?}", cli.command());
+    
     // Use CommandRunner for all non-app commands
     match &cli.command() {
         Commands::App { command } => {
@@ -110,9 +112,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         _ => {
             // Use CommandRunner for all other commands
+            debug!("Using CommandRunner for command");
             use crate::commands::runner::CommandRunner;
             
+            debug!("Creating CommandRunner...");
             let runner = CommandRunner::new().await?;
+            debug!("Running command through CommandRunner...");
             runner.run(cli).await?;
         }
     }
