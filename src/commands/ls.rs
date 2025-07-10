@@ -1,4 +1,4 @@
-use super::SubCommand;
+use crate::commands::SubCommand;
 use crate::core::context::CommandContext;
 use crate::core::types::OutputFormat;
 use crate::device::DeviceManager;
@@ -10,17 +10,18 @@ pub struct LsCommand {
     device_manager: DeviceManager,
 }
 
-#[derive(Debug, clap::Args)]
+#[derive(Debug, Clone, clap::Args)]
 pub struct LsArgs {
     /// Output format
     #[clap(short, long, value_parser = ["table", "json", "plain"], default_value = "table")]
     pub output: String,
 }
 
-#[allow(dead_code)]
 impl LsCommand {
-    pub fn new(device_manager: DeviceManager) -> Self {
-        Self { device_manager }
+    pub fn new() -> Self {
+        Self { 
+            device_manager: DeviceManager::new()
+        }
     }
 }
 
@@ -28,29 +29,22 @@ impl LsCommand {
 impl SubCommand for LsCommand {
     type Args = LsArgs;
     
-    async fn run(&self, ctx: &CommandContext, args: Self::Args) -> Result<()> {
-        // Get devices from device manager
+    async fn run(&self, _ctx: &CommandContext, args: Self::Args) -> Result<()> {
+        // Get list of devices
         let devices = self.device_manager.list_devices().await?;
         
-        // Convert to DeviceDetails for compatibility
-        let mut device_details = Vec::new();
-        for device in devices {
-            let details = self.device_manager.get_device_details(device).await?;
-            device_details.push(details);
-        }
-        
-        // Format output based on context
+        // Parse output format
         let output_format = OutputFormat::from_str(&args.output)
-            .unwrap_or(ctx.output_format);
-            
-        // Use the unified output formatter
-        let formatter = OutputFormatter::new()
-            .with_quiet(ctx.quiet);
-            
+            .unwrap_or(OutputFormat::Table);
+        
+        // Create formatter
+        let formatter = OutputFormatter::new();
+        
+        // Format and display
         match output_format {
-            OutputFormat::Table => formatter.table(&device_details)?,
-            OutputFormat::Json => formatter.json(&device_details)?,
-            OutputFormat::Plain => formatter.plain(&device_details)?,
+            OutputFormat::Table => formatter.table(&devices)?,
+            OutputFormat::Json => formatter.json(&devices)?,
+            OutputFormat::Plain => formatter.plain(&devices)?,
         }
         
         Ok(())

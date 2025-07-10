@@ -96,9 +96,12 @@ pub async fn select_device(
 
 /// Module re-exports
 pub mod app;
-pub mod ls;
 pub mod runner;
-// pub mod getprop;
+
+// Individual command modules
+pub mod ls;
+pub mod getprop;
+pub mod screenshot;
 
 #[cfg(test)]
 mod ls_test;

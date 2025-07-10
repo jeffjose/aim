@@ -48,7 +48,7 @@ impl CommandRunner {
         // Route to appropriate command
         match cli.command() {
             Commands::Ls { output } => {
-                let cmd = LsCommand::new(self.device_manager.clone());
+                let cmd = LsCommand::new();
                 let output_str = match output {
                     crate::cli::OutputType::Table => "table",
                     crate::cli::OutputType::Json => "json",
