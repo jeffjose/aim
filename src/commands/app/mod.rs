@@ -27,33 +27,33 @@ pub use uninstall::UninstallCommand;
 
 #[derive(Debug, Clone, Subcommand)]
 pub enum AppCommands {
-    /// List installed applications
-    #[command(alias = "ls")]
-    List(list::ListArgs),
-    
-    /// Show detailed information about an app
-    Info(info::InfoArgs),
+    /// Backup app data
+    Backup(backup::BackupArgs),
     
     /// Clear app data
     Clear(clear::ClearArgs),
     
-    /// Pull APK from device
-    Pull(pull::PullArgs),
+    /// Show detailed information about an app
+    Info(info::InfoArgs),
     
-    /// Backup app data
-    Backup(backup::BackupArgs),
-    
-    /// Restore app data from backup
-    Restore(restore::RestoreArgs),
+    /// List installed applications
+    #[command(alias = "ls")]
+    List(list::ListArgs),
     
     /// List app permissions
     Permissions(permissions::PermissionsArgs),
     
-    /// Force stop an app
-    Stop(stop::StopArgs),
+    /// Pull APK from device
+    Pull(pull::PullArgs),
+    
+    /// Restore app data from backup
+    Restore(restore::RestoreArgs),
     
     /// Start an app
     Start(start::StartArgs),
+    
+    /// Force stop an app
+    Stop(stop::StopArgs),
     
     /// Uninstall an app
     Uninstall(uninstall::UninstallArgs),
@@ -61,40 +61,40 @@ pub enum AppCommands {
 
 pub async fn run(ctx: &CommandContext, cmd: AppCommands) -> Result<()> {
     match cmd {
-        AppCommands::List(args) => {
-            let cmd = ListCommand::new();
-            cmd.run(ctx, args).await
-        }
-        AppCommands::Info(args) => {
-            let cmd = InfoCommand::new();
+        AppCommands::Backup(args) => {
+            let cmd = BackupCommand::new();
             cmd.run(ctx, args).await
         }
         AppCommands::Clear(args) => {
             let cmd = ClearCommand::new();
             cmd.run(ctx, args).await
         }
-        AppCommands::Pull(args) => {
-            let cmd = PullCommand::new();
+        AppCommands::Info(args) => {
+            let cmd = InfoCommand::new();
             cmd.run(ctx, args).await
         }
-        AppCommands::Backup(args) => {
-            let cmd = BackupCommand::new();
-            cmd.run(ctx, args).await
-        }
-        AppCommands::Restore(args) => {
-            let cmd = RestoreCommand::new();
+        AppCommands::List(args) => {
+            let cmd = ListCommand::new();
             cmd.run(ctx, args).await
         }
         AppCommands::Permissions(args) => {
             let cmd = PermissionsCommand::new();
             cmd.run(ctx, args).await
         }
-        AppCommands::Stop(args) => {
-            let cmd = StopCommand::new();
+        AppCommands::Pull(args) => {
+            let cmd = PullCommand::new();
+            cmd.run(ctx, args).await
+        }
+        AppCommands::Restore(args) => {
+            let cmd = RestoreCommand::new();
             cmd.run(ctx, args).await
         }
         AppCommands::Start(args) => {
             let cmd = StartCommand::new();
+            cmd.run(ctx, args).await
+        }
+        AppCommands::Stop(args) => {
+            let cmd = StopCommand::new();
             cmd.run(ctx, args).await
         }
         AppCommands::Uninstall(args) => {

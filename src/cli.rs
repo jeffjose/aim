@@ -39,25 +39,42 @@ pub struct Cli {
 
 #[derive(Subcommand, Clone, Debug)]
 pub enum Commands {
-    /// Lists connected devices
-    Ls {
-        /// Output format (table, json, or plain)
-        #[arg(short = 'o', long, value_enum, default_value_t = OutputType::Table)]
-        output: OutputType,
+    /// Run arbitrary adb commands
+    #[command(name = "adb")]
+    Adb {
+        #[arg(help = "ADB command to run")]
+        command: String,
+
+        #[arg(help = "Device ID")]
+        device_id: Option<String>,
     },
 
-    /// Runs a command on a device
-    Run {
-        /// The command to execute
-        command: String,
-        /// Optional device ID (can be partial)
+    /// Application management commands
+    App {
+        #[command(subcommand)]
+        command: crate::commands::app::AppCommands,
+    },
+
+    /// Display configuration
+    Config,
+
+    /// Copy files to/from device
+    Copy {
+        /// Source paths in format device_id:path
+        #[arg(required = true)]
+        src: Vec<String>,
+        /// Destination in format device_id:path
+        dst: String,
+    },
+
+    /// Run dmesg command on the device
+    Dmesg {
+        /// Device ID to target (required if multiple devices are connected)
         device_id: Option<String>,
-        /// Filter devices by property (format: key=value)
-        #[arg(short = 'f', long = "filter", num_args = 1)]
-        filters: Vec<String>,
-        /// Watch mode - repeat command every second. Optional value specifies duration in seconds
-        #[arg(short = 'w', long = "watch", num_args = 0..=1, default_missing_value = "0")]
-        watch: Option<u32>,
+
+        /// Additional arguments to pass to dmesg
+        #[arg(last = true)]
+        args: Vec<String>,
     },
 
     /// Get device properties
@@ -73,42 +90,12 @@ pub enum Commands {
         output: OutputType,
     },
 
-    /// Rename a device
-    Rename {
-        /// Current device ID (can be partial)
-        device_id: String,
-        /// New name for the device
-        new_name: String,
+    /// Lists connected devices
+    Ls {
+        /// Output format (table, json, or plain)
+        #[arg(short = 'o', long, value_enum, default_value_t = OutputType::Table)]
+        output: OutputType,
     },
-
-    /// Copy files to/from device
-    Copy {
-        /// Source paths in format device_id:path
-        #[arg(required = true)]
-        src: Vec<String>,
-        /// Destination in format device_id:path
-        dst: String,
-    },
-
-    /// Manage ADB server
-    Server {
-        /// Server operation to perform
-        #[arg(value_enum)]
-        operation: ServerOperation,
-    },
-
-    /// Run arbitrary adb commands
-    #[command(name = "adb")]
-    Adb {
-        #[arg(help = "ADB command to run")]
-        command: String,
-
-        #[arg(help = "Device ID")]
-        device_id: Option<String>,
-    },
-
-    /// Display configuration
-    Config,
 
     /// Run perfetto trace
     Perfetto {
@@ -126,6 +113,42 @@ pub enum Commands {
 
         /// Optional device ID (can be partial)
         device_id: Option<String>,
+    },
+
+    /// Rename a device
+    Rename {
+        /// Current device ID (can be partial)
+        device_id: String,
+        /// New name for the device
+        new_name: String,
+    },
+
+    /// Runs a command on a device
+    Run {
+        /// The command to execute
+        command: String,
+        /// Optional device ID (can be partial)
+        device_id: Option<String>,
+        /// Filter devices by property (format: key=value)
+        #[arg(short = 'f', long = "filter", num_args = 1)]
+        filters: Vec<String>,
+        /// Watch mode - repeat command every second. Optional value specifies duration in seconds
+        #[arg(short = 'w', long = "watch", num_args = 0..=1, default_missing_value = "0")]
+        watch: Option<u32>,
+    },
+
+    /// Record screen
+    Screenrecord {
+        /// Optional device ID (can be partial)
+        device_id: Option<String>,
+
+        /// Output file location (overrides default location)
+        #[arg(short = 'o', long = "output")]
+        output: Option<PathBuf>,
+
+        /// Additional arguments to pass to screenrecord
+        #[arg(last = true)]
+        args: Vec<String>,
     },
 
     /// Take a screenshot
@@ -146,34 +169,11 @@ pub enum Commands {
         args: Vec<String>,
     },
 
-    /// Record screen
-    Screenrecord {
-        /// Optional device ID (can be partial)
-        device_id: Option<String>,
-
-        /// Output file location (overrides default location)
-        #[arg(short = 'o', long = "output")]
-        output: Option<PathBuf>,
-
-        /// Additional arguments to pass to screenrecord
-        #[arg(last = true)]
-        args: Vec<String>,
-    },
-
-    /// Run dmesg command on the device
-    Dmesg {
-        /// Device ID to target (required if multiple devices are connected)
-        device_id: Option<String>,
-
-        /// Additional arguments to pass to dmesg
-        #[arg(last = true)]
-        args: Vec<String>,
-    },
-
-    /// Application management commands
-    App {
-        #[command(subcommand)]
-        command: crate::commands::app::AppCommands,
+    /// Manage ADB server
+    Server {
+        /// Server operation to perform
+        #[arg(value_enum)]
+        operation: ServerOperation,
     },
 }
 
