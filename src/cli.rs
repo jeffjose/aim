@@ -12,10 +12,6 @@ pub enum OutputType {
 #[command(author, version, about, long_about = None)]
 #[command(propagate_version = true)]
 pub struct Cli {
-    /// Verbosity level
-    #[command(flatten)]
-    pub verbose: clap_verbosity_flag::Verbosity,
-
     /// Subcommand to execute
     #[command(subcommand)]
     command: Option<Commands>,
@@ -23,6 +19,10 @@ pub struct Cli {
     /// ADB server hostname
     #[arg(long, global = true, default_value = "localhost")]
     pub host: String,
+
+    /// Output format (table or json)
+    #[arg(long, short = 'o', default_value = "table")]
+    pub output: OutputType,
 
     /// ADB server port
     #[arg(long, short = 'p', global = true, default_value = "5037")]
@@ -32,9 +32,9 @@ pub struct Cli {
     #[arg(long, global = true, default_value_t = 5)]
     pub timeout: u8,
 
-    /// Output format (table or json)
-    #[arg(long, short = 'o', default_value = "table")]
-    pub output: OutputType,
+    /// Verbosity level
+    #[command(flatten)]
+    pub verbose: clap_verbosity_flag::Verbosity,
 }
 
 #[derive(Subcommand, Clone, Debug)]
@@ -86,6 +86,7 @@ pub enum Commands {
         /// Device ID (required if multiple devices are connected)
         device_id: Option<String>,
 
+        /// Output format
         #[arg(short, long, value_enum, default_value_t = OutputType::Plain)]
         output: OutputType,
     },
@@ -103,16 +104,16 @@ pub enum Commands {
         #[arg(short = 'f', long = "config", required = true)]
         config: PathBuf,
 
-        /// Time to run trace in seconds (if not specified, runs until 'q' is pressed)
-        #[arg(short = 't', long = "time")]
-        time: Option<u32>,
+        /// Optional device ID (can be partial)
+        device_id: Option<String>,
 
         /// Output file location
         #[arg(short = 'o', long = "output", required = true)]
         output: PathBuf,
 
-        /// Optional device ID (can be partial)
-        device_id: Option<String>,
+        /// Time to run trace in seconds (if not specified, runs until 'q' is pressed)
+        #[arg(short = 't', long = "time")]
+        time: Option<u32>,
     },
 
     /// Rename a device
@@ -153,20 +154,20 @@ pub enum Commands {
 
     /// Take a screenshot
     Screenshot {
+        /// Additional arguments to pass to screencap
+        #[arg(last = true)]
+        args: Vec<String>,
+
         /// Optional device ID (can be partial)
         device_id: Option<String>,
-
-        /// Output file location (overrides default location)
-        #[arg(short = 'o', long = "output")]
-        output: Option<PathBuf>,
 
         /// Interactive mode - take screenshots with spacebar
         #[arg(short = 'i', long = "interactive")]
         interactive: bool,
 
-        /// Additional arguments to pass to screencap
-        #[arg(last = true)]
-        args: Vec<String>,
+        /// Output file location (overrides default location)
+        #[arg(short = 'o', long = "output")]
+        output: Option<PathBuf>,
     },
 
     /// Manage ADB server

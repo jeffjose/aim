@@ -10,33 +10,33 @@ pub struct ListCommand;
 
 #[derive(Debug, Clone, clap::Args)]
 pub struct ListArgs {
-    /// Filter packages (supports partial matching)
-    #[clap(short, long)]
-    pub filter: Option<String>,
-    
-    /// Show only user-installed apps
-    #[clap(short, long)]
-    pub user: bool,
-    
-    /// Show only system apps
-    #[clap(short, long)]
-    pub system: bool,
-    
-    /// Show only enabled apps
-    #[clap(short, long)]
-    pub enabled: bool,
+    /// Show detailed information (slower)
+    #[clap(long)]
+    pub details: bool,
     
     /// Show only disabled apps
     #[clap(short, long)]
     pub disabled: bool,
     
-    /// Show detailed information (slower)
-    #[clap(long)]
-    pub details: bool,
+    /// Show only enabled apps
+    #[clap(short, long)]
+    pub enabled: bool,
+    
+    /// Filter packages (supports partial matching)
+    #[clap(short, long)]
+    pub filter: Option<String>,
     
     /// Output format
     #[clap(short, long, value_parser = ["table", "json", "plain"], default_value = "plain")]
     pub output: String,
+    
+    /// Show only system apps
+    #[clap(short, long)]
+    pub system: bool,
+    
+    /// Show only user-installed apps
+    #[clap(short, long)]
+    pub user: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

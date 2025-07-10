@@ -11,10 +11,6 @@ pub struct BackupArgs {
     /// Package name (supports partial matching)
     pub package: String,
     
-    /// Output file path
-    #[clap(short, long)]
-    pub output: Option<std::path::PathBuf>,
-    
     /// Include APK in backup
     #[clap(short, long)]
     pub apk: bool,
@@ -22,6 +18,10 @@ pub struct BackupArgs {
     /// Include OBB files in backup
     #[clap(short, long)]
     pub obb: bool,
+    
+    /// Output file path
+    #[clap(short, long)]
+    pub output: Option<std::path::PathBuf>,
     
     /// Include shared storage
     #[clap(short, long)]
