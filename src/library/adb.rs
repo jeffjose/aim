@@ -549,7 +549,16 @@ pub async fn getprop_async(
     let messages = vec![host_command.as_str(), getprop_command.as_str()];
 
     match send(host, port, messages, true) {
-        Ok(responses) => Ok(format_responses(&responses)),
+        Ok(responses) => {
+            let formatted = format_responses(&responses);
+            // Check if the response is an error from ADB
+            if formatted.starts_with("FAIL") {
+                // Return empty string for unauthorized devices
+                Ok(String::new())
+            } else {
+                Ok(formatted)
+            }
+        },
         Err(e) => Err(e),
     }
 }
@@ -579,7 +588,7 @@ pub async fn getprops_parallel(
                 adb_id_clone.as_ref().map(|arc| arc.as_str()),
             )
             .await
-            .unwrap();
+            .unwrap_or_default();
             (propname, result)
         }));
     }
@@ -1107,6 +1116,7 @@ impl fmt::Display for AdbLstatResponse {
 #[derive(Clone, Copy, Debug)]
 pub enum ProgressDisplay {
     Show,
+    #[allow(dead_code)]
     Hide,
 }
 

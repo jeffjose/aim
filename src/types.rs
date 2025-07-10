@@ -71,6 +71,7 @@ impl DeviceDetails {
     }
 
     pub fn update_from_props(&mut self, props: HashMap<String, String>) {
+        info!("Updating device {} with props: {:?}", self.adb_id, props);
         // Update known fields
         if let Some(brand) = props.get("ro.product.product.brand") {
             self.brand = Some(brand.clone());

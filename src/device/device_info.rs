@@ -45,6 +45,7 @@ async fn process_device(host: &str, port: &str, item: Value, config: &Config) ->
         .collect();
 
     let props = adb::getprops_parallel(host, port, &propnames, Some(&device.adb_id)).await;
+    debug!("Props for device {}: {:?}", device.adb_id, props);
     let identifiers = create_device_identifiers(&props, &device.adb_id, config);
     
     let mut all_props = props;

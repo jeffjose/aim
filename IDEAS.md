@@ -7,6 +7,7 @@ Ideas for new subcommands and improvements based on common adb pain points. Subc
 ### ✅ Implemented Commands
 
 **Core Commands:**
+
 - `aim ls` - List connected devices
 - `aim run` - Run shell commands on device
 - `aim copy` - Copy files to/from device (replaces push/pull)
@@ -21,6 +22,7 @@ Ideas for new subcommands and improvements based on common adb pain points. Subc
 - `aim screenshot` - Take screenshots
 
 **App Subcommands (Implemented):**
+
 - `aim app list` - List installed apps
 - `aim app clear <package>` - Clear app data
 - `aim app pull <package>` - Extract APK from device
@@ -29,6 +31,7 @@ Ideas for new subcommands and improvements based on common adb pain points. Subc
 - `aim app stop <package>` - Force stop app
 
 ### ⏳ Not Yet Implemented App Subcommands
+
 - `aim app info <package>` - Show app details
 - `aim app permissions <package>` - List app permissions
 - `aim app restore <file>` - Restore app backup

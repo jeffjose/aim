@@ -20,8 +20,16 @@ impl DeviceManager {
         let device_details = device_info::get_devices("localhost", "5037").await;
         
         Ok(device_details.into_iter().map(|d| {
+            // Parse device state from device type
+            let state = match d.device_type.as_str() {
+                "device" => DeviceState::Device,
+                "offline" => DeviceState::Offline,
+                "unauthorized" => DeviceState::Unauthorized,
+                _ => DeviceState::Unknown,
+            };
+            
             Device::new(DeviceId::new(d.adb_id))
-                .with_state(DeviceState::Device)
+                .with_state(state)
                 .with_model(d.model.unwrap_or_default())
                 .with_product(d.product.unwrap_or_default())
                 .with_device(d.device.unwrap_or_default())

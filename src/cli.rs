@@ -172,8 +172,8 @@ pub enum Commands {
 
     /// Manage ADB server
     Server {
-        /// Server operation to perform
-        #[arg(value_enum)]
+        /// Server operation to perform (defaults to status)
+        #[arg(value_enum, default_value = "status")]
         operation: ServerOperation,
     },
 }
