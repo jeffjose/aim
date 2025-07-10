@@ -1,5 +1,19 @@
 use crate::cli::{Cli, Commands};
-use crate::commands::{ls::{LsCommand, LsArgs}, SubCommand};
+use crate::commands::{
+    ls::{LsCommand, LsArgs},
+    run::{RunCommand, RunArgs},
+    copy::{CopyCommand, CopyArgs},
+    rename::{RenameCommand, RenameArgs},
+    server::{ServerCommand, ServerArgs},
+    adb::{AdbCommand, AdbArgs},
+    config::{ConfigCommand, ConfigArgs},
+    dmesg::{DmesgCommand, DmesgArgs},
+    perfetto::{PerfettoCommand, PerfettoArgs},
+    screenrecord::{ScreenrecordCommand, ScreenrecordArgs},
+    getprop::{GetpropCommand, GetpropArgs},
+    screenshot::{ScreenshotCommand, ScreenshotArgs},
+    SubCommand,
+};
 use crate::core::context::CommandContextBuilder;
 use crate::core::types::OutputFormat;
 use crate::device::DeviceManager;
@@ -59,10 +73,69 @@ impl CommandRunner {
                 };
                 cmd.run(&ctx, args).await?;
             }
-            // Other commands would be handled here
-            _ => {
-                // For now, fall back to the old implementation
-                return Err(AimError::Other("Command not yet refactored".to_string()));
+            Commands::Run { command, device_id, filters, watch } => {
+                let cmd = RunCommand::new();
+                let args = RunArgs {
+                    command,
+                    device_id,
+                    filters,
+                    watch,
+                };
+                cmd.run(&ctx, args).await?;
+            }
+            Commands::Copy { src, dst } => {
+                let cmd = CopyCommand::new();
+                let args = CopyArgs { src, dst };
+                cmd.run(&ctx, args).await?;
+            }
+            Commands::Rename { device_id, new_name } => {
+                let cmd = RenameCommand::new();
+                let args = RenameArgs { device_id, new_name };
+                cmd.run(&ctx, args).await?;
+            }
+            Commands::Server { operation } => {
+                let cmd = ServerCommand::new();
+                let args = ServerArgs { operation };
+                cmd.run(&ctx, args).await?;
+            }
+            Commands::Adb { command, device_id } => {
+                let cmd = AdbCommand::new();
+                let args = AdbArgs { command, device_id };
+                cmd.run(&ctx, args).await?;
+            }
+            Commands::Config => {
+                let cmd = ConfigCommand::new();
+                let args = ConfigArgs { path_only: false };
+                cmd.run(&ctx, args).await?;
+            }
+            Commands::Dmesg { device_id, args: dmesg_args } => {
+                let cmd = DmesgCommand::new();
+                let args = DmesgArgs { device_id, args: dmesg_args };
+                cmd.run(&ctx, args).await?;
+            }
+            Commands::Perfetto { config, device_id, output, time } => {
+                let cmd = PerfettoCommand::new();
+                let args = PerfettoArgs { device_id, config, time, output };
+                cmd.run(&ctx, args).await?;
+            }
+            Commands::Screenrecord { device_id, output, args: sr_args } => {
+                let cmd = ScreenrecordCommand::new();
+                let args = ScreenrecordArgs { device_id, output, args: sr_args };
+                cmd.run(&ctx, args).await?;
+            }
+            Commands::Getprop { propnames, device_id, output } => {
+                let cmd = GetpropCommand::new();
+                let args = GetpropArgs { propnames, device_id, output };
+                cmd.run(&ctx, args).await?;
+            }
+            Commands::Screenshot { args: ss_args, device_id, interactive, output } => {
+                let cmd = ScreenshotCommand::new();
+                let args = ScreenshotArgs { device_id, interactive, output, args: ss_args };
+                cmd.run(&ctx, args).await?;
+            }
+            Commands::App { .. } => {
+                // App commands are still handled by the old implementation
+                return Err(AimError::Other("App commands not yet migrated to new runner".to_string()));
             }
         }
         

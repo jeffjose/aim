@@ -102,20 +102,18 @@ pub mod runner;
 pub mod ls;
 pub mod getprop;
 pub mod screenshot;
+pub mod run;
+pub mod copy;
+pub mod rename;
+pub mod server;
+pub mod adb;
+pub mod config;
+pub mod dmesg;
+pub mod perfetto;
+pub mod screenrecord;
 
 #[cfg(test)]
 mod ls_test;
-// pub mod screenshot;
-// pub mod screenrecord;
-// pub mod copy;
-// pub mod dmesg;
-// pub mod perfetto;
-// pub mod server;
-// pub mod shell;
-// pub mod logcat;
-// pub mod run;
-// pub mod rename;
-// pub mod config;
 
 // Re-export command implementations
 // pub use getprop::GetPropCommand;

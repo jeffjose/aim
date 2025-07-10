@@ -8,7 +8,6 @@ pub mod error;
 pub mod library;
 pub mod output;
 pub mod progress;
-pub mod subcommands;
 pub mod types;
 pub mod utils;
 

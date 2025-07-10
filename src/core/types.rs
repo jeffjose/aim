@@ -14,6 +14,16 @@ impl DeviceId {
     pub fn as_str(&self) -> &str {
         &self.0
     }
+    
+    pub fn short_id(&self) -> &str {
+        // Return first 8 characters of the ID or the full ID if shorter
+        let id = self.as_str();
+        if id.len() <= 8 {
+            id
+        } else {
+            &id[..8]
+        }
+    }
 }
 
 impl fmt::Display for DeviceId {
