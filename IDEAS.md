@@ -2,6 +2,38 @@
 
 Ideas for new subcommands and improvements based on common adb pain points. Subcommands are organized by category (noun) with actions as sub-commands.
 
+## Implementation Status
+
+### ✅ Implemented Commands
+
+**Core Commands:**
+- `aim ls` - List connected devices
+- `aim run` - Run shell commands on device
+- `aim copy` - Copy files to/from device (replaces push/pull)
+- `aim rename` - Rename device
+- `aim server` - Manage ADB server (start/stop/restart/status)
+- `aim adb` - Run arbitrary ADB commands
+- `aim config` - Display configuration
+- `aim dmesg` - Run dmesg command
+- `aim perfetto` - Run perfetto trace
+- `aim screenrecord` - Record device screen
+- `aim getprop` - Get device properties
+- `aim screenshot` - Take screenshots
+
+**App Subcommands (Implemented):**
+- `aim app list` - List installed apps
+- `aim app clear <package>` - Clear app data
+- `aim app pull <package>` - Extract APK from device
+- `aim app backup <package>` - Backup app data
+- `aim app start <package>` - Start app
+- `aim app stop <package>` - Force stop app
+
+### ⏳ Not Yet Implemented App Subcommands
+- `aim app info <package>` - Show app details
+- `aim app permissions <package>` - List app permissions
+- `aim app restore <file>` - Restore app backup
+- `aim app uninstall <package>` - Uninstall with options
+
 ## New Subcommands
 
 | Proposed Command | Description | Equivalent adb | Why it's better |
