@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use log::debug;
+use log::{debug, info};
 use serde_json::{json, Value};
 
 use crate::config::Config;
@@ -50,6 +50,11 @@ fn get_device_list_from_adb(host: &str, port: &str) -> Value {
 
 async fn process_device(host: &str, port: &str, item: Value, config: &Config) -> Option<DeviceDetails> {
     let mut device = DeviceDetails::from_json(&item)?;
+    
+    // Log device state if not normal
+    if device.device_type != "device" {
+        info!("Device {} is {}", device.adb_id, device.device_type);
+    }
     
     let propnames: Vec<String> = DEVICE_PROPERTIES
         .iter()

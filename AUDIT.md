@@ -10,6 +10,12 @@ This document tracks the status of all `aim` commands, their testing status, and
 - 🔄 **Not Tested** - Haven't tested yet
 - 🚧 **In Progress** - Currently being refactored
 
+## Global Options
+
+- `-v` : WARN level logging (minimal output)
+- `-vv` : INFO level logging (useful status messages)
+- `-vvv` : DEBUG level logging (detailed trace information)
+
 ## Core Commands
 
 | Command | Status | Notes | Refactoring Needed |

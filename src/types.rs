@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use log::info;
+use log::debug;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
@@ -71,7 +71,7 @@ impl DeviceDetails {
     }
 
     pub fn update_from_props(&mut self, props: HashMap<String, String>) {
-        info!("Updating device {} with props: {:?}", self.adb_id, props);
+        debug!("Updating device {} with props: {:?}", self.adb_id, props);
         // Update known fields
         if let Some(brand) = props.get("ro.product.product.brand") {
             self.brand = Some(brand.clone());
@@ -111,7 +111,7 @@ impl DeviceDetails {
             || self.device_id_short.to_lowercase().starts_with(&id_prefix)
             || self.device_name.to_lowercase().eq(&id_prefix);
 
-        info!(
+        debug!(
             "Checking [{}] {} {} ({}) - {}",
             matched, self.device_id_short, self.device_name, self.adb_id, id_prefix
         );

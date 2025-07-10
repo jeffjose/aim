@@ -147,7 +147,7 @@ impl AdbStream {
             }
         }
 
-        info!("Response: {:?}", response);
+        debug!("Response bytes: {:?}", response);
         self.process_response(&response)
     }
 

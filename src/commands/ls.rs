@@ -5,7 +5,7 @@ use crate::device::DeviceManager;
 use crate::error::Result;
 use crate::output::OutputFormatter;
 use async_trait::async_trait;
-use log::debug;
+use log::{debug, info};
 
 pub struct LsCommand {
     device_manager: DeviceManager,
@@ -37,6 +37,12 @@ impl SubCommand for LsCommand {
         debug!("Listing devices...");
         let devices = self.device_manager.list_devices().await?;
         debug!("Found {} devices", devices.len());
+        
+        if devices.is_empty() {
+            info!("No devices found");
+        } else {
+            info!("Found {} device(s)", devices.len());
+        }
         
         // Parse output format
         let output_format = OutputFormat::from_str(&args.output)
