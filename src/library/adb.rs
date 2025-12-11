@@ -1,10 +1,18 @@
+//! ADB Operations
+//!
+//! This module provides the core ADB functionality including:
+//! - Connection management (AdbStream)
+//! - Shell command execution
+//! - File transfer (push/pull)
+//! - Server management (start/stop/status)
+//!
+//! Re-exports protocol types from the protocol module.
+
 use super::protocol::format_command;
 use indicatif::ProgressBar;
 use log::*;
 use std::collections::HashMap;
-use std::convert::TryInto;
 use std::error::Error;
-use std::fmt::{self};
 use std::fs;
 use std::fs::File;
 use std::io::{Read, Write};
@@ -16,20 +24,20 @@ use std::str;
 use std::sync::Arc;
 use tokio::task::JoinHandle;
 
+// Re-export protocol types for backwards compatibility
+pub use super::protocol::{AdbLstatResponse, ProgressDisplay};
+
+// =============================================================================
+// Constants
+// =============================================================================
+
 const SYNC_DATA: &[u8] = b"SEND";
 const SYNC_DONE: &[u8] = b"DONE";
 const BUFFER_SIZE: usize = 1024;
 const CHUNK_SIZE: usize = 64 * 1024;
 const SERVER_START_DELAY: std::time::Duration = std::time::Duration::from_secs(1);
 const DEFAULT_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(2);
-const S_IFMT: u16 = 0o170000; // bit mask for the file type bit field
-const S_IFSOCK: u16 = 0o140000; // socket
-const S_IFLNK: u16 = 0o120000; // symbolic link
-const S_IFREG: u16 = 0o100000; // regular file
-const S_IFBLK: u16 = 0o060000; // block device
-const S_IFDIR: u16 = 0o040000; // directory
-const S_IFCHR: u16 = 0o020000; // character device
-const S_IFIFO: u16 = 0o010000; // FIFO
+
 
 type AdbResult<T> = Result<T, Box<dyn Error>>;
 
@@ -953,201 +961,5 @@ pub async fn pull(
     Ok(())
 }
 
-#[derive(Debug)]
-pub struct AdbLstatResponse {
-    magic: [u8; 4],
-    metadata: FileMetadata,
-    timestamps: FileTimestamps,
-}
-
-#[derive(Debug)]
-#[allow(dead_code)]
-struct FileMetadata {
-    unknown1: u32,
-    dev_major: u16,
-    dev_minor: u16,
-    unknown2: u32,
-    inode: u32,
-    unknown3: u32,
-    mode: u16,
-    unknown4: u16,
-    nlink: u32,
-    uid: u32,
-    gid: u32,
-    size: u32,
-    unknown5: u32,
-}
-
-#[derive(Debug)]
-struct FileTimestamps {
-    atime: FileTimestamp,
-    mtime: FileTimestamp,
-    ctime: FileTimestamp,
-}
-
-#[derive(Debug)]
-struct FileTimestamp {
-    seconds: u32,
-    nanoseconds: u32,
-}
-
-impl AdbLstatResponse {
-    pub fn from_bytes(bytes: &[u8]) -> Result<Self, String> {
-        if bytes.len() != 72 {
-            return Err("Invalid byte array length".to_string());
-        }
-
-        let magic = &bytes[0..4];
-        if magic != b"LST2" && magic != b"DNT2" {
-            return Err(format!(
-                "Invalid magic number: {:?} (expected LST2 or DNT2)",
-                String::from_utf8_lossy(magic)
-            ));
-        }
-
-        let metadata = FileMetadata {
-            unknown1: u32::from_le_bytes(bytes[4..8].try_into().unwrap()),
-            dev_major: u16::from_le_bytes(bytes[8..10].try_into().unwrap()),
-            dev_minor: u16::from_le_bytes(bytes[10..12].try_into().unwrap()),
-            unknown2: u32::from_le_bytes(bytes[12..16].try_into().unwrap()),
-            inode: u32::from_le_bytes(bytes[16..20].try_into().unwrap()),
-            unknown3: u32::from_le_bytes(bytes[20..24].try_into().unwrap()),
-            mode: u16::from_le_bytes(bytes[24..26].try_into().unwrap()),
-            unknown4: u16::from_le_bytes(bytes[26..28].try_into().unwrap()),
-            nlink: u32::from_le_bytes(bytes[28..32].try_into().unwrap()),
-            uid: u32::from_le_bytes(bytes[32..36].try_into().unwrap()),
-            gid: u32::from_le_bytes(bytes[36..40].try_into().unwrap()),
-            size: u32::from_le_bytes(bytes[40..44].try_into().unwrap()),
-            unknown5: u32::from_le_bytes(bytes[44..48].try_into().unwrap()),
-        };
-
-        let timestamps = FileTimestamps {
-            atime: FileTimestamp {
-                seconds: u32::from_le_bytes(bytes[48..52].try_into().unwrap()),
-                nanoseconds: u32::from_le_bytes(bytes[52..56].try_into().unwrap()),
-            },
-            mtime: FileTimestamp {
-                seconds: u32::from_le_bytes(bytes[56..60].try_into().unwrap()),
-                nanoseconds: u32::from_le_bytes(bytes[60..64].try_into().unwrap()),
-            },
-            ctime: FileTimestamp {
-                seconds: u32::from_le_bytes(bytes[64..68].try_into().unwrap()),
-                nanoseconds: u32::from_le_bytes(bytes[68..72].try_into().unwrap()),
-            },
-        };
-
-        Ok(Self {
-            magic: bytes[0..4].try_into().unwrap(),
-            metadata,
-            timestamps,
-        })
-    }
-
-    // Accessor methods
-    pub fn magic(&self) -> &[u8; 4] {
-        &self.magic
-    }
-    pub fn device_id(&self) -> u32 {
-        ((self.metadata.dev_major as u32) << 8) | (self.metadata.dev_minor as u32)
-    }
-    #[allow(dead_code)]
-    pub fn mode(&self) -> u16 {
-        self.metadata.mode
-    }
-    pub fn size(&self) -> u32 {
-        self.metadata.size
-    }
-
-    pub fn file_type(&self) -> &'static str {
-        match self.metadata.mode & S_IFMT {
-            S_IFIFO => "Named pipe (fifo)",
-            S_IFCHR => "Character device",
-            S_IFDIR => "Directory",
-            S_IFBLK => "Block device",
-            S_IFREG => "Regular file",
-            S_IFLNK => "Symbolic link",
-            S_IFSOCK => "Socket",
-            _ => "Unknown",
-        }
-    }
-
-    pub fn permissions_string(&self) -> String {
-        let mode = self.metadata.mode;
-        let owner = Self::permission_triplet_string(mode >> 6);
-        let group = Self::permission_triplet_string(mode >> 3);
-        let others = Self::permission_triplet_string(mode);
-
-        let file_type = match mode & S_IFMT {
-            S_IFIFO => "p",
-            S_IFCHR => "c",
-            S_IFDIR => "d",
-            S_IFBLK => "b",
-            S_IFREG => "-",
-            S_IFLNK => "l",
-            S_IFSOCK => "s",
-            _ => "?",
-        };
-
-        format!("{}{}{}{}", file_type, owner, group, others)
-    }
-
-    fn permission_triplet_string(mode: u16) -> String {
-        let mut triplet = String::with_capacity(3);
-        triplet.push(if (mode & 4) != 0 { 'r' } else { '-' });
-        triplet.push(if (mode & 2) != 0 { 'w' } else { '-' });
-        triplet.push(match (mode & 1, mode & 0o7000) {
-            (0, 0) => '-',
-            (1, 0) => 'x',
-            (0, 0o4000) => 'S',
-            (1, 0o4000) => 's',
-            (0, 0o2000) => 'S',
-            (1, 0o2000) => 's',
-            (0, 0o1000) => 'T',
-            (1, 0o1000) => 't',
-            _ => '?',
-        });
-        triplet
-    }
-}
-
-impl fmt::Display for AdbLstatResponse {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "AdbLstatResponse {{\n\
-             \tmagic: {:?}\n\
-             \tdevice_id: {}\n\
-             \tfile_type: {}\n\
-             \tpermissions: {}\n\
-             \tsize: {}\n\
-             \tatime: {}.{:09}\n\
-             \tmtime: {}.{:09}\n\
-             \tctime: {}.{:09}\n\
-             }}",
-            self.magic(),
-            self.device_id(),
-            self.file_type(),
-            self.permissions_string(),
-            self.size(),
-            self.timestamps.atime.seconds,
-            self.timestamps.atime.nanoseconds,
-            self.timestamps.mtime.seconds,
-            self.timestamps.mtime.nanoseconds,
-            self.timestamps.ctime.seconds,
-            self.timestamps.ctime.nanoseconds,
-        )
-    }
-}
-
-#[derive(Clone, Copy, Debug)]
-pub enum ProgressDisplay {
-    Show,
-    #[allow(dead_code)]
-    Hide,
-}
-
-impl Default for ProgressDisplay {
-    fn default() -> Self {
-        ProgressDisplay::Show
-    }
-}
+// AdbLstatResponse and ProgressDisplay are now in protocol.rs
+// Re-exported at the top of this file for backwards compatibility
