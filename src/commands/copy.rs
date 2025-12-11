@@ -67,9 +67,7 @@ impl SubCommand for CopyCommand {
                     let device = if let Some(dev) = &ctx.device {
                         dev
                     } else {
-                        return Err(AimError::DeviceIdRequired(vec![
-                            "Use device:path format or specify device separately".to_string()
-                        ]));
+                        return Err(AimError::DeviceIdRequired);
                     };
                     
                     // Verify device ID matches if specified
@@ -86,9 +84,7 @@ impl SubCommand for CopyCommand {
                     let device = if let Some(dev) = &ctx.device {
                         dev
                     } else {
-                        return Err(AimError::DeviceIdRequired(vec![
-                            "Use device:path format or specify device separately".to_string()
-                        ]));
+                        return Err(AimError::DeviceIdRequired);
                     };
                     
                     // Verify device ID matches if specified

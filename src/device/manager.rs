@@ -1,9 +1,7 @@
-use crate::config::Config;
 use crate::core::types::{Device, DeviceId, DeviceState};
 use crate::error::{AimError, Result};
 use crate::types::DeviceDetails;
 use log::debug;
-use std::path::PathBuf;
 
 /// Unified device management
 ///
@@ -96,33 +94,12 @@ impl DeviceManager {
 
     /// Get a single device, or error if none or multiple
     pub async fn get_single_device(&self) -> Result<Device> {
-        let mut devices = self.list_devices().await?;
+        let devices = self.list_devices().await?;
 
         match devices.len() {
             0 => Err(AimError::NoDevicesFound),
             1 => Ok(devices.into_iter().next().unwrap()),
-            _ => {
-                // Load config to get aliases for the error message
-                let config_path = dirs::home_dir()
-                    .map(|p| p.join(".config/aim/config.toml"))
-                    .unwrap_or_else(|| PathBuf::from(".config/aim/config.toml"));
-                let config = Config::load_from_path(&config_path);
-
-                let device_list: Vec<String> = devices
-                    .iter_mut()
-                    .map(|d| {
-                        // Try to get alias from config
-                        let alias = config.get_device_name(&d.id.to_string());
-                        let model = d.model.as_deref().unwrap_or("");
-                        if let Some(a) = alias {
-                            format!("\x1b[36m{}\x1b[0m  {}  \x1b[2m{}\x1b[0m", a, d.id, model)
-                        } else {
-                            format!("{}  \x1b[2m{}\x1b[0m", d.id, model)
-                        }
-                    })
-                    .collect();
-                Err(AimError::DeviceIdRequired(device_list))
-            }
+            _ => Err(AimError::DeviceIdRequired),
         }
     }
 
@@ -144,13 +121,7 @@ impl DeviceManager {
                 match devices.len() {
                     0 => Err(AimError::NoDevicesFound),
                     1 => Ok(devices.into_iter().next().unwrap()),
-                    _ => {
-                        let device_list: Vec<String> = devices
-                            .iter()
-                            .map(|d| format!("{} ({})", d.adb_id, d.model.as_deref().unwrap_or("")))
-                            .collect();
-                        Err(AimError::DeviceIdRequired(device_list))
-                    }
+                    _ => Err(AimError::DeviceIdRequired)
                 }
             }
         }

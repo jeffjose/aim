@@ -55,11 +55,7 @@ impl CommandContext {
     
     /// Get device for commands that require one
     pub fn require_device(&self) -> Result<&Device> {
-        self.device.as_ref().ok_or_else(|| {
-            crate::error::AimError::DeviceIdRequired(vec![
-                "No device specified in context".to_string()
-            ])
-        })
+        self.device.as_ref().ok_or(crate::error::AimError::DeviceIdRequired)
     }
     
     /// Check if progress/status messages should be shown

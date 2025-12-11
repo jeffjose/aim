@@ -214,12 +214,6 @@ fn find_single_device<'a>(
 ) -> Result<&'a DeviceDetails, Box<dyn std::error::Error>> {
     match devices.len() {
         1 => Ok(&devices[0]),
-        _ => {
-            let device_list: Vec<String> = devices
-                .iter()
-                .map(|d| format!("{} ({})", d.adb_id, d.model.as_deref().unwrap_or("")))
-                .collect();
-            Err(AdbError::DeviceIdRequired(device_list).into())
-        }
+        _ => Err(AdbError::DeviceIdRequired.into()),
     }
 }

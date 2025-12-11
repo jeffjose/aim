@@ -12,7 +12,7 @@ mod tests {
         let err = AdbError::DeviceNotFound("abc123".to_string());
         assert!(format!("{}", err).contains("abc123"));
 
-        let err = AdbError::DeviceIdRequired(vec!["device1".to_string()]);
+        let err = AdbError::DeviceIdRequired;
         assert!(format!("{}", err).contains("device"));
     }
 
@@ -27,7 +27,7 @@ mod tests {
         let err = AimError::MultipleDevicesFound;
         assert!(format!("{}", err).contains("Multiple"));
 
-        let err = AimError::DeviceIdRequired(vec!["device1".to_string(), "device2".to_string()]);
+        let err = AimError::DeviceIdRequired;
         assert!(format!("{}", err).contains("Multiple devices"));
     }
 
