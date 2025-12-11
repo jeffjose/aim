@@ -133,16 +133,16 @@ impl PullCommand {
         Ok((app_name, version))
     }
     
-    async fn pull_file(&self, ctx: &CommandContext, remote_path: &str, local_path: &Path, _progress: &dyn ProgressReporter) -> Result<()> {
+    async fn pull_file(&self, ctx: &CommandContext, remote_path: &str, local_path: &Path, progress: Box<dyn ProgressReporter>) -> Result<()> {
         let device = ctx.require_device()?;
         let (host, port) = crate::commands::runner::get_adb_connection_params();
-        
+
         // Use the new FileTransfer API
         let mut file_transfer = crate::adb::file_transfer::FileTransfer::new(host, port, Some(&device.id)).await?;
-        
-        // TODO: Hook up progress reporter
-        // file_transfer.with_progress(progress);
-        
+
+        // Hook up progress reporter
+        file_transfer.set_progress_reporter(progress);
+
         file_transfer.pull(remote_path, local_path).await
     }
 }
@@ -212,11 +212,9 @@ impl SubCommand for PullCommand {
             // Create progress bar for this file
             let progress = progress_factory.file_transfer(&filename, 0);
             progress.start(0);
-            
+
             // Pull the file
-            self.pull_file(ctx, apk_path, &local_path, progress.as_ref()).await?;
-            
-            progress.finish();
+            self.pull_file(ctx, apk_path, &local_path, progress).await?;
             
             // Get file size
             if let Ok(metadata) = std::fs::metadata(&local_path) {

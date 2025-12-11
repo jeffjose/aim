@@ -41,16 +41,25 @@ impl BackupCommand {
 impl SubCommand for BackupCommand {
     type Args = BackupArgs;
     
-    async fn run(&self, _ctx: &CommandContext, _args: Self::Args) -> Result<()> {
-        // TODO: Implement app backup functionality
-        // This would use `adb backup` command which requires:
-        // 1. Device confirmation
-        // 2. Handling the backup protocol
-        // 3. Progress tracking
-        
-        println!("{}", "App backup functionality is not yet implemented.".yellow());
-        println!("This feature will allow backing up app data to a file.");
-        
-        Err(AimError::CommandExecution("Not implemented".to_string()))
+    async fn run(&self, _ctx: &CommandContext, args: Self::Args) -> Result<()> {
+        // App backup requires the `adb backup` command which needs:
+        // 1. Device confirmation (user must confirm on device)
+        // 2. Handling the Android backup protocol
+        // 3. Progress tracking for large backups
+
+        println!("{}", "App backup functionality is not yet available.".yellow());
+        println!();
+        println!("This feature would backup app data for: {}", args.package.cyan());
+        println!("Options requested:");
+        if args.apk { println!("  - Include APK"); }
+        if args.obb { println!("  - Include OBB files"); }
+        if args.shared { println!("  - Include shared storage"); }
+        if let Some(ref path) = args.output {
+            println!("  - Output: {}", path.display());
+        }
+        println!();
+        println!("For now, use: {}", "adb backup -apk -shared <package>".bright_cyan());
+
+        Err(AimError::CommandExecution("App backup not yet implemented".to_string()))
     }
 }

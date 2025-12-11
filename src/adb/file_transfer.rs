@@ -49,11 +49,16 @@ impl FileTransfer {
         })
     }
     
-    /// Enable progress reporting
+    /// Enable progress reporting with a factory-created reporter
     pub fn with_progress(mut self, file_name: &str, total_size: u64) -> Self {
         let factory = ProgressFactory::new(true);
         self.progress_reporter = Some(factory.file_transfer(file_name, total_size));
         self
+    }
+
+    /// Set an external progress reporter
+    pub fn set_progress_reporter(&mut self, reporter: Box<dyn ProgressReporter>) {
+        self.progress_reporter = Some(reporter);
     }
     
     /// Push a file to the device

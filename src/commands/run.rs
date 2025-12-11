@@ -39,10 +39,11 @@ impl SubCommand for RunCommand {
         let device = ctx.require_device()?;
         let (host, port) = crate::commands::runner::get_adb_connection_params();
         
-        // Apply filters if any
+        // Device filtering is a planned feature for running commands on filtered device sets
         if !args.filters.is_empty() {
-            // TODO: Implement device filtering
-            eprintln!("Warning: Device filters not yet implemented in new architecture");
+            eprintln!("Warning: Device filtering by properties is not yet available.");
+            eprintln!("Filters specified: {:?}", args.filters);
+            eprintln!("Executing command on selected device instead.\n");
         }
         
         if let Some(duration) = args.watch {
