@@ -112,8 +112,8 @@ pub mod dmesg;
 pub mod perfetto;
 pub mod screenrecord;
 
-#[cfg(test)]
-mod ls_test;
+// Tests for commands are in individual *_test.rs files
+// Currently: config_test.rs, device_info_test.rs, hash_test.rs, protocol_test.rs
 
 // Re-export command implementations
 // pub use getprop::GetPropCommand;
