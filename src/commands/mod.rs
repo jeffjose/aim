@@ -60,6 +60,50 @@ pub fn format_json_output<T: serde::Serialize>(output: &T) -> Result<()> {
     Ok(())
 }
 
+/// Resolve a device ID, checking if it's an alias from config first
+///
+/// If the provided ID matches a device alias (e.g., "p10"), returns the
+/// corresponding device key (e.g., "510") that can be used for partial matching.
+pub fn resolve_device_alias(device_id: Option<&str>) -> Option<String> {
+    use crate::config::Config;
+    use std::path::PathBuf;
+
+    let id = device_id?;
+
+    // Load config and check if this is an alias
+    let config_path = dirs::home_dir()
+        .map(|p| p.join(".config/aim/config.toml"))
+        .unwrap_or_else(|| PathBuf::from(".config/aim/config.toml"));
+    let config = Config::load_from_path(&config_path);
+
+    // Check if any device config has this name as an alias
+    for (device_key, device_config) in &config.devices {
+        if let Some(name) = &device_config.name {
+            if name.eq_ignore_ascii_case(id) {
+                // Return the device key (partial ID) instead of the alias
+                return Some(device_key.clone());
+            }
+        }
+    }
+
+    // Not an alias, return as-is
+    Some(id.to_string())
+}
+
+/// Helper for device selection in commands - supports aliases and partial IDs
+pub async fn get_device(
+    device_arg: Option<&str>,
+) -> Result<crate::core::types::Device> {
+    use crate::device::DeviceManager;
+
+    let device_manager = DeviceManager::new();
+
+    // Resolve alias first
+    let resolved_id = resolve_device_alias(device_arg);
+
+    device_manager.get_target_device(resolved_id.as_deref()).await
+}
+
 /// Helper for device selection in commands
 #[allow(dead_code)]
 pub async fn select_device(
@@ -67,22 +111,25 @@ pub async fn select_device(
     device_arg: Option<&str>,
 ) -> Result<Option<crate::core::types::Device>> {
     use crate::device::DeviceManager;
-    
+
     // If context already has a device, use it
     if let Some(device) = &ctx.device {
         return Ok(Some(device.clone()));
     }
-    
+
     // Get list of devices
     let device_manager = DeviceManager::new();
     let devices = device_manager.list_devices().await?;
-    
+
     if devices.is_empty() {
         return Err(crate::error::AimError::NoDevicesFound);
     }
-    
+
+    // Resolve alias first
+    let resolved_id = resolve_device_alias(device_arg);
+
     // If device specified, find it
-    if let Some(device_id) = device_arg {
+    if let Some(device_id) = resolved_id.as_deref() {
         let device = device_manager.find_device(device_id).await?;
         Ok(Some(device))
     } else if devices.len() == 1 {

@@ -1,4 +1,4 @@
-use crate::commands::SubCommand;
+use crate::commands::{SubCommand, get_device};
 use crate::core::context::CommandContext;
 use crate::error::Result;
 use crate::library::adb::{pull, ProgressDisplay};
@@ -31,8 +31,8 @@ impl PullCommand {
 impl SubCommand for PullCommand {
     type Args = PullArgs;
 
-    async fn run(&self, ctx: &CommandContext, args: Self::Args) -> Result<()> {
-        let device = ctx.require_device()?;
+    async fn run(&self, _ctx: &CommandContext, args: Self::Args) -> Result<()> {
+        let device = get_device(args.device_id.as_deref()).await?;
         let (host, port) = crate::commands::runner::get_adb_connection_params();
         let device_id_str = device.id.to_string();
         let port_str = port.to_string();

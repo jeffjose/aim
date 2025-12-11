@@ -1,4 +1,4 @@
-use crate::commands::SubCommand;
+use crate::commands::{SubCommand, get_device};
 use crate::core::context::CommandContext;
 use crate::error::Result;
 use crate::library::adb::run_shell_command_async;
@@ -71,8 +71,8 @@ impl ShellCommand {
 impl SubCommand for ShellCommand {
     type Args = ShellArgs;
 
-    async fn run(&self, ctx: &CommandContext, args: Self::Args) -> Result<()> {
-        let device = ctx.require_device()?;
+    async fn run(&self, _ctx: &CommandContext, args: Self::Args) -> Result<()> {
+        let device = get_device(args.device_id.as_deref()).await?;
         let (host, port) = crate::commands::runner::get_adb_connection_params();
         let device_id_str = device.id.to_string();
         let port_str = port.to_string();

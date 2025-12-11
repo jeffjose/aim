@@ -1,4 +1,4 @@
-use crate::commands::SubCommand;
+use crate::commands::{SubCommand, get_device};
 use crate::core::context::CommandContext;
 use crate::cli::OutputType;
 use crate::error::Result;
@@ -29,8 +29,7 @@ impl GetpropCommand {
     pub fn new() -> Self {
         Self
     }
-    
-    
+
     async fn get_properties(
         &self,
         device_id: &str,
@@ -59,10 +58,12 @@ impl GetpropCommand {
 #[async_trait]
 impl SubCommand for GetpropCommand {
     type Args = GetpropArgs;
-    
-    async fn run(&self, ctx: &CommandContext, args: Self::Args) -> Result<()> {
-        let device = ctx.require_device()?;
+
+    async fn run(&self, _ctx: &CommandContext, args: Self::Args) -> Result<()> {
         let (host, port) = crate::commands::runner::get_adb_connection_params();
+
+        // Resolve device from args.device_id (supports aliases and partial matches)
+        let device = get_device(args.device_id.as_deref()).await?;
         
         // Parse comma-separated property names
         let propnames: Vec<String> = if args.propnames.is_empty() {
