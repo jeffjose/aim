@@ -112,6 +112,11 @@ pub mod dmesg;
 pub mod perfetto;
 pub mod screenrecord;
 
+// New commands (matching README expectations)
+pub mod push;
+pub mod pull;
+pub mod shell;
+
 // Tests for commands are in individual *_test.rs files
 // Currently: config_test.rs, device_info_test.rs, hash_test.rs, protocol_test.rs
 

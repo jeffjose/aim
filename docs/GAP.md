@@ -2,8 +2,16 @@
 
 **Date**: 2025-12-11
 **Version**: 0.2.0
+**Updated**: 2025-12-11
 
 This document tracks the gaps between the README documentation and actual CLI functionality.
+
+## Recently Added
+
+The following commands have been added to match README expectations:
+- ✅ `aim push` - Push files to device
+- ✅ `aim pull` - Pull files from device
+- ✅ `aim shell` - Interactive shell or run shell command
 
 ## README vs Reality
 
@@ -11,15 +19,15 @@ This document tracks the gaps between the README documentation and actual CLI fu
 
 | README Documents | Actual Status | Notes |
 |------------------|---------------|-------|
-| `aim push file.txt /sdcard/` | Missing | Use `aim copy file.txt device:/sdcard/` |
-| `aim pull /sdcard/file.txt ./` | Missing | Use `aim copy device:/sdcard/file.txt ./` |
-| `aim shell` | Missing | Use `aim run <command>` |
-| `aim shell ls /sdcard` | Different | Use `aim run "ls /sdcard"` |
-| `aim install app.apk` | Missing | Use `aim adb install app.apk` |
-| `aim uninstall com.example` | Missing | Use `aim adb uninstall com.example` |
-| `aim logcat` | Missing | Use `aim adb logcat` |
-| `aim logcat -p ERROR` | Missing | Use `aim adb logcat *:E` |
-| `aim logcat -c` | Missing | Use `aim adb logcat -c` |
+| `aim push file.txt /sdcard/` | ✅ Implemented | `aim push file.txt /sdcard/` |
+| `aim pull /sdcard/file.txt ./` | ✅ Implemented | `aim pull /sdcard/file.txt ./` |
+| `aim shell` | ✅ Implemented | Interactive shell mode |
+| `aim shell ls /sdcard` | ✅ Implemented | `aim shell ls /sdcard` |
+| `aim install app.apk` | Planned | Requires ADB protocol implementation |
+| `aim uninstall com.example` | Planned | Requires ADB protocol implementation |
+| `aim logcat` | Planned | Requires ADB protocol implementation |
+| `aim logcat -p ERROR` | Planned | Requires ADB protocol implementation |
+| `aim logcat -c` | Planned | Requires ADB protocol implementation |
 | `aim -d pixel screenshot` | Different | Device ID is positional: `aim screenshot pixel` |
 
 ### Commands implemented but not documented in README
@@ -103,11 +111,11 @@ Rewrite README to match actual CLI:
 
 ## Tracking
 
-- [ ] Add `aim push` alias
-- [ ] Add `aim pull` alias
-- [ ] Add `aim shell` command
-- [ ] Add `aim install` command
-- [ ] Add `aim uninstall` command
-- [ ] Add `aim logcat` command
+- [x] Add `aim push` command
+- [x] Add `aim pull` command
+- [x] Add `aim shell` command
+- [ ] Add `aim install` command (requires ADB protocol work)
+- [ ] Add `aim uninstall` command (requires ADB protocol work)
+- [ ] Add `aim logcat` command (requires ADB protocol work)
 - [ ] Standardize device selection
 - [ ] Update README to match reality

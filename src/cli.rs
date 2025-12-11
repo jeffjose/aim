@@ -58,7 +58,7 @@ pub enum Commands {
     /// Display configuration
     Config,
 
-    /// Copy files to/from device
+    /// Copy files to/from device (use device:path format)
     Copy {
         /// Source paths in format device_id:path
         #[arg(required = true)]
@@ -176,6 +176,43 @@ pub enum Commands {
         #[arg(value_enum, default_value = "status")]
         operation: ServerOperation,
     },
+
+    /// Open interactive shell or run shell command
+    Shell {
+        /// Command to execute (if empty, starts interactive shell)
+        #[arg(trailing_var_arg = true)]
+        command: Vec<String>,
+        /// Device ID (required if multiple devices are connected)
+        #[arg(short = 'd', long = "device")]
+        device_id: Option<String>,
+    },
+
+    /// Push files to device
+    Push {
+        /// Local file(s) to push
+        #[arg(required = true)]
+        src: Vec<PathBuf>,
+        /// Remote destination path on device
+        dst: String,
+        /// Device ID (required if multiple devices are connected)
+        device_id: Option<String>,
+        /// Recursive push (for directories)
+        #[arg(short, long)]
+        recursive: bool,
+    },
+
+    /// Pull files from device
+    Pull {
+        /// Remote file(s) on device to pull
+        #[arg(required = true)]
+        src: Vec<String>,
+        /// Local destination path
+        #[arg(default_value = ".")]
+        dst: PathBuf,
+        /// Device ID (required if multiple devices are connected)
+        device_id: Option<String>,
+    },
+
 }
 
 #[derive(clap::ValueEnum, Clone, Debug)]

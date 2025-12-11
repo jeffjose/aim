@@ -12,6 +12,9 @@ use crate::commands::{
     screenrecord::{ScreenrecordCommand, ScreenrecordArgs},
     getprop::{GetpropCommand, GetpropArgs},
     screenshot::{ScreenshotCommand, ScreenshotArgs},
+    push::{PushCommand, PushArgs},
+    pull::{PullCommand, PullArgs},
+    shell::{ShellCommand, ShellArgs},
     SubCommand,
 };
 use crate::core::context::CommandContextBuilder;
@@ -142,8 +145,23 @@ impl CommandRunner {
                 // App commands are still handled by the old implementation
                 return Err(AimError::Other("App commands not yet migrated to new runner".to_string()));
             }
+            Commands::Push { src, dst, device_id, recursive } => {
+                let cmd = PushCommand::new();
+                let args = PushArgs { src, dst, device_id, recursive };
+                cmd.run(&ctx, args).await?;
+            }
+            Commands::Pull { src, dst, device_id } => {
+                let cmd = PullCommand::new();
+                let args = PullArgs { src, dst, device_id };
+                cmd.run(&ctx, args).await?;
+            }
+            Commands::Shell { command, device_id } => {
+                let cmd = ShellCommand::new();
+                let args = ShellArgs { command, device_id };
+                cmd.run(&ctx, args).await?;
+            }
         }
-        
+
         Ok(())
     }
     
