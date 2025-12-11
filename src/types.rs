@@ -53,17 +53,21 @@ impl DeviceDetails {
             obj.get("type")?.as_str()?.to_string(),
         );
 
-        // Set optional fields
-        if let Some(usb) = obj.get("usb").and_then(|v| v.as_str()) {
+        // Set optional fields from adb devices -l output
+        if let Some(usb) = obj.get("usb").and_then(|v| v.as_str()).filter(|s| !s.is_empty()) {
             device.usb = Some(usb.to_string());
         }
-        if let Some(product) = obj.get("product").and_then(|v| v.as_str()) {
+        if let Some(product) = obj.get("product").and_then(|v| v.as_str()).filter(|s| !s.is_empty()) {
             device.product = Some(product.to_string());
         }
-        if let Some(device_val) = obj.get("device").and_then(|v| v.as_str()) {
+        if let Some(model) = obj.get("model").and_then(|v| v.as_str()).filter(|s| !s.is_empty()) {
+            // Model from adb devices -l uses underscores, convert to spaces
+            device.model = Some(model.replace('_', " "));
+        }
+        if let Some(device_val) = obj.get("device").and_then(|v| v.as_str()).filter(|s| !s.is_empty()) {
             device.device = Some(device_val.to_string());
         }
-        if let Some(transport_id) = obj.get("transport_id").and_then(|v| v.as_str()) {
+        if let Some(transport_id) = obj.get("transport_id").and_then(|v| v.as_str()).filter(|s| !s.is_empty()) {
             device.transport_id = Some(transport_id.to_string());
         }
 

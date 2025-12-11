@@ -1,5 +1,6 @@
 use std::collections::HashMap;
-use log::{debug, info};
+use std::time::Instant;
+use log::{debug, info, trace};
 use serde_json::{json, Value};
 
 use crate::config::Config;
@@ -13,22 +14,43 @@ const DEVICE_PROPERTIES: [&str; 4] = [
     "service.adb.root",
 ];
 
+/// Get devices with full property fetching (slower, ~100ms+ per device)
 pub async fn get_devices(host: &str, port: &str) -> Vec<DeviceDetails> {
-    debug!("get_devices called with host={}, port={}", host, port);
+    get_devices_internal(host, port, true).await
+}
+
+/// Get devices quickly without extra property fetching (~1ms total)
+/// Uses only data from `adb devices -l` which already includes model/product
+pub async fn get_devices_fast(host: &str, port: &str) -> Vec<DeviceDetails> {
+    get_devices_internal(host, port, false).await
+}
+
+async fn get_devices_internal(host: &str, port: &str, fetch_props: bool) -> Vec<DeviceDetails> {
+    let total_start = Instant::now();
+    debug!("get_devices called with host={}, port={}, fetch_props={}", host, port, fetch_props);
+
+    let config_start = Instant::now();
     let config = Config::load();
+    trace!("[TIMING] Config::load() took {:?}", config_start.elapsed());
+
+    let adb_start = Instant::now();
     debug!("Getting device list from ADB...");
     let device_info = get_device_list_from_adb(host, port);
+    trace!("[TIMING] get_device_list_from_adb() took {:?}", adb_start.elapsed());
     debug!("Device info: {:?}", device_info);
     let mut devices = Vec::new();
 
     if let Value::Array(arr) = device_info {
         for item in arr {
-            if let Some(device) = process_device(host, port, item, &config).await {
+            let device_start = Instant::now();
+            if let Some(device) = process_device(host, port, item, &config, fetch_props).await {
+                trace!("[TIMING] process_device({}) took {:?}", device.adb_id, device_start.elapsed());
                 devices.push(device);
             }
         }
     }
 
+    trace!("[TIMING] get_devices() total took {:?}", total_start.elapsed());
     debug!("{:?}", devices);
     devices
 }
@@ -48,27 +70,35 @@ fn get_device_list_from_adb(host: &str, port: &str) -> Value {
     }
 }
 
-async fn process_device(host: &str, port: &str, item: Value, config: &Config) -> Option<DeviceDetails> {
+async fn process_device(host: &str, port: &str, item: Value, config: &Config, fetch_props: bool) -> Option<DeviceDetails> {
     let mut device = DeviceDetails::from_json(&item)?;
-    
+
     // Log device state if not normal
     if device.device_type != "device" {
         info!("Device {} is {}", device.adb_id, device.device_type);
     }
-    
-    let propnames: Vec<String> = DEVICE_PROPERTIES
-        .iter()
-        .map(|&s| s.to_string())
-        .collect();
 
-    let props = adb::getprops_parallel(host, port, &propnames, Some(&device.adb_id)).await;
-    debug!("Props for device {}: {:?}", device.adb_id, props);
-    let identifiers = create_device_identifiers(&props, &device.adb_id, config);
-    
-    let mut all_props = props;
-    all_props.extend(identifiers);
-    device.update_from_props(all_props);
-    
+    if fetch_props {
+        // Slow path: fetch additional properties from device
+        let propnames: Vec<String> = DEVICE_PROPERTIES
+            .iter()
+            .map(|&s| s.to_string())
+            .collect();
+
+        let props = adb::getprops_parallel(host, port, &propnames, Some(&device.adb_id)).await;
+        debug!("Props for device {}: {:?}", device.adb_id, props);
+        let identifiers = create_device_identifiers(&props, &device.adb_id, config);
+
+        let mut all_props = props;
+        all_props.extend(identifiers);
+        device.update_from_props(all_props);
+    } else {
+        // Fast path: just create identifiers from adb_id, skip property fetching
+        let empty_props = HashMap::new();
+        let identifiers = create_device_identifiers(&empty_props, &device.adb_id, config);
+        device.update_from_props(identifiers);
+    }
+
     Some(device)
 }
 

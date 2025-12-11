@@ -35,12 +35,12 @@ impl DeviceManager {
         }
     }
 
-    /// List all connected devices
+    /// List all connected devices (fast - uses only adb devices -l data)
     pub async fn list_devices(&self) -> Result<Vec<Device>> {
         use super::device_info;
 
         debug!("DeviceManager::list_devices() - {}:{}", self.host, self.port);
-        let device_details = device_info::get_devices(&self.host, &self.port).await;
+        let device_details = device_info::get_devices_fast(&self.host, &self.port).await;
         debug!("Found {} devices", device_details.len());
 
         Ok(device_details.into_iter().map(Self::details_to_device).collect())
