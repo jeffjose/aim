@@ -5,3 +5,6 @@ pub use manager::DeviceManager;
 
 #[cfg(test)]
 mod device_info_test;
+
+#[cfg(test)]
+mod manager_test;

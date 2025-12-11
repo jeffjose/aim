@@ -128,7 +128,7 @@ impl DeviceManager {
     }
 
     /// Convert DeviceDetails to Device
-    fn details_to_device(d: DeviceDetails) -> Device {
+    pub(crate) fn details_to_device(d: DeviceDetails) -> Device {
         let state = match d.device_type.as_str() {
             "device" => DeviceState::Device,
             "offline" => DeviceState::Offline,

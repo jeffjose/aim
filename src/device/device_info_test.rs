@@ -439,7 +439,7 @@ mod tests {
 
     #[test]
     fn test_getprop_multiple_devices() {
-        let devices = create_test_devices();
+        let _devices = create_test_devices();
 
         // Test properties and device ID
         if let Commands::Getprop {
@@ -493,7 +493,7 @@ mod tests {
 
         // Should fail when multiple devices and no ID provided
         if let Commands::Getprop {
-            propnames,
+            propnames: _,
             device_id,
             ..
         } = parse_getprop(&["getprop", "prop1,prop2"])

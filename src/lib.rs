@@ -16,3 +16,6 @@ pub mod testing;
 
 #[cfg(test)]
 mod config_test;
+
+#[cfg(test)]
+mod error_test;
