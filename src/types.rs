@@ -61,8 +61,7 @@ impl DeviceDetails {
             device.product = Some(product.to_string());
         }
         if let Some(model) = obj.get("model").and_then(|v| v.as_str()).filter(|s| !s.is_empty()) {
-            // Model from adb devices -l uses underscores, convert to spaces
-            device.model = Some(model.replace('_', " "));
+            device.model = Some(model.to_string());
         }
         if let Some(device_val) = obj.get("device").and_then(|v| v.as_str()).filter(|s| !s.is_empty()) {
             device.device = Some(device_val.to_string());
