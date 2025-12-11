@@ -144,6 +144,10 @@ fn parse_device_properties(device: &mut Value, properties: &str) {
     }
 }
 
+// Legacy device selection functions - now handled by DeviceManager
+// Kept for potential test usage
+
+#[allow(dead_code)]
 pub fn find_target_device<'a>(
     devices: &'a [DeviceDetails],
     device_id: Option<&String>,
@@ -154,6 +158,7 @@ pub fn find_target_device<'a>(
     }
 }
 
+#[allow(dead_code)]
 fn find_device_by_id<'a>(
     devices: &'a [DeviceDetails],
     id: &str,
@@ -173,6 +178,7 @@ fn find_device_by_id<'a>(
     }
 }
 
+#[allow(dead_code)]
 fn find_single_device<'a>(
     devices: &'a [DeviceDetails],
 ) -> Result<&'a DeviceDetails, Box<dyn std::error::Error>> {

@@ -16,7 +16,6 @@ mod testing;
 
 use clap::Parser;
 use cli::{Cli, Commands};
-use device::device_info;
 use log::debug;
 
 fn parse_args() -> Cli {
@@ -63,58 +62,31 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .init();
 
     debug!("Starting aim with command: {:?}", cli.command());
-    
+
     // Use CommandRunner for all non-app commands
     match &cli.command() {
         Commands::App { command } => {
-            // App commands still use the old routing for now
-            let devices = device_info::get_devices(&cli.host, &cli.port).await;
-            debug!("Found {} devices", devices.len());
-
-            if devices.is_empty() {
-                return Err(error::AdbError::NoDevicesFound.into());
-            }
-            
-            // For app commands, we need to create a CommandContext
+            // App commands use DeviceManager for device selection
             use crate::core::context::CommandContext;
-            use crate::core::types::{Device, DeviceId, DeviceState};
-            
-            // Get device_id from the app subcommand
+            use crate::device::DeviceManager;
+
+            let device_manager = DeviceManager::with_address(&cli.host, &cli.port);
             let device_id_arg = command.device_id();
-            
-            // Find target device based on device_id argument
-            let device = if !devices.is_empty() {
-                let target_device = if let Some(device_id) = device_id_arg {
-                    // User specified a device ID
-                    device_info::find_target_device(&devices, Some(&device_id.to_string()))?
-                } else if devices.len() == 1 {
-                    // Only one device connected, use it
-                    &devices[0]
-                } else {
-                    // Multiple devices but no device ID specified
-                    return Err(error::AdbError::DeviceIdRequired.into());
-                };
-                
-                Some(Device::new(DeviceId::new(&target_device.adb_id))
-                    .with_state(DeviceState::Device)
-                    .with_model(target_device.model.clone().unwrap_or_default())
-                    .with_product(target_device.product.clone().unwrap_or_default())
-                    .with_device(target_device.device.clone().unwrap_or_default()))
-            } else {
-                // No devices connected
-                None
-            };
-            
-            let ctx = CommandContext::new()
-                .with_device(device.unwrap_or_else(|| Device::new(DeviceId::new(""))));
-            
+
+            // Get target device using DeviceManager
+            let device = device_manager
+                .get_target_device(device_id_arg.as_deref())
+                .await?;
+
+            let ctx = CommandContext::new().with_device(device);
+
             crate::commands::app::run(&ctx, command.clone()).await?
         }
         _ => {
             // Use CommandRunner for all other commands
             debug!("Using CommandRunner for command");
             use crate::commands::runner::CommandRunner;
-            
+
             debug!("Creating CommandRunner...");
             let runner = CommandRunner::new().await?;
             debug!("Running command through CommandRunner...");
