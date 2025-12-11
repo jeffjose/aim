@@ -365,7 +365,7 @@ impl AdbStream {
                     // Flush any remaining response
                     self.stream.set_read_timeout(Some(std::time::Duration::from_millis(100)))?;
                     let mut buffer = [0u8; 1024];
-                    while let Ok(_) = self.stream.read(&mut buffer) {}
+                    while self.stream.read(&mut buffer).is_ok() {}
                     self.stream.set_read_timeout(Some(DEFAULT_TIMEOUT))?;
                     break;
                 }
@@ -435,33 +435,27 @@ pub fn send(
         adb.send_command(message)?;
         debug!("send_command completed successfully");
 
-        loop {
-            let response = adb.read_response()?;
-            if response.is_empty() {
-                break;
-            }
+        let response = adb.read_response()?;
+        if !response.is_empty() {
             if response != "OKAY" {
                 responses.push(if no_clean_response {
                     clean_str(response.as_str())
                 } else {
                     remove_unnecessary_unicode(&response)
                 });
-            }
-            if response == "OKAY" {
-                // lets check if there's more response
+            } else {
+                // response == "OKAY", check if there's more response
                 let response = adb.read_response()?;
-                if response.is_empty() {
-                    break;
+                if !response.is_empty() {
+                    debug!("!! Got more response: {:?}", response);
+                    responses.push(if no_clean_response {
+                        clean_str(response.as_str())
+                    } else {
+                        remove_unnecessary_unicode(&response)
+                    });
                 }
-                debug!("!! Got more response: {:?}", response);
-                responses.push(if no_clean_response {
-                    clean_str(response.as_str())
-                } else {
-                    remove_unnecessary_unicode(&response)
-                });
             }
             debug!("Got response: {:?}", response);
-            break;
         }
     }
 
@@ -915,7 +909,7 @@ pub async fn pull(
                     // Flush any remaining response
                     adb.stream.set_read_timeout(Some(std::time::Duration::from_millis(100)))?;
                     let mut buffer = [0u8; 1024];
-                    while let Ok(_) = adb.stream.read(&mut buffer) {}
+                    while adb.stream.read(&mut buffer).is_ok() {}
                     adb.stream.set_read_timeout(Some(DEFAULT_TIMEOUT))?;
                     break;
                 }
