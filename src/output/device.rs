@@ -61,6 +61,7 @@ impl PlainFormat for DeviceDetails {
 impl TableFormat for Device {
     fn headers() -> Vec<&'static str> {
         vec![
+            "ALIAS",
             "DEVICE ID",
             "STATE",
             "MODEL",
@@ -70,6 +71,7 @@ impl TableFormat for Device {
 
     fn row(&self) -> Vec<String> {
         vec![
+            self.alias.clone().unwrap_or_default(),
             self.id.to_string(),
             self.state.to_string(),
             self.model.clone().unwrap_or_default(),
@@ -85,7 +87,14 @@ impl TableFormat for Device {
             DeviceState::Unknown => Color::DarkGrey,
         };
 
+        let alias_cell = if let Some(alias) = &self.alias {
+            Cell::new(alias).fg(Color::Cyan)
+        } else {
+            Cell::new("")
+        };
+
         vec![
+            alias_cell,
             Cell::new(self.id.to_string()),
             Cell::new(self.state.to_string()).fg(state_color),
             Cell::new(self.model.clone().unwrap_or_default()),

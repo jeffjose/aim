@@ -90,6 +90,9 @@ pub struct Device {
     pub model: Option<String>,
     pub product: Option<String>,
     pub device: Option<String>,
+    /// User-defined alias from config
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub alias: Option<String>,
 }
 
 #[allow(dead_code)]
@@ -102,6 +105,7 @@ impl Device {
             model: None,
             product: None,
             device: None,
+            alias: None,
         }
     }
     
@@ -129,7 +133,12 @@ impl Device {
         self.device = Some(device.into());
         self
     }
-    
+
+    pub fn with_alias(mut self, alias: impl Into<String>) -> Self {
+        self.alias = Some(alias.into());
+        self
+    }
+
     /// Check if device is available for commands
     pub fn is_available(&self) -> bool {
         self.state == DeviceState::Device
