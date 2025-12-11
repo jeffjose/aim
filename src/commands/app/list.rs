@@ -219,8 +219,10 @@ impl SubCommand for ListCommand {
                 }
                 OutputFormat::Table => {
                     // For table without details, show a simple single-column table
+                    use comfy_table::{Cell, Attribute};
                     let mut table = comfy_table::Table::new();
-                    table.set_header(vec!["PACKAGE"]);
+                    table.set_header(vec![Cell::new("PACKAGE").add_attribute(Attribute::Dim)]);
+                    table.load_preset(comfy_table::presets::NOTHING);
                     for package in packages {
                         table.add_row(vec![package]);
                     }
@@ -267,7 +269,7 @@ impl crate::output::TableFormat for AppInfo {
     fn headers() -> Vec<&'static str> {
         vec!["PACKAGE", "NAME", "VERSION", "TYPE", "INSTALLED"]
     }
-    
+
     fn row(&self) -> Vec<String> {
         vec![
             self.package.clone(),
@@ -275,6 +277,21 @@ impl crate::output::TableFormat for AppInfo {
             self.version.clone(),
             if self.is_system { "System" } else { "User" }.to_string(),
             self.installed_at.clone(),
+        ]
+    }
+
+    fn colored_row(&self) -> Vec<comfy_table::Cell> {
+        use comfy_table::{Cell, Color};
+
+        let type_str = if self.is_system { "System" } else { "User" };
+        let type_color = if self.is_system { Color::DarkGrey } else { Color::Cyan };
+
+        vec![
+            Cell::new(self.package.clone()),
+            Cell::new(self.name.clone()),
+            Cell::new(self.version.clone()),
+            Cell::new(type_str).fg(type_color),
+            Cell::new(self.installed_at.clone()),
         ]
     }
 }

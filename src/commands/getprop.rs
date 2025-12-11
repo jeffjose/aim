@@ -5,7 +5,7 @@ use crate::error::Result;
 use crate::library::adb::{getprop_async, getprops_parallel};
 use async_trait::async_trait;
 use colored::*;
-use comfy_table::Table;
+use comfy_table::{Table, Cell, Attribute};
 use std::collections::HashMap;
 use crate::utils::print_colored_json;
 
@@ -96,16 +96,19 @@ impl SubCommand for GetpropCommand {
             }
             OutputType::Table => {
                 let mut table = Table::new();
-                table.set_header(vec!["Property", "Value"]);
+                table.set_header(vec![
+                    Cell::new("PROPERTY").add_attribute(Attribute::Dim),
+                    Cell::new("VALUE").add_attribute(Attribute::Dim),
+                ]);
                 table.load_preset(comfy_table::presets::NOTHING);
-                
+
                 let mut sorted_props: Vec<_> = results.iter().collect();
                 sorted_props.sort_by(|a, b| a.0.cmp(b.0));
-                
+
                 for (propname, value) in sorted_props {
                     table.add_row(vec![propname, value.trim()]);
                 }
-                
+
                 println!("{table}");
             }
         }

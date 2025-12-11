@@ -1,5 +1,5 @@
 use crate::error::Result;
-use comfy_table::Table;
+use comfy_table::{Table, Cell, Attribute};
 use colored::*;
 use serde::Serialize;
 
@@ -33,15 +33,31 @@ impl OutputFormatter {
         if self.quiet {
             return Ok(());
         }
-        
+
         let mut table = Table::new();
-        table.set_header(T::headers());
+
+        // Create styled header cells - dim for subtlety
+        let header_cells: Vec<Cell> = T::headers()
+            .into_iter()
+            .map(|h| {
+                if self.color_enabled {
+                    Cell::new(h).add_attribute(Attribute::Dim)
+                } else {
+                    Cell::new(h)
+                }
+            })
+            .collect();
+        table.set_header(header_cells);
         table.load_preset(comfy_table::presets::NOTHING);
-        
+
         for item in items {
-            table.add_row(item.row());
+            if self.color_enabled {
+                table.add_row(item.colored_row());
+            } else {
+                table.add_row(item.row());
+            }
         }
-        
+
         println!("{}", table);
         Ok(())
     }
@@ -135,6 +151,11 @@ impl Default for OutputFormatter {
 pub trait TableFormat {
     fn headers() -> Vec<&'static str>;
     fn row(&self) -> Vec<String>;
+
+    /// Return colored cells for the row. Default implementation just wraps row() in cells.
+    fn colored_row(&self) -> Vec<Cell> {
+        self.row().into_iter().map(Cell::new).collect()
+    }
 }
 
 /// Trait for types that can be formatted as plain text
