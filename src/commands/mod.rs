@@ -137,7 +137,11 @@ pub async fn select_device(
         Ok(Some(devices.into_iter().next().unwrap()))
     } else {
         // Multiple devices, require selection
-        Err(crate::error::AimError::DeviceIdRequired)
+        let device_list: Vec<String> = devices
+            .iter()
+            .map(|d| format!("{} ({})", d.id, d.model.as_deref().unwrap_or("")))
+            .collect();
+        Err(crate::error::AimError::DeviceIdRequired(device_list))
     }
 }
 

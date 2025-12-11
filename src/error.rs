@@ -1,5 +1,13 @@
 use thiserror::Error;
 
+fn format_device_list(devices: &[String]) -> String {
+    devices
+        .iter()
+        .map(|d| format!("  {}", d))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
 #[derive(Error, Debug)]
 #[allow(dead_code)]
 pub enum AimError {
@@ -24,8 +32,8 @@ pub enum AimError {
         matching_configs: Vec<String>,
     },
     
-    #[error("Device ID is required when multiple devices are connected")]
-    DeviceIdRequired,
+    #[error("Multiple devices connected. Specify a device:\n{}", format_device_list(.0))]
+    DeviceIdRequired(Vec<String>),
     
     #[error("ADB connection error: {0}")]
     AdbConnection(#[from] std::io::Error),

@@ -16,6 +16,7 @@ mod testing;
 
 use clap::Parser;
 use cli::{Cli, Commands};
+use colored::Colorize;
 use log::debug;
 
 fn parse_args() -> Cli {
@@ -54,7 +55,14 @@ fn parse_args() -> Cli {
 }
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn main() {
+    if let Err(e) = run().await {
+        eprintln!("{} {}", "error:".red().bold(), e);
+        std::process::exit(1);
+    }
+}
+
+async fn run() -> Result<(), Box<dyn std::error::Error>> {
     let cli = parse_args();
 
     env_logger::Builder::new()
