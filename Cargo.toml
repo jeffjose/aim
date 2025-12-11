@@ -4,40 +4,44 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+# CLI and output formatting
 clap = { version = "4.5.40", features = ["derive"] }
 clap-verbosity-flag = "3.0.3"
 comfy-table = "7.1.4"
-env_logger = "0.11.8"
-futures = "0.3"
+colored = "3.0.0"
+colored_json = "5.0.0"
+indicatif = "0.18.0"
+crossterm = "0.29.0"
+
+# Async runtime
+tokio = { version = "1.46.1", features = ["full"] }
+async-trait = "0.1"
+
+# Serialization
+serde = { version = "1.0.219", features = ["derive"] }
+serde_json = "1.0.140"
+toml = "0.9"
+
+# Error handling and logging
+thiserror = "2.0"
 log = "0.4.27"
+env_logger = "0.11.8"
+
+# Utilities
+regex = "1.11.1"
+chrono = "0.4.41"
+dirs = "6.0"
+shellexpand = "3.1.1"
+walkdir = "2.5.0"
+lazy_static = "1.5"
+bytes = "1.10"
+
+# Cryptographic and random
+sha2 = "0.10.9"
 petname = "3.0.0-alpha.2"
 rand = "0.9.1"
 rand_chacha = "0.9.0"
 rand_seeder = "0.4.0"
-rand_xorshift = "0.4.0"
-regex = "1.11.1"
-serde = { version = "1.0.219", features = ["derive"] }
-serde_json = "1.0.140"
-sha2 = "0.10.9"
-tokio = { version = "1.46.1", features = ["full"] }
-toml = "0.9"
-dirs = "6.0"
-toml_edit = "0.23"
-tempfile = "3.20.0"
-anyhow = "1.0"
-indicatif = "0.18.0"
-bincode = "2.0.1"
-lazy_static = "1.5"
-chrono = "0.4.41"
-byteorder = "1.5.0"
-walkdir = "2.5.0"
-crossterm = "0.29.0"
-shellexpand = "3.1.1"
-colored_json = "5.0.0"
-colored = "3.0.0"
-thiserror = "2.0"
-async-trait = "0.1"
-bytes = "1.10"
 
 [dev-dependencies]
 tempfile = "3.20"
