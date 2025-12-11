@@ -1,7 +1,13 @@
 [package]
 name = "aim"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
+description = "A modern, user-friendly CLI for Android Debug Bridge (ADB)"
+authors = ["Jeff Jose"]
+license = "MIT"
+repository = "https://github.com/jeffjose/aim"
+keywords = ["android", "adb", "cli", "mobile", "debugging"]
+categories = ["command-line-utilities", "development-tools"]
 
 [dependencies]
 # CLI and output formatting
