@@ -711,7 +711,9 @@ pub fn start_adb_server(port: &str) -> Result<(), Box<dyn Error>> {
     debug!("Checking if ADB server needs to be started...");
 
     // Create the command with proper detached settings
-    let mut command = Command::new("adb");
+    let adb_path = crate::adb::toolchain::resolve_adb_path_sync()
+        .map_err(|e| -> Box<dyn Error> { e.to_string().into() })?;
+    let mut command = Command::new(&adb_path);
     command
         .args(["-L", &format!("tcp:{}", port), "server", "--reply-fd", "4"])
         .stdin(std::process::Stdio::null())

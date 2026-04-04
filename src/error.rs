@@ -59,6 +59,9 @@ pub enum AimError {
     
     #[error("Server error: {0}")]
     Server(String),
+
+    #[error("Toolchain error: {0}")]
+    Toolchain(String),
     
     #[error("Shell error: {0}")]
     Shell(String),

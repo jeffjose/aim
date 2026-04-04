@@ -26,7 +26,8 @@ impl SubCommand for AdbCommand {
     type Args = AdbArgs;
     
     async fn run(&self, ctx: &CommandContext, args: Self::Args) -> Result<()> {
-        let mut cmd = Command::new("adb");
+        let adb_path = crate::adb::toolchain::resolve_adb_path().await?;
+        let mut cmd = Command::new(&adb_path);
         
         // Add device selection if specified
         if let Some(device_id) = &args.device_id {

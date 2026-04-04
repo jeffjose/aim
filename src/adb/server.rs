@@ -15,10 +15,10 @@ impl AdbServer {
     /// Start the ADB server
     pub async fn start(port: u16) -> Result<()> {
         info!("Starting ADB server on port {}", port);
-        
-        let adb_command = std::env::var("ADB_PATH").unwrap_or_else(|_| "adb".to_string());
-        
-        let output = Command::new(&adb_command)
+
+        let adb_path = crate::adb::toolchain::resolve_adb_path().await?;
+
+        let output = Command::new(&adb_path)
             .args(&["-P", &port.to_string(), "start-server"])
             .output()
             .map_err(|e| AimError::Server(format!("Failed to execute adb command: {}", e)))?;
@@ -39,10 +39,10 @@ impl AdbServer {
     /// Stop the ADB server
     pub async fn stop(port: u16) -> Result<()> {
         info!("Stopping ADB server on port {}", port);
-        
-        let adb_command = std::env::var("ADB_PATH").unwrap_or_else(|_| "adb".to_string());
-        
-        let output = Command::new(&adb_command)
+
+        let adb_path = crate::adb::toolchain::resolve_adb_path().await?;
+
+        let output = Command::new(&adb_path)
             .args(&["-P", &port.to_string(), "kill-server"])
             .output()
             .map_err(|e| AimError::Server(format!("Failed to execute adb command: {}", e)))?;
