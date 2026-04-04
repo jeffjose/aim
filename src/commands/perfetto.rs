@@ -6,7 +6,7 @@ use async_trait::async_trait;
 use crossterm::event::{self, Event, KeyCode};
 use crossterm::terminal::{disable_raw_mode, enable_raw_mode};
 use indicatif::ProgressBar;
-use rand::{distr::Alphanumeric, Rng};
+use rand::{distr::Alphanumeric, RngExt};
 use std::path::PathBuf;
 use std::time::Duration;
 use tokio::time::sleep;

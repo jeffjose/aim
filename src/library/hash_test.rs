@@ -73,10 +73,10 @@ fn test_petname() {
 fn test_petname_consistency() {
     // Test that specific inputs always generate the same petnames
     let test_cases = [
-        ("test1", "joint-mynah"),
-        ("test2", "loving-chow"),
-        ("hello", "intrigued-trout"),
-        ("world", "prophetic-brocket"),
+        ("test1", "quality-muskrat"),
+        ("test2", "intent-guineapig"),
+        ("hello", "supporting-liger"),
+        ("world", "immaculate-shrew"),
     ];
 
     for (input, expected) in test_cases {

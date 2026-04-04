@@ -7,7 +7,7 @@ use async_trait::async_trait;
 use chrono::Local;
 use crossterm::event::{self, Event, KeyCode};
 use crossterm::terminal::{disable_raw_mode, enable_raw_mode};
-use rand::{distr::Alphanumeric, Rng};
+use rand::{distr::Alphanumeric, RngExt};
 use std::path::PathBuf;
 use std::time::Duration;
 
