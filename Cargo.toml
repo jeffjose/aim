@@ -52,5 +52,8 @@ sha2 = "0.10.9"
 petname = "3.0.0-beta.1"
 rand = "0.10.0"
 
+[build-dependencies]
+vergen-gitcl = "10.0.3"
+
 [dev-dependencies]
 tempfile = "3.20"

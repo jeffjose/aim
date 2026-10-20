@@ -1,5 +1,20 @@
 use clap::{Parser, Subcommand};
 use std::path::PathBuf;
+use std::sync::OnceLock;
+
+/// The version and the commit it was built from: `0.2.0-abc1234`, with
+/// `-dirty` if the tree had changes not committed.
+fn version() -> &'static str {
+    static VERSION: OnceLock<String> = OnceLock::new();
+    VERSION.get_or_init(|| {
+        // Unset where git could not be asked, or vergen's stand-in.
+        let Some(sha) = option_env!("VERGEN_GIT_SHA").filter(|sha| !sha.is_empty() && !sha.contains("VERGEN")) else {
+            return env!("CARGO_PKG_VERSION").to_string();
+        };
+        let dirty = if option_env!("VERGEN_GIT_DIRTY") == Some("true") { "-dirty" } else { "" };
+        format!("{}-{sha}{dirty}", env!("CARGO_PKG_VERSION"))
+    })
+}
 
 #[derive(clap::ValueEnum, Clone, Debug)]
 pub enum OutputType {
@@ -9,7 +24,7 @@ pub enum OutputType {
 }
 
 #[derive(Debug, Parser)]
-#[command(author, version, about, long_about = None)]
+#[command(author, version = version(), about, long_about = None)]
 #[command(propagate_version = true)]
 pub struct Cli {
     /// Subcommand to execute
